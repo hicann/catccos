@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -85,7 +85,7 @@ inline bool WriteFile(const std::string &filePath, const void *buffer, size_t si
     }
 
     int fd = open(filePath.c_str(), O_RDWR | O_CREAT, 0666);
-    if (!fd) {
+    if (fd == -1) {
         ERROR_LOG("Open file failed. path = %s", filePath.c_str());
         return false;
     }

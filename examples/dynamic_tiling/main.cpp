@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -29,7 +29,7 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum ArgsIndex {
+        enum class ArgsIndex {
             KERNEL_NAME_INDEX = 1,
             DATA_TYPE_INDEX,
             RANK_SIZE_INDEX,
@@ -49,26 +49,32 @@ struct Options {
             INDEX_MAX
         };
 
-        if (argc > INDEX_MAX) {
+        constexpr int MINIMUM_ARGS = static_cast<int>(ArgsIndex::TEST_CYCLE_TIMES_INDEX) + 1;
+
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
             return -1;
         }
 
-        kernelName = argv[KERNEL_NAME_INDEX];
-        dataType = static_cast<CocDataType>(std::atoi(argv[DATA_TYPE_INDEX]));
-        rankSize = std::atoi(argv[RANK_SIZE_INDEX]);
-        rankId = std::atoi(argv[RANK_ID_INDEX]);
-        ipPort = argv[IP_PORT_INDEX];
-        m = std::atoi(argv[M_INDEX]);
-        n = std::atoi(argv[N_INDEX]);
-        k = std::atoi(argv[K_INDEX]);
-        test_start_line = std::atoi(argv[START_LINE_INDEX]);
-        test_collect_rows = std::atoi(argv[COLLECT_ROWS_INDEX]);
-        parentPath = argv[PARENT_PATH_INDEX];
-        csv_file = argv[CSV_FILE_INDEX];
-        warmUpTimes = std::atoi(argv[WARM_UP_TIMES_INDEX]);
-        testCycleTimes = std::atoi(argv[TEST_CYCLE_TIMES_INDEX]);
-        if (argc > DEVICE_LIST_INDEX) {
-            char *idListStr = argv[DEVICE_LIST_INDEX];
+        if (argc < MINIMUM_ARGS) {
+            return -1;
+        }
+
+        kernelName = argv[static_cast<int>(ArgsIndex::KERNEL_NAME_INDEX)];
+        dataType = static_cast<CocDataType>(std::atoi(argv[static_cast<int>(ArgsIndex::DATA_TYPE_INDEX)]));
+        rankSize = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_SIZE_INDEX)]);
+        rankId = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_ID_INDEX)]);
+        ipPort = argv[static_cast<int>(ArgsIndex::IP_PORT_INDEX)];
+        m = std::atoi(argv[static_cast<int>(ArgsIndex::M_INDEX)]);
+        n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
+        k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
+        test_start_line = std::atoi(argv[static_cast<int>(ArgsIndex::START_LINE_INDEX)]);
+        test_collect_rows = std::atoi(argv[static_cast<int>(ArgsIndex::COLLECT_ROWS_INDEX)]);
+        parentPath = argv[static_cast<int>(ArgsIndex::PARENT_PATH_INDEX)];
+        csv_file = argv[static_cast<int>(ArgsIndex::CSV_FILE_INDEX)];
+        warmUpTimes = std::atoi(argv[static_cast<int>(ArgsIndex::WARM_UP_TIMES_INDEX)]);
+        testCycleTimes = std::atoi(argv[static_cast<int>(ArgsIndex::TEST_CYCLE_TIMES_INDEX)]);
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
             for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
                 deviceIdList.push_back(std::atoi(idToken));
             }
@@ -77,8 +83,8 @@ struct Options {
                 deviceIdList.push_back(i);
             }
         }
-        if (argc > DATA_FILE_INDEX) {
-            dataFile = argv[DATA_FILE_INDEX];
+        if (argc > static_cast<int>(ArgsIndex::DATA_FILE_INDEX)) {
+            dataFile = argv[static_cast<int>(ArgsIndex::DATA_FILE_INDEX)];
         }
         return 0;
     }
