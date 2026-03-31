@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -38,7 +38,7 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum ArgsIndex {
+        enum class ArgsIndex {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -50,20 +50,20 @@ struct Options {
             INDEX_MAX
         };
 
-        if (argc > INDEX_MAX) {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
             printf(HELPER);
             return -1;
         }
 
-        rankSize = std::atoi(argv[RANK_SIZE_INDEX]);
-        rankId = std::atoi(argv[RANK_ID_INDEX]);
-        ipPort = argv[IP_PORT_INDEX];
-        m = std::atoi(argv[M_INDEX]);
-        n = std::atoi(argv[N_INDEX]);
-        k = std::atoi(argv[K_INDEX]);
-        dataPath = argv[DATA_PATH_INDEX];
-        if (argc > DEVICE_LIST_INDEX) {
-            char *idListStr = argv[DEVICE_LIST_INDEX];
+        rankSize = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_SIZE_INDEX)]);
+        rankId = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_ID_INDEX)]);
+        ipPort = argv[static_cast<int>(ArgsIndex::IP_PORT_INDEX)];
+        m = std::atoi(argv[static_cast<int>(ArgsIndex::M_INDEX)]);
+        n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
+        k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
+        dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
             for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
                 deviceIdList.push_back(std::atoi(idToken));
             }

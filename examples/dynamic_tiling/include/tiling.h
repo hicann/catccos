@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -10,18 +10,18 @@
 #ifndef TILING_H
 #define TILING_H
 
-#include "info.h"
-#include "utils.h"
-#include "launch_map.h"
-#include "operator_registry.h"
 #include <sstream>
 #include <vector>
+#include "info.h"
+#include "launch_map.h"
+#include "operator_registry.h"
+#include "utils.h"
 
-std::vector<uint32_t> vCommInterval = {1, 2, 4, 6, 8, 10, 12, 14};
-std::vector<uint32_t> vCommTileM    = {2, 4, 8, 16, 32, 64, 128};
-std::vector<uint32_t> vM0           = {128, 256};
-std::vector<std::pair<uint32_t, uint32_t>> vCommSplitNpuDataPair = {{1, 16}, {2, 8}, {4, 4}, {1, 20}, {2, 10}, {4, 5}};
-std::vector<std::vector<uint32_t>> allParams = {vCommInterval, vCommTileM, vM0};
+const std::vector<uint32_t> vCommInterval = {1, 2, 4, 6, 8, 10, 12, 14};
+const std::vector<uint32_t> vCommTileM    = {2, 4, 8, 16, 32, 64, 128};
+const std::vector<uint32_t> vM0           = {128, 256};
+const std::vector<std::pair<uint32_t, uint32_t>> vCommSplitNpuDataPair = {{1, 16}, {2, 8}, {4, 4}, {1, 20}, {2, 10}, {4, 5}};
+const std::vector<std::vector<uint32_t>> allParams = {vCommInterval, vCommTileM, vM0};
 
 void GetParamFromSearchSpace(std::vector<uint32_t>& curParams,
                              std::vector<std::vector<uint32_t>> &results,

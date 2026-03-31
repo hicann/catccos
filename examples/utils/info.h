@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -10,10 +10,10 @@
 #ifndef INFO_H
 #define INFO_H
 
-#include <acl/acl.h>
-#include <limits.h>
 #include "utils.h"
 #include <map>
+#include <acl/acl.h>
+#include <limits.h>
 
 static uint64_t SHMEM_MALLOC_MAX_SIZE = 1024UL * 1024UL * 1024;
 constexpr uint32_t M0 = 128;
