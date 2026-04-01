@@ -35,9 +35,9 @@ struct MoeConstraints {
  
 template <
     class BlockMmad_,
-    class BlockGmmAllToAllV_,
-    class BlockScheduler_,
-    class BlockGmmAllToAllVScheduler_,
+    class BlockComm_,
+    class BlockMmadScheduler_,
+    class BlockCommScheduler_,
     uint32_t WORKSPACE_STAGES_,
     class MoeConstraint_
 >
@@ -53,12 +53,12 @@ public:
     using ElementC = typename BlockMmad::ElementC;
     using LayoutC = typename BlockMmad::LayoutC;
  
-    using BlockGmmAllToAllV = BlockGmmAllToAllV_;
-    using GmmAllToAllVParams = typename BlockGmmAllToAllV::Params;
+    using BlockComm = BlockComm_;
+    using BlockCommParams = typename BlockComm::Params;
  
-    using BlockScheduler = BlockScheduler_;
-    using CommScheduler = BlockGmmAllToAllVScheduler_;
-    using BlockCommParams = typename CommScheduler::Params;
+    using BlockMmadScheduler = BlockMmadScheduler_;
+    using BlockCommScheduler = BlockCommScheduler_;
+    using CommSchedulerParams = typename BlockCommScheduler::Params;
  
     static constexpr uint32_t WORKSPACE_STAGES = WORKSPACE_STAGES_;
  
@@ -91,8 +91,8 @@ public:
         __gm__ ElementC *ptrC;
         LayoutC layoutC;
  
-        GmmAllToAllVParams gmmAllToAllVParams;
-        BlockCommParams commParams;
+        BlockCommParams blockCommParams;
+        CommSchedulerParams commSchedulerParams;
  
         CATLASS_DEVICE
         Params() = default;
@@ -105,8 +105,8 @@ public:
             GM_ADDR ptrB_, LayoutB const &layoutB_,
             GM_ADDR ptrLocalTokensPerExpert_, GM_ADDR ptrGlobalTokensPerLocalExpert_,
             GM_ADDR ptrSymmetric_,
-            GmmAllToAllVParams const &gmmAllToAllVParams_,
-            BlockCommParams const &commParams_,
+            BlockCommParams const &blockCommParams_,
+            CommSchedulerParams const &commSchedulerParams_,
             GM_ADDR ptrC_, LayoutC const &layoutC_
         ) : problemShape(problemShape_), commInterval(commInterval_), rankIdx(rankIdx_), rankSize(rankSize_),
             epSize(epSize_), localExpertNum(localExpertNum_),
@@ -115,8 +115,8 @@ public:
             ptrLocalTokensPerExpert(reinterpret_cast<__gm__ uint32_t *>(ptrLocalTokensPerExpert_)),
             ptrGlobalTokensPerLocalExpert(reinterpret_cast<__gm__ uint32_t *>(ptrGlobalTokensPerLocalExpert_)),
             ptrSymmetric(ptrSymmetric_),
-            gmmAllToAllVParams(gmmAllToAllVParams_),
-            commParams(commParams_),
+            blockCommParams(blockCommParams_),
+            commSchedulerParams(commSchedulerParams_),
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_) {}
     };
  
@@ -193,7 +193,7 @@ public:
                 for (uint32_t dstRankIdx = 0; dstRankIdx < params.rankSize; ++dstRankIdx) {
                     uint32_t m = params.ptrGlobalTokensPerLocalExpert[dstRankIdx * params.localExpertNum + localExpertIdx];
                     GemmCoord actualProblemShape{m, params.problemShape.n(), params.problemShape.k()};
-                    BlockScheduler mmadScheduler(actualProblemShape, L1TileShape::ToCoordMN());
+                    BlockMmadScheduler mmadScheduler(actualProblemShape, L1TileShape::ToCoordMN());
                     uint32_t coreLoops = mmadScheduler.GetCoreLoops();
  
                     uint32_t offsetBlockNum = offsetBlockNumPerRankPerLocalExpert[dstRankIdx][localExpertIdx];
@@ -252,7 +252,7 @@ public:
  
         Init(params);
  
-        BlockGmmAllToAllV gmmAllToAllV(resource, params.gmmAllToAllVParams);
+        BlockComm blockRemoteCopy(resource, params.blockCommParams);
  
         AscendC::GlobalTensor<ElementC> gmSymmetric;
         gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrSymmetric));
@@ -280,9 +280,9 @@ public:
             shmemx_signal_op(syncAddr1, 0, ACLSHMEM_SIGNAL_SET, params.rankIdx);
         }
  
-        MatrixCoord commBlockShape = params.gmmAllToAllVParams.BlockShape();
-        MatrixCoord commCoreSplit = params.commParams.CoreSplit();
-        CommScheduler commScheduler(commBlockShape, commCoreSplit);
+        MatrixCoord commBlockShape = params.blockCommParams.BlockShape();
+        MatrixCoord commCoreSplit = params.commSchedulerParams.CoreSplit();
+        BlockCommScheduler commScheduler(commBlockShape, commCoreSplit);
  
         uint32_t receiveCount = 0;
         uint32_t localExpertIdx = 0;
@@ -332,7 +332,7 @@ public:
  
                     uint32_t m = params.ptrLocalTokensPerExpert[epIdx * params.localExpertNum + localExpertIdx];
                     GemmCoord actualMmadShape{m, params.problemShape.n(), params.problemShape.k()};
-                    BlockScheduler mmadScheduler(actualMmadShape, L1TileShape::ToCoordMN());
+                    BlockMmadScheduler mmadScheduler(actualMmadShape, L1TileShape::ToCoordMN());
  
                     // mmad swizzle
                     uint32_t mmadIdxInLocalExpert = mmadIdx - accumBlockNum;
@@ -353,13 +353,13 @@ public:
                     auto gmBlockDst = gmC[params.layoutC.GetOffset(offsetDst)];
                     auto layoutBlockDst = params.layoutC.GetTileLayout(actualCommBlockShape);
  
-                    gmmAllToAllV.InitBlockLoop();
-                    gmmAllToAllV(
+                    blockRemoteCopy.InitBlockLoop();
+                    blockRemoteCopy(
                         gmBlockSrc, layoutBlockSrc,
                         gmBlockDst, layoutBlockDst,
                         actualCommBlockShape, aicoreIdx
                     );
-                    gmmAllToAllV.FinalizeBlockLoop();
+                    blockRemoteCopy.FinalizeBlockLoop();
                 }
  
                 shmem_fence();

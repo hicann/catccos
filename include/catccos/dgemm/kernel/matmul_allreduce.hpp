@@ -27,8 +27,8 @@ template <
     class BlockMmad_,
     class BlockReduceScatter_,
     class BlockAllGather_,
-    class BlockScheduler_,
-    class BlockAllReduceScheduler_,
+    class BlockMmadScheduler_,
+    class BlockCommScheduler_,
     uint32_t WORKSPACE_STAGES_
 >
 class MatmulAllReduce {
@@ -52,9 +52,9 @@ public:
     using ElementD = typename AllGather::ElementDst;
     using LayoutD = typename AllGather::LayoutDst;
 
-    using BlockScheduler = BlockScheduler_;
-    using CommScheduler = BlockAllReduceScheduler_;
-    using BlockCommParams = typename CommScheduler::Params;
+    using BlockMmadScheduler = BlockMmadScheduler_;
+    using CommScheduler = BlockCommScheduler_;
+    using CommSchedulerParams = typename CommScheduler::Params;
 
     static constexpr uint32_t WORKSPACE_STAGES = WORKSPACE_STAGES_;
 
@@ -73,7 +73,7 @@ public:
         GM_ADDR ptrSymmetric;
         ReduceScatterParams reduceScatterParams;
         AllGatherParams allGatherParams;
-        BlockCommParams commParams;
+        CommSchedulerParams commSchedulerParams;
 
         GM_ADDR ptrD;
         LayoutD layoutD;
@@ -95,7 +95,7 @@ public:
             GM_ADDR ptrSymmetric_,
             ReduceScatterParams const &reduceScatterParams_,
             AllGatherParams const &allGatherParams_,
-            BlockCommParams const &commParams_
+            CommSchedulerParams const &commSchedulerParams_
         ) : problemShape(problemShape_),
             rankIdx(rank_), rankSize(rankSize_),
             commInterval(commInterval_),
@@ -105,7 +105,7 @@ public:
             ptrSymmetric(ptrSymmetric_),
             reduceScatterParams(reduceScatterParams_),
             allGatherParams(allGatherParams_),
-            commParams(commParams_) {}
+            commSchedulerParams(commSchedulerParams_) {}
     };
 
     // Methods
@@ -127,7 +127,7 @@ public:
     void operator()<AscendC::AIC>(Params &params)
     {
         GemmCoord blockShape = L1TileShape::ToCoord();
-        BlockScheduler mmadScheduler(params.problemShape, blockShape.GetCoordMN());
+        BlockMmadScheduler mmadScheduler(params.problemShape, blockShape.GetCoordMN());
         uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
         BlockMmad blockMmad(resource);
@@ -202,7 +202,7 @@ public:
     void operator()<AscendC::AIV>(Params &params)
     {
         MatrixCoord blockShapeMK = L1TileShape::ToCoordMK();
-        BlockScheduler mmadScheduler(params.problemShape, blockShapeMK);
+        BlockMmadScheduler mmadScheduler(params.problemShape, blockShapeMK);
         uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
         ReduceScatter reduceScatter(resource, params.reduceScatterParams);
@@ -227,7 +227,7 @@ public:
         gmD.SetGlobalBuffer(reinterpret_cast<__gm__ ElementD *>(params.ptrD));
 
         MatrixCoord commBlockShape = params.reduceScatterParams.BlockShape();
-        MatrixCoord commCoreSplit = params.commParams.CoreSplit();
+        MatrixCoord commCoreSplit = params.commSchedulerParams.CoreSplit();
         CommScheduler commScheduler(commBlockShape, commCoreSplit);
         for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;

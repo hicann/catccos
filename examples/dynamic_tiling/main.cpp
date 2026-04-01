@@ -189,7 +189,7 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 #ifdef RDMA_TRANSPORT
     if (commType == ALLGATHER_MATMUL_RDMA) {
-        attributes->option_attr.data_op_engine_type = SHMEM_DATA_OP_ROCE;
+        attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_ROCE;
     }
 #endif
 

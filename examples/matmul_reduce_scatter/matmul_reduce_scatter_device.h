@@ -84,9 +84,9 @@ void MatmulReduceScatterImpl(
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
-    using ReduceScatterDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
-    using BlockReduceScatter = Comm::Block::CommBlock<
-        ReduceScatterDispatch,
+    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy,
         RemoteSrcType, RemoteDstType,
         void,
         TileRemoteCopy, TileScheduler
@@ -94,7 +94,7 @@ void MatmulReduceScatterImpl(
 
     using MatmulReduceScatterKernel = DGemm::Kernel::MatmulReduceScatter<
         BlockMmad,
-        BlockReduceScatter,
+        BlockComm,
         BlockMmadScheduler,
         BlockScheduler,
         WORKSPACE_STAGES
@@ -104,7 +104,7 @@ void MatmulReduceScatterImpl(
         commTileShape
     };
 
-    typename BlockReduceScatter::Params blockParams{
+    typename BlockComm::Params blockParams{
         commBlockShape,
         tileParams
     };

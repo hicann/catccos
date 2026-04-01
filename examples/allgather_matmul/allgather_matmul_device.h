@@ -33,7 +33,7 @@
 #include "catccos/comm/tile/tile_remote_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
 #include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/kernel/allgather_matmul.hpp"
+#include "catccos/dgemm/kernel/allgather_matmul_with_local_mm_opt.hpp"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -75,7 +75,7 @@ void AllGatherMatmulImpl(
     constexpr bool IS_DYNAMIC = true;
 
     using BlockMmadScheduler = Catccos::DGemm::Block::GemmBlockSwizzleAllGatherMesh<7, 1>;
-    using BlockScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
+    using BlockCommScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
 
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
@@ -84,9 +84,9 @@ void AllGatherMatmulImpl(
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
-    using AllGatherDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
-    using BlockAllGather = Comm::Block::CommBlock<
-        AllGatherDispatch,
+    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy,
         RemoteSrcType, RemoteDstType,
         void,
         TileRemoteCopy, TileScheduler
@@ -94,9 +94,9 @@ void AllGatherMatmulImpl(
 
     using AllGatherMatmulKernel = DGemm::Kernel::AllGatherMatmul<
         BlockMmad,
-        BlockAllGather,
+        BlockComm,
         BlockMmadScheduler,
-        BlockScheduler,
+        BlockCommScheduler,
         WORKSPACE_STAGES
     >;
 
@@ -107,12 +107,12 @@ void AllGatherMatmulImpl(
         commTileShape
     };
 
-    typename BlockAllGather::Params blockParams {
+    typename BlockComm::Params blockParams {
         commBlockShape,
         tileParams
     };
 
-    typename BlockScheduler::Params swizzleParams {
+    typename BlockCommScheduler::Params swizzleParams {
         commCoreSplit
     };
 

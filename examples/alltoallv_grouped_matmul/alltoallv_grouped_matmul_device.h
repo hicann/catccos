@@ -89,15 +89,15 @@ void AllToAllVGroupedMatmulImpl(
     // Declare BlockEpilogue
     constexpr uint32_t UB_STAGES = 2;
     constexpr Catccos::detail::CopyDirect COPY_DIRECT = Catccos::detail::CopyDirect::Put;
-    using AllToAllVDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
     using CopyTransport = Catccos::detail::CopyTransport;
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, COPY_DIRECT, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
  
-    using BlockAllToAllV = Comm::Block::CommBlock<
-        AllToAllVDispatch,
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy,
         RemoteSrcType, RemoteDstType,
         void,
         TileRemoteCopy,
@@ -118,7 +118,7 @@ void AllToAllVGroupedMatmulImpl(
     using AllToAllVGroupedMatmulKernel = DGemm::Kernel::AllToAllVGroupedMatmul<
         ProblemShape,
         BlockMmad,
-        BlockAllToAllV,
+        BlockComm,
         BlockMmadScheduler,
         BlockScheduler,
         WORKSPACE_STAGES

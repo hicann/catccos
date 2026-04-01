@@ -27,9 +27,9 @@ using Catlass::GemmCoord;
 template <
     class ProblemShape_,
     class BlockMmad_,
-    class BlockAllToAllVGmm_,
+    class BlockComm_,
     class BlockMmadScheduler_,
-    class BlockScheduler_,
+    class BlockCommScheduler_,
     uint32_t WORKSPACE_STAGES_
 >
 class AllToAllVGroupedMatmul {
@@ -45,11 +45,11 @@ public:
     using ElementC = typename BlockMmad::ElementC;
     using LayoutC = typename BlockMmad::LayoutC;
  
-    using BlockAllToAllVGmm = BlockAllToAllVGmm_;
-    using AllToAllVGmmParams = typename BlockAllToAllVGmm::Params;
+    using BlockComm = BlockComm_;
+    using BlockCommParams = typename BlockComm::Params;
  
     using BlockMmadScheduler = BlockMmadScheduler_;
-    using BlockScheduler = BlockScheduler_;
+    using BlockCommScheduler = BlockCommScheduler_;
  
     static constexpr uint32_t WORKSPACE_STAGES = WORKSPACE_STAGES_;
  
@@ -65,7 +65,7 @@ public:
         GM_ADDR ptrSymmetric;
         GM_ADDR syncMmadFinish;
         GM_ADDR syncCommFinish;
-        AllToAllVGmmParams allToAllVGmmParams;
+        BlockCommParams blockCommParams;
  
         CATLASS_DEVICE
         Params() = default;
@@ -78,14 +78,14 @@ public:
             GM_ADDR ptrB_, LayoutB const &layoutB_,
             GM_ADDR ptrC_, LayoutC const &layoutC_,
             GM_ADDR ptrSymmetric_, GM_ADDR syncMmadFinish_, GM_ADDR syncCommFinish_,
-            AllToAllVGmmParams const &allToAllVGmmParams_
+            BlockCommParams const &allToAllVGmmParams_
         ) : problemShape(problemShape_),
             commInterval(commInterval_),
             ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
             ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
             ptrSymmetric(ptrSymmetric_), syncMmadFinish(syncMmadFinish_), syncCommFinish(syncCommFinish_),
-            allToAllVGmmParams(allToAllVGmmParams_)
+            blockCommParams(allToAllVGmmParams_)
         {
         }
     };
@@ -177,12 +177,12 @@ public:
     CATLASS_DEVICE
     void operator()<AscendC::AIV>(Params const &params)
     {
-        BlockAllToAllVGmm allToAllVGmm(resource, params.allToAllVGmmParams);
+        BlockComm blockRemoteCopy(resource, params.blockCommParams);
  
         uint32_t commShapeM = params.commInterval * L1TileShape::M;
         MatrixCoord commShape{commShapeM, params.problemShape.k()};
-        MatrixCoord blockShape = params.allToAllVGmmParams.BlockShape();
-        BlockScheduler scheduler{params.problemShape, commShapeM, blockShape};
+        MatrixCoord blockShape = params.blockCommParams.BlockShape();
+        BlockCommScheduler scheduler{params.problemShape, commShapeM, blockShape};
  
         auto const &layoutA = params.layoutA;
         AscendC::GlobalTensor<ElementA> gmA;
@@ -210,7 +210,7 @@ public:
  
         uint32_t receiveAccum = 0;
         auto commLoops = scheduler.GetCommLoops();
-        allToAllVGmm.InitBlockLoop();
+        blockRemoteCopy.InitBlockLoop();
         for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
             auto const &gmSymmetric = gmSymmetricList[stageIdx];
@@ -249,7 +249,7 @@ public:
                 // 等待目标 rank 上一次通信的计算流程完成，确保 symmetric 空闲
                 auto remoteSyncMmadFinish = static_cast<__gm__ int32_t *>(shmem_ptr(syncMmadFinish, dstRankIdx));
                 aclshmem_signal_wait_until(remoteSyncMmadFinish, ACLSHMEM_CMP_EQ, commIdx + 1);
-                allToAllVGmm(
+                blockRemoteCopy(
                     gmBlockSrc, layoutBlockSrc,
                     gmBlockDst, layoutBlockDst,
                     actualBlockShape, dstRankIdx
@@ -268,7 +268,7 @@ public:
             Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishComm[stageIdx]);
         }
-        allToAllVGmm.FinalizeBlockLoop();
+        blockRemoteCopy.FinalizeBlockLoop();
     }
  
 private:

@@ -25,11 +25,11 @@ using Catlass::GemmCoord;
 
 template <
     class BlockMmad_,
-    class BlockAllGather_,
-    class BlockCopyGatherA_,
-    class BlockScheduler_,
-    class BlockAllGatherScheduler_,
-    class BlockCopyGatherAScheduler_,
+    class BlockComm_,
+    class BlockGatherA_,
+    class BlockMmadScheduler_,
+    class BlockCommScheduler_,
+    class BlockGatherAScheduler_,
     uint32_t WORKSPACE_STAGES_
 >
 class AllGatherMatmulWithGatherResult {
@@ -46,17 +46,17 @@ public:
     using ElementGatherA = ElementA;
     using LayoutGatherA = LayoutA;
 
-    using AllGather = BlockAllGather_;
-    using AllGatherParams = typename AllGather::Params;
+    using BlockComm = BlockComm_;
+    using BlockCommParams = typename BlockComm::Params;
 
-    using CopyGatherA = BlockCopyGatherA_;
-    using CopyGatherAParams = typename CopyGatherA::Params;
+    using BlockGatherA = BlockGatherA_;
+    using BlockGatherAParams = typename BlockGatherA::Params;
 
-    using BlockScheduler = BlockScheduler_;
-    using BlockAllGatherScheduler = BlockAllGatherScheduler_;
-    using BlockCopyGatherAScheduler = BlockCopyGatherAScheduler_;
+    using BlockMmadScheduler = BlockMmadScheduler_;
+    using BlockCommScheduler = BlockCommScheduler_;
+    using BlockGatherAScheduler = BlockGatherAScheduler_;
 
-    using BlockCommParams = typename BlockAllGatherScheduler::Params;
+    using CommSchedulerParams = typename BlockCommScheduler::Params;
 
     static constexpr uint32_t WORKSPACE_STAGES = WORKSPACE_STAGES_;
 
@@ -73,9 +73,9 @@ public:
         __gm__ ElementB *ptrB;
         LayoutB layoutB;
         GM_ADDR ptrSymmetric;
-        AllGatherParams allGatherParams;
-        BlockCommParams commParams;
-        CopyGatherAParams copyGatherAParams;
+        BlockCommParams blockCommParams;
+        CommSchedulerParams commSchedulerParams;
+        BlockGatherAParams blockGatherAParams;
 
         __gm__ ElementGatherA *ptrGatherA;
         LayoutGatherA layoutGatherA;
@@ -95,9 +95,9 @@ public:
             GM_ADDR ptrA_, LayoutA const &layoutA_,
             GM_ADDR ptrB_, LayoutB const &layoutB_,
             GM_ADDR ptrSymmetric_,
-            AllGatherParams const &allGatherParams_,
-            BlockCommParams const &commParams_,
-            CopyGatherAParams const &copyGatherAParams_,
+            BlockCommParams const &blockCommParams_,
+            CommSchedulerParams const &commSchedulerParams_,
+            BlockGatherAParams const &copyGatherAParams_,
             GM_ADDR ptrGatherA_, LayoutGatherA const &layoutGatherA_,
             GM_ADDR ptrC_, LayoutC const &layoutC_,
             uint32_t commInterval_
@@ -106,9 +106,9 @@ public:
             ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
             ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
             ptrSymmetric(ptrSymmetric_),
-            allGatherParams(allGatherParams_),
-            commParams(commParams_),
-            copyGatherAParams(copyGatherAParams_),
+            blockCommParams(blockCommParams_),
+            commSchedulerParams(commSchedulerParams_),
+            blockGatherAParams(copyGatherAParams_),
             ptrGatherA(reinterpret_cast<__gm__ ElementGatherA *>(ptrGatherA_)), layoutGatherA(layoutGatherA_),
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
             commInterval(commInterval_)
@@ -157,7 +157,7 @@ public:
         auto localProblemShape = Catlass::MakeCoord<uint32_t>(
             params.problemShape.m(), params.problemShape.n(), params.problemShape.k(), 1
         );
-        BlockScheduler localMmadScheduler(localProblemShape, blockShape.GetCoordMN());
+        BlockMmadScheduler localMmadScheduler(localProblemShape, blockShape.GetCoordMN());
         uint32_t localCoreLoops = localMmadScheduler.GetCoreLoops();
 
         for (uint32_t loopIdx = aicoreIdx; loopIdx < localCoreLoops; loopIdx += aicoreNum) {
@@ -199,7 +199,7 @@ public:
             auto actualProblemShape = Catlass::MakeCoord<uint32_t>(
                 actualCommSizeM, params.problemShape.n(), params.problemShape.k(), params.rankSize - 1
             );
-            BlockScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
+            BlockMmadScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
             uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
             // wait aiv
@@ -250,8 +250,8 @@ public:
         uint32_t commSizeM = params.commInterval * L1TileShape::M;
         uint32_t commLoops = CeilDiv(params.problemShape.m(), commSizeM);
 
-        AllGather allGather(resource, params.allGatherParams);
-        CopyGatherA copyGatherA(resource, params.copyGatherAParams);
+        BlockComm blockRemoteCopy(resource, params.blockCommParams);
+        BlockGatherA blockGatherA(resource, params.blockGatherAParams);
 
         AscendC::GlobalTensor<ElementA> gmA;
         gmA.SetGlobalBuffer(params.ptrA);
@@ -269,11 +269,11 @@ public:
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
-        MatrixCoord commBlockShape = params.allGatherParams.BlockShape();
-        MatrixCoord commCoreSplit = params.commParams.CoreSplit();
-        BlockAllGatherScheduler commScheduler(commBlockShape, commCoreSplit);
+        MatrixCoord commBlockShape = params.blockCommParams.BlockShape();
+        MatrixCoord commCoreSplit = params.commSchedulerParams.CoreSplit();
+        BlockCommScheduler commScheduler(commBlockShape, commCoreSplit);
 
-        MatrixCoord copyGatherABlockShape = params.copyGatherAParams.BlockShape();
+        MatrixCoord copyGatherABlockShape = params.blockGatherAParams.BlockShape();
 
         uint32_t copyCommIdx;
         uint32_t copyStageId;
@@ -300,7 +300,7 @@ public:
 
             if (commIdx < commLoops) {
                 if (subcoreIdx == 0 && aicoreIdx < commAicoreNum) {
-                    allGather.InitBlockLoop();
+                    blockRemoteCopy.InitBlockLoop();
                     for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum) {
                         DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
                         MatrixCoord blockOffsetInRank = commScheduler.GetBlockOffsetInRank(commBlockCoord.GetCoordInRank());
@@ -320,24 +320,24 @@ public:
                         auto gmBlockDst = gmSymmetric[layoutSymmetric.GetOffset(offsetDst)];
                         auto layoutBlockDst = layoutSymmetric.GetTileLayout(actualCommBlockShape);
 
-                        allGather(
+                        blockRemoteCopy(
                             gmBlockSrc, layoutBlockSrc,
                             gmBlockDst, layoutBlockDst,
                             actualCommBlockShape, remoteRankIdx % params.rankSize
                         );
                     }
-                    allGather.FinalizeBlockLoop();
+                    blockRemoteCopy.FinalizeBlockLoop();
                 }
             }
 
             if (commIdx > 0) {
                 if (subcoreIdx == 1 && aicoreIdx >= commAicoreNum) {
-                    BlockCopyGatherAScheduler copyGatherAScheduler{copyActualShape, copyGatherABlockShape};
+                    BlockGatherAScheduler copyGatherAScheduler{copyActualShape, copyGatherABlockShape};
                     uint32_t copyCoreLoops = copyGatherAScheduler.GetCoreLoops();
                     uint32_t copyAicoreNum = aicoreNum - commAicoreNum;
                     uint32_t copyAicoreIdx = aicoreIdx - commAicoreNum;
 
-                    copyGatherA.InitBlockLoop();
+                    blockGatherA.InitBlockLoop();
                     for (uint32_t loopIdx = copyAicoreIdx; loopIdx < copyCoreLoops; loopIdx += copyAicoreNum) {
                         auto blockOffset = copyGatherAScheduler.GetBlockOffset(loopIdx);
                         auto actualBlockShape = copyGatherAScheduler.GetActualBlockShapeByOffset(blockOffset).GetCoordInRank();
@@ -366,13 +366,13 @@ public:
                         auto gmBlockDst = gmGatherA[params.layoutGatherA.GetOffset(offsetDst)];
                         auto layoutBlockDst = params.layoutGatherA.GetTileLayout(actualBlockShape);
 
-                        copyGatherA(
+                        blockGatherA(
                             gmBlockSrc, layoutBlockSrc,
                             gmBlockDst, layoutBlockDst,
                             actualBlockShape
                         );
                     }
-                    copyGatherA.FinalizeBlockLoop();
+                    blockGatherA.FinalizeBlockLoop();
                 }
             }
 

@@ -24,9 +24,9 @@ using Catlass::GemmCoord;
 
 template <
     class BlockMmad_,
-    class BlockReduceScatter_,
+    class BlockComm_,
     class BlockMmadScheduler_,
-    class BlockScheduler_,
+    class BlockCommScheduler_,
     uint32_t WORKSPACE_STAGES_
 >
 class MatmulReduceScatter {
@@ -41,15 +41,15 @@ public:
     using ElementC = typename BlockMmad::ElementC;
     using LayoutC = typename BlockMmad::LayoutC;
 
-    using BlockReduceScatter = BlockReduceScatter_;
-    using BlockReduceScatterParams = typename BlockReduceScatter::Params;
+    using BlockComm = BlockComm_;
+    using BlockCommParams = typename BlockComm::Params;
 
-    using ElementD = typename BlockReduceScatter::ElementDst;
-    using LayoutD = typename BlockReduceScatter::LayoutDst;
+    using ElementD = typename BlockComm::ElementDst;
+    using LayoutD = typename BlockComm::LayoutDst;
 
     using BlockMmadScheduler = BlockMmadScheduler_;
-    using CommScheduler = BlockScheduler_;
-    using BlockCommParams = typename CommScheduler::Params;
+    using BlockCommScheduler = BlockCommScheduler_;
+    using CommSchedulerParams = typename BlockCommScheduler::Params;
 
     static constexpr uint32_t WORKSPACE_STAGES = WORKSPACE_STAGES_;
 
@@ -68,8 +68,8 @@ public:
         LayoutD layoutD;
         GM_ADDR ptrSymmetric;
 
-        BlockReduceScatterParams reduceScatterParams;
-        BlockCommParams commParams;
+        BlockCommParams blockCommParams;
+        CommSchedulerParams commSchedulerParams;
 
         CATLASS_DEVICE
         Params() = default;
@@ -82,16 +82,16 @@ public:
             GM_ADDR ptrB_, LayoutB const &layoutB_,
             GM_ADDR ptrD_, LayoutD const &layoutD_,
             GM_ADDR ptrSymmetric_,
-            BlockReduceScatterParams const &reduceScatterParams_,
-            BlockCommParams const &commParams_
+            BlockCommParams const &blockCommParams_,
+            CommSchedulerParams const &commSchedulerParams_
         ) : problemShape(problemShape_), rankIdx(rankIdx_), rankSize(rankSize_),
             commInterval(commInterval_),
             ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
             ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
             ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)), layoutD(layoutD_),
             ptrSymmetric(ptrSymmetric_),
-            reduceScatterParams(reduceScatterParams_),
-            commParams(commParams_)
+            blockCommParams(blockCommParams_),
+            commSchedulerParams(commSchedulerParams_)
         {
         }
     };
@@ -213,7 +213,7 @@ public:
         uint32_t coreLoops = mmadScheduler.GetCoreLoops() * params.rankSize;
         uint32_t commLoops = CeilDiv(coreLoops, blockPerComm);
 
-        BlockReduceScatter reduceScatter(resource, params.reduceScatterParams);
+        BlockComm blockRemoteCopy(resource, params.blockCommParams);
 
         AscendC::GlobalTensor<ElementC> gmSymmetric;
         gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrSymmetric));
@@ -225,9 +225,9 @@ public:
         AscendC::GlobalTensor<ElementD> gmD;
         gmD.SetGlobalBuffer(params.ptrD);
 
-        MatrixCoord commBlockShape = params.reduceScatterParams.BlockShape();
-        MatrixCoord commCoreSplit = params.commParams.CoreSplit();
-        CommScheduler commScheduler(commBlockShape, commCoreSplit);
+        MatrixCoord commBlockShape = params.blockCommParams.BlockShape();
+        MatrixCoord commCoreSplit = params.commSchedulerParams.CoreSplit();
+        BlockCommScheduler commScheduler(commBlockShape, commCoreSplit);
         for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
             uint32_t actualBlockInComm = Min(blockPerComm, coreLoops - commIdx * blockPerComm);
@@ -248,7 +248,7 @@ public:
 
             AscendC::SetAtomicAdd<ElementD>();
             AscendC::PipeBarrier<PIPE_ALL>();
-            reduceScatter.InitBlockLoop();
+            blockRemoteCopy.InitBlockLoop();
             if (subcoreIdx == 0 && aicoreIdx < commAicoreNum) {
                 for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum) {
                     DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
@@ -283,14 +283,14 @@ public:
                     auto gmBlockDst = gmD[params.layoutD.GetOffset(offsetDst)];
                     auto layoutBlockDst = params.layoutD.GetTileLayout(actualCommBlockShape);
 
-                    reduceScatter(
+                    blockRemoteCopy(
                         gmBlockSrc, layoutBlockSrc,
                         gmBlockDst, layoutBlockDst,
                         actualCommBlockShape, remoteRankIdx % params.rankSize
                     );
                 }
             }
-            reduceScatter.FinalizeBlockLoop();
+            blockRemoteCopy.FinalizeBlockLoop();
             AscendC::SetFlag<AscendC::HardEvent::MTE3_S>(EVENT_ID0);
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_S>(EVENT_ID0);
             AscendC::SetAtomicNone();
