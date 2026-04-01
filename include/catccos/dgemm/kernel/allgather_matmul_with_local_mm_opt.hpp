@@ -25,9 +25,9 @@ using Catlass::GemmCoord;
 
 template <
     class BlockMmad_,
-    class BlockAllGather_,
-    class BlockScheduler_,
-    class BlockAllGatherScheduler_,
+    class BlockComm_,
+    class BlockMmadScheduler_,
+    class BlockCommScheduler_,
     uint32_t WORKSPACE_STAGES_
 >
 class AllGatherMatmul {
@@ -42,12 +42,12 @@ public:
     using ElementC = typename BlockMmad::ElementC;
     using LayoutC = typename BlockMmad::LayoutC;
 
-    using AllGather = BlockAllGather_;
-    using AllGatherParams = typename AllGather::Params;
+    using BlockComm = BlockComm_;
+    using BlockCommParams = typename BlockComm::Params;
 
-    using BlockScheduler = BlockScheduler_;
-    using CommScheduler = BlockAllGatherScheduler_;
-    using BlockCommParams = typename CommScheduler::Params;
+    using BlockMmadScheduler = BlockMmadScheduler_;
+    using CommScheduler = BlockCommScheduler_;
+    using CommSchedulerParams = typename CommScheduler::Params;
 
     static constexpr uint32_t WORKSPACE_STAGES = WORKSPACE_STAGES_;
 
@@ -69,8 +69,8 @@ public:
         LayoutC layoutC;
         GM_ADDR ptrSymmetric;
 
-        AllGatherParams allGatherParams;
-        BlockCommParams commParams;
+        BlockCommParams blockCommParams;
+        CommSchedulerParams commSchedulerParams;
 
         // Methods
         CATLASS_DEVICE
@@ -85,8 +85,8 @@ public:
             GM_ADDR ptrB_, LayoutB const &layoutB_,
             GM_ADDR ptrC_, LayoutC const &layoutC_,
             GM_ADDR ptrSymmetric_,
-            AllGatherParams const &allGatherParams_,
-            BlockCommParams const &commParams_
+            BlockCommParams const &blockCommParams_,
+            CommSchedulerParams const &commSchedulerParams_
         ) : problemShape(problemShape_),
             rankIdx(rank_), rankSize(rankSize_),
             commInterval(commInterval_),
@@ -94,8 +94,8 @@ public:
             ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
             ptrSymmetric(ptrSymmetric_),
-            allGatherParams(allGatherParams_),
-            commParams(commParams_)
+            blockCommParams(blockCommParams_),
+            commSchedulerParams(commSchedulerParams_)
         {
         }
     };
@@ -141,7 +141,7 @@ public:
         auto localProblemShape = Catlass::MakeCoord<uint32_t>(
             params.problemShape.m(), params.problemShape.n(), params.problemShape.k(), 1
         );
-        BlockScheduler localMmadScheduler(localProblemShape, blockShape.GetCoordMN());
+        BlockMmadScheduler localMmadScheduler(localProblemShape, blockShape.GetCoordMN());
         uint32_t localCoreLoops = localMmadScheduler.GetCoreLoops();
 
         for (uint32_t loopIdx = aicoreIdx; loopIdx < localCoreLoops; loopIdx += aicoreNum) {
@@ -183,7 +183,7 @@ public:
             auto actualProblemShape = Catlass::MakeCoord<uint32_t>(
                 actualCommSizeM, params.problemShape.n(), params.problemShape.k(), params.rankSize - 1
             );
-            BlockScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
+            BlockMmadScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
             uint32_t coreLoops = mmadScheduler.GetCoreLoops();
             
             Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
@@ -230,7 +230,7 @@ public:
         uint32_t commSizeM = params.commInterval * L1TileShape::M;
         uint32_t commLoops = CeilDiv(params.problemShape.m(), commSizeM);
 
-        AllGather allGather(resource, params.allGatherParams);
+        BlockComm blockRemoteCopy(resource, params.blockCommParams);
 
         AscendC::GlobalTensor<ElementA> gmA;
         gmA.SetGlobalBuffer(params.ptrA);
@@ -244,8 +244,8 @@ public:
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
-        MatrixCoord commBlockShape = params.allGatherParams.BlockShape();
-        MatrixCoord commCoreSplit = params.commParams.CoreSplit();
+        MatrixCoord commBlockShape = params.blockCommParams.BlockShape();
+        MatrixCoord commCoreSplit = params.commSchedulerParams.CoreSplit();
         CommScheduler commScheduler(commBlockShape, commCoreSplit);
         for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;
@@ -268,7 +268,7 @@ public:
 
             aclshmemx_barrier_all_vec();
 
-            allGather.InitBlockLoop();
+            blockRemoteCopy.InitBlockLoop();
             if (subcoreIdx == 0 && aicoreIdx < commAicoreNum) {
                 for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum) {
                     DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
@@ -289,15 +289,15 @@ public:
                     auto gmBlockDst = gmSymmetric[layoutSymmetric.GetOffset(offsetDst)];
                     auto layoutBlockDst = layoutSymmetric.GetTileLayout(actualCommBlockShape);
 
-                    allGather(
+                    blockRemoteCopy(
                         gmBlockSrc, layoutBlockSrc,
                         gmBlockDst, layoutBlockDst,
                         actualCommBlockShape, remoteRankIdx % params.rankSize
                     );
                 }
             }
-            allGather.FinalizeBlockLoop();
-            // AllGather is completed, waiting until tasks on all devices are complete.
+            blockRemoteCopy.FinalizeBlockLoop();
+            // BlockComm is completed, waiting until tasks on all devices are complete.
             aclshmemx_barrier_all_vec();
 
             // set aic

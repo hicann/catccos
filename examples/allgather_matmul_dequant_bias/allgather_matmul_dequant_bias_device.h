@@ -94,9 +94,9 @@ void AllGatherMatmulDequantBiasImpl(
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileSchedulerForAllgather = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
-    using AllGatherDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
-    using BlockAllGather = Comm::Block::CommBlock<
-        AllGatherDispatch,
+    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy,
         RemoteSrcType, RemoteDstType,
         void,
         TileRemoteCopy, TileSchedulerForAllgather
@@ -108,7 +108,7 @@ void AllGatherMatmulDequantBiasImpl(
 
     using AllGatherMatmulKernel = DGemm::Kernel::AllGatherDequantMatmulBias<
         BlockMmad,
-        BlockAllGather,
+        BlockComm,
         BlockSchedulerForAllgather,
         CommBlockScheduler,
         WORKSPACE_STAGES
@@ -121,7 +121,7 @@ void AllGatherMatmulDequantBiasImpl(
         commTileShape
     };
 
-    typename BlockAllGather::Params blockParams {
+    typename BlockComm::Params blockParams {
         commBlockShape,
         tileParams
     };

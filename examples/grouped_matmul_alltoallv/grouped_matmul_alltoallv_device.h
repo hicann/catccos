@@ -88,9 +88,9 @@ void GroupedMatmulAllToAllVImpl(
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
  
-    using AllToAllVDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
-    using BlockAllToAllV = Comm::Block::CommBlock<
-        AllToAllVDispatch,
+    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy,
         RemoteSrcType, RemoteDstType,
         void,
         TileRemoteCopy, 
@@ -108,7 +108,7 @@ void GroupedMatmulAllToAllVImpl(
  
     using GroupedMatmulAllToAllVKernel = DGemm::Kernel::GroupedMatmulAllToAllV<
         BlockMmad,
-        BlockAllToAllV,
+        BlockComm,
         BlockScheduler,
         CommBlockScheduler,
         WORKSPACE_STAGES,
@@ -119,7 +119,7 @@ void GroupedMatmulAllToAllVImpl(
         commTileShape
     };
  
-    typename BlockAllToAllV::Params blockParams{
+    typename BlockComm::Params blockParams{
         commBlockShape,
         tileParams
     };
