@@ -16,6 +16,7 @@
 #include "catlass/catlass.hpp"
 #include "catlass/coord.hpp"
 #include "catlass/matrix_coord.hpp"
+#include "catccos/dist_coord.hpp"
 #include "catlass/gemm/kernel/padding_matmul.hpp"
 
 namespace Catccos {
@@ -158,6 +159,36 @@ struct MatrixSwizzle {
         }
  
         return coord;
+    }
+};
+
+template <uint32_t SWIZZLE_DIRECTION = 0, bool IS_DETERMINISTIC = false>
+struct CommSwizzle {
+    CATLASS_DEVICE static
+    DistMatrixCoord GetCoord(DistMatrixCoord const &gridShape, Catlass::MatrixCoord const &coreSplit, uint32_t loopIdx)
+    {
+        constexpr uint32_t ROW_DIM = SWIZZLE_DIRECTION;
+        constexpr uint32_t COL_DIM = 1 - SWIZZLE_DIRECTION;
+        uint32_t swizzleOffset = coreSplit[ROW_DIM];
+
+        Catlass::MatrixCoord flattenGridShape{gridShape.row() * gridShape.column(), gridShape.rank()};
+        uint32_t groupSize = swizzleOffset * flattenGridShape[COL_DIM];
+        uint32_t groupIdx = loopIdx / groupSize;
+        uint32_t groupOffset = loopIdx - groupIdx * groupSize;
+        uint32_t inGroupRows = IS_DETERMINISTIC ? 
+            swizzleOffset : Min(swizzleOffset, flattenGridShape[ROW_DIM] - groupIdx * swizzleOffset);
+
+        Catlass::MatrixCoord coord{};
+        coord[COL_DIM] = groupOffset / inGroupRows;
+        uint32_t inGroupRowIdx = groupOffset - coord[COL_DIM] * inGroupRows;
+        coord[ROW_DIM] = groupIdx * swizzleOffset + inGroupRowIdx;
+        
+        // Shift
+        uint32_t nStride = gridShape.rank() / coreSplit.column();
+        uint32_t offset = coord[1] * nStride;
+        coord[1] = (offset + offset / gridShape.rank() + coord[0]) % gridShape.rank();
+ 
+        return DistMatrixCoord{coord[0] / gridShape.column(), coord[0] % gridShape.column(), coord[1]};
     }
 };
 
