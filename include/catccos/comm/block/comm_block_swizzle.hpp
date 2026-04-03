@@ -36,7 +36,6 @@ struct BlockCommSwizzle {
     DistMatrixCoord problemShape;
     DistMatrixCoord loops;
 
-    uint32_t swizzleOffset;
     MatrixCoord coreSplit;
     DistMatrixCoord blockShape;
 
@@ -85,12 +84,6 @@ struct BlockCommSwizzle {
         if constexpr (IS_DETERMINISTIC) {
             coreSplit = MatrixCoord{coreSplit.row() * coreSplit.column(), 1};
         }
-
-        if constexpr (SWIZZLE_DIRECTION == 0) {
-            swizzleOffset = coreSplit.row();
-        } else {
-            swizzleOffset = coreSplit.column();
-        }
     }
 
     CATLASS_DEVICE
@@ -102,12 +95,6 @@ struct BlockCommSwizzle {
         if constexpr (IS_DETERMINISTIC) {
             coreSplit = MatrixCoord{coreSplit.row() * coreSplit.column(), 1};
         }
-
-        if constexpr (SWIZZLE_DIRECTION == 0) {
-            swizzleOffset = coreSplit.row();
-        } else {
-            swizzleOffset = coreSplit.column();
-        }
     }
 
     CATLASS_DEVICE
@@ -116,12 +103,6 @@ struct BlockCommSwizzle {
     {
         if constexpr (IS_DETERMINISTIC) {
             coreSplit = MatrixCoord{coreSplit.row() * coreSplit.column(), 1};
-        }
-
-        if constexpr (SWIZZLE_DIRECTION == 0) {
-            swizzleOffset = coreSplit.row();
-        } else {
-            swizzleOffset = coreSplit.column();
         }
     }
 
@@ -165,46 +146,9 @@ struct BlockCommSwizzle {
     CATLASS_DEVICE
     DistMatrixCoord GetBlockCoord(uint32_t taskIdx) const
     {
-        uint32_t innerIdx = taskIdx % GetCoreLoop();
-        uint32_t dataLoops = loops.row() * loops.column();
-        uint32_t rankLoops = loops.rank();
-        uint32_t nStride = loops.rank() / coreSplit.column();
-        if constexpr (SWIZZLE_DIRECTION == 0) { // Zn
-            uint32_t tileBlockLoop = CeilDiv(dataLoops, swizzleOffset);
-            uint32_t tileBlockIdx = innerIdx / (swizzleOffset * rankLoops);
-            uint32_t inTileBlockIdx = innerIdx % (swizzleOffset * rankLoops);
-
-            uint32_t nRow = swizzleOffset;
-            if constexpr (!IS_DETERMINISTIC) {
-                if (tileBlockIdx == tileBlockLoop - 1) {
-                    nRow = dataLoops - swizzleOffset * tileBlockIdx;
-                }
-            }
-            uint32_t dataIdx = tileBlockIdx * swizzleOffset + inTileBlockIdx % nRow;
-            uint32_t rankIdx = inTileBlockIdx / nRow;
-
-            rankIdx = (rankIdx * nStride) % rankLoops + (rankIdx * nStride) / rankLoops;
-            rankIdx = (rankIdx + dataIdx) % rankLoops;
-
-            return DistMatrixCoord{dataIdx / loops.column(), dataIdx % loops.column(), rankIdx};
-        } else if (SWIZZLE_DIRECTION == 1) { // Nz
-            uint32_t tileBlockLoop = CeilDiv(rankLoops, swizzleOffset);
-            uint32_t tileBlockIdx = innerIdx / (swizzleOffset * dataLoops);
-            uint32_t inTileBlockIdx = innerIdx % (swizzleOffset * dataLoops);
-
-            uint32_t nCol = swizzleOffset;
-            if (tileBlockIdx == tileBlockLoop - 1) {
-                nCol = rankLoops - swizzleOffset * tileBlockIdx;
-            }
-            uint32_t dataIdx = inTileBlockIdx / nCol;
-            uint32_t rankIdx = tileBlockIdx * swizzleOffset + inTileBlockIdx % nCol;
-
-            rankIdx = (rankIdx * nStride) % rankLoops + (rankIdx * nStride) / rankLoops;
-            rankIdx = (rankIdx + dataIdx) % rankLoops;
-
-            return DistMatrixCoord{dataIdx / loops.column(), dataIdx % loops.column(), rankIdx};
-        }
-        return DistMatrixCoord{};
+        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(
+            loops, coreSplit, taskIdx);
+        return blockCoord;
     }
 
     CATLASS_DEVICE

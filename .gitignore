@@ -46,6 +46,7 @@ dist/
 # user define
 build/
 output/
+out/
 
 # log文件
 *.log

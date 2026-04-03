@@ -10,6 +10,7 @@
 #ifndef SHMEM_INIT_H
 #define SHMEM_INIT_H
 
+#include <algorithm>
 #include "shmem.h"
 
 inline int32_t set_attr(int32_t my_pe, int32_t n_pes, uint64_t local_mem_size, const char *ip_port,
