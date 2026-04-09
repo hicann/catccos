@@ -12,6 +12,11 @@ CURRENT_DIR=$(pwd)
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
 
+source $PROJECT_ROOT/examples/utils/setup.sh || {
+    echo "[ERROR] Running setup.sh in $PROJECT_ROOT/examples/utils failed."
+    exit 1
+}
+
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR

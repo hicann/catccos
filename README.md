@@ -57,21 +57,16 @@ chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
 
 以`matmul_allreduce`算子样例为例，快速上手CATCCOS算子开发：
 
-1. 使能环境变量
+1. 配置环境变量(可选)
 
-```bash
-# 配置CANN环境变量（默认安装路径）：
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
+  ```bash
+  # 用于统一配置CANN、SHMEM、CATLASS相关环境变量
+  source ./examples/utils/setup.sh
+  ```
 
-# 配置CANN环境变量（自定义安装路径）：
-source ${install_path}/ascend-toolkit/set_env.sh
-
-# 配置SHMEM依赖[https://gitcode.com/cann/shmem](341b46e441c3a1f5d407b309197345e3bc184131)
-source /path/shmem/install/set_env.sh
-
-# 拉取3rdparty代码
-git submodule update --init --recursive
-```
+注意：
+- 配置环境变量时，若CANN未安装到默认路径，需先配置ASCEND_HOME_PATH环境变量。
+- 若使用 `examples` 下的编译脚本，可跳过此步骤。
 
 2. 编译算子样例
 进入examples下对应的算子目录并执行编译脚本，即可编译examples中的kernel代码。
