@@ -86,6 +86,12 @@ struct DistMatrixCoord : public Catlass::Coord<3, uint32_t> {
     {
         return this->GetCoordByAxis<ROW_INDEX, COLUMN_INDEX>();
     }
+
+    CATLASS_HOST_DEVICE
+    bool IsOverflow(DistMatrixCoord const &bound) const
+    {
+        return this->rank() >= bound.rank() || this->row() >= bound.row() || this->column() >= bound.column();
+    }
 };
 
 struct DistGemmCoord : public Catlass::Coord<4, uint32_t> {
