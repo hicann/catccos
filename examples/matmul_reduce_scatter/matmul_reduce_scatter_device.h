@@ -29,9 +29,10 @@
 #include "catccos/catccos.hpp"
 #include "catccos/comm/comm_dispatch_policy.hpp"
 #include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/block/comm_block_scheduler_reduce_scatter.hpp"
 #include "catccos/comm/tile/tile_remote_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/kernel/matmul_reduce_scatter.hpp"
 #include "catccos/dgemm/kernel/matmul_reduce_scatter.hpp"
 
 using namespace AscendC;
@@ -69,13 +70,12 @@ void MatmulReduceScatterImpl(
     using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;
     using SymmetricType = DType;
     using BlockMmad = Catlass::Gemm::Block::BlockMmad<
-        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, SymmetricType
-    >;
+        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, SymmetricType>;
 
     constexpr bool IS_DYNAMIC = true;
 
     using BlockMmadScheduler = Catlass::Gemm::Block::GemmIdentityBlockSwizzle<7, 1>;
-    using BlockScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0, true>;
+    using BlockCommScheduler = Catccos::Comm::Block::BlockCommSchedulerReduceScatter<IS_DYNAMIC, void, 0, true, 7, 1>;
 
     using RemoteSrcType = SymmetricType;
     using RemoteDstType = DType;
@@ -96,7 +96,7 @@ void MatmulReduceScatterImpl(
         BlockMmad,
         BlockComm,
         BlockMmadScheduler,
-        BlockScheduler,
+        BlockCommScheduler,
         WORKSPACE_STAGES
     >;
 
@@ -109,13 +109,14 @@ void MatmulReduceScatterImpl(
         tileParams
     };
 
-    typename BlockScheduler::Params swizzleParams {
+    typename BlockCommScheduler::Params swizzleParams {
         commCoreSplit
     };
 
     // Prepare params
+    DistGemmCoord distProblemShape{problemShape.m() / rankSize, problemShape.n(), problemShape.k(), rankSize};
     typename MatmulReduceScatterKernel::Params params{
-        problemShape,
+        distProblemShape,
         rank, rankSize,
         commInterval,
         gmA, layoutA,
