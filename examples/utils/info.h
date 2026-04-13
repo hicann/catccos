@@ -14,6 +14,7 @@
 #include <map>
 #include <acl/acl.h>
 #include <limits.h>
+#include <cmath>
 
 static uint64_t SHMEM_MALLOC_MAX_SIZE = 1024UL * 1024UL * 1024;
 constexpr uint32_t M0 = 128;
@@ -76,6 +77,7 @@ struct CocTilingParams {
     uint32_t rankSize = 0;
     uint32_t epSize = 0;
     uint32_t expertNum = 0;
+    uint32_t topK = 1;
 };
 
 struct COCMatMulInfo{

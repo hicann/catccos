@@ -240,8 +240,8 @@ def verify_result():
     parser.add_argument('--golden_low', default="", type=str, help="low-precision golden bin file")
     args = parser.parse_args()
 
-    output = tensor_from_file(args.output, dtype=args.out_dtype.torch_type)
     golden = tensor_from_file(args.golden, dtype=torch.float32)
+    output = tensor_from_file(args.output, dtype=args.out_dtype.torch_type)[:golden.shape[0]]
 
     rtol = get_rtol(dtype=args.out_dtype.torch_type, compute_times=args.k)
     if args.golden_low != "":

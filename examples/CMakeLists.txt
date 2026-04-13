@@ -67,7 +67,7 @@ function(catccos_example_add_executable TARGET)
                         -L${ASCEND_HOME_PATH}/lib64
                         -L${SHMEM_HOME_PATH}/memfabric_hybrid/lib
                         -L${SHMEM_HOME_PATH}/shmem/lib
-                        -lruntime -lstdc++ -lascendcl
+                        -lruntime -lstdc++ -lm -lascendcl
                         -lshmem -lgraph_base -ltiling_api -lplatform -lregister
                         ${KERNEL_SOURCES} -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
         DEPENDS ${KERNEL_SOURCES}
@@ -94,6 +94,8 @@ foreach(EXAMPLE
     allgather_matmul_dequant_bias
     dynamic_tiling
     alltoallv_gmm_v2
+    dispatch_gmm
+    dispatch_gmm_swiglu
 )
     add_subdirectory(${EXAMPLE})
 endforeach()
