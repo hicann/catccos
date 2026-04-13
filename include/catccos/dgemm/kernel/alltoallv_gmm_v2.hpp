@@ -13,12 +13,13 @@
 
 #include "catlass/catlass.hpp"
 #include "catlass/arch/cross_core_sync.hpp"
-#include "catlass/arch/resource.hpp"
+// #include "catlass/arch/resource.hpp"
 #include "catlass/coord.hpp"
 #include "catlass/detail/callback.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
+#include "catlass/detail/callback.hpp"
 
 #include "shmem.h"
 #include "kernel_operator.h"
@@ -27,6 +28,33 @@ using namespace AscendC;
 using namespace Catlass;
 
 namespace Catccos::DGemm::Kernel {
+
+template <
+    class MatmulKernel
+>
+struct AicFinishSync {
+    CATLASS_DEVICE
+    void operator()() const
+    {
+        Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(ptr->flagAicFinishStore);
+    }
+
+    MatmulKernel *ptr;
+};
+
+template <
+    class MatmulKernel
+>
+struct AivWaitSync {
+    CATLASS_DEVICE
+    void operator()() const
+    {
+        Catlass::Arch::CrossCoreWaitFlag(ptr->flagAicFinishStore);
+        Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
+    }
+
+    MatmulKernel *ptr;
+};
 
 template <
     class BlockMmad_,
@@ -58,6 +86,9 @@ public:
     using LocalCopyParams = typename LocalCopyBlockEpilogue::Params;
     using RemoteCommParams = typename RemoteCommBlockEpilogue::Params;
 
+    friend class AicFinishSync<AlltoallvGMMKernel>;
+    friend class AivWaitSync<AlltoallvGMMKernel>;
+
     struct Params {
         GemmCoord problemShape;
         __gm__ ElementA *ptrA;
@@ -77,6 +108,8 @@ public:
         int32_t ubMoveNum;
         LocalCopyParams localCopyParams;
         RemoteCommParams remoteCommParams;
+        Callback callback;
+        int32_t syncInterval;
 
         CATLASS_DEVICE
         Params() = default;
@@ -91,7 +124,9 @@ public:
             GM_ADDR ptrB_, LayoutB layoutB_,
             GM_ADDR ptrC_, LayoutC layoutC_,
             GM_ADDR ptrWorkspace_, GM_ADDR symmetricPtr_, 
-            LocalCopyParams localCopyParams_, RemoteCommParams remoteCommParams_
+            LocalCopyParams localCopyParams_, RemoteCommParams remoteCommParams_,
+            const Callback &callback_ = Callback{},
+            int32_t syncInterval_ = INT_MAX
         ) : problemShape(problemShape_),
             EP(EP_), expertPerRank(expertPerRank_), maxOutputSize(maxOutputSize_),
             rank(rank_), rankSize(rankSize_),
@@ -101,7 +136,9 @@ public:
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
             ptrWorkspace(ptrWorkspace_), symmetricPtr(symmetricPtr_),
             localCopyParams(localCopyParams_),
-            remoteCommParams(remoteCommParams_)
+            remoteCommParams(remoteCommParams_),
+            callback(callback_),
+            syncInterval(syncInterval_)
         {
         }
     };
@@ -119,17 +156,21 @@ public:
 
     CATLASS_DEVICE
     AlltoallvGMMKernel()
-    {
+    {   
+        flagAivFinishCumsum = Catlass::Arch::CrossCoreFlag(0);
+        flagAicFinishStore = Catlass::Arch::CrossCoreFlag(4);
+        
     }
 
     template <int32_t CORE_TYPE = g_coreType>
     CATLASS_DEVICE
-    void operator()(Params const &params);
+    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource);
 
     template <>
     CATLASS_DEVICE
-    void operator()<AscendC::AIC>(Params const &params)
+    void operator()<AscendC::AIC>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
     {
+        // cube_guard();
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
 
@@ -156,7 +197,7 @@ public:
         uint32_t startCoreIdx = 0;
         uint32_t syncGroupIdx = 0;
 
-        AscendC::CrossCoreWaitFlag<0x2>(0); // 等待aiv计算cumsumformm
+        Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCumsum);
 
         // ========= 矩阵乘法 start =========
         for (uint32_t groupIdx = 0; groupIdx < params.expertPerRank; ++groupIdx) {
@@ -171,10 +212,8 @@ public:
             uint32_t coreLoops = blockScheduler.GetCoreLoops();
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
+            AscendC::CrossCoreWaitFlag<0x2>(1);
             for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
-                for(;syncGroupIdx <= groupIdx; syncGroupIdx++) {
-                   AscendC::CrossCoreWaitFlag<0x2>(1);
-                }
                 GemmCoord blockCoord = blockScheduler.GetBlockCoord(loopIdx);
                 GemmCoord actualBlockShape = blockScheduler.GetActualBlockShape(blockCoord);
 
@@ -198,18 +237,22 @@ public:
             gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
             gmGroupOffsetC += inGroupProblemShape.m() * inGroupProblemShape.n();
             startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
+            
+            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == params.expertPerRank - 1) {
+                if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
+                    blockMmad.SynchronizeBlock();
+                }
+                params.callback();
+            }
         }
-
         if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
             blockMmad.SynchronizeBlock();
         }
-
-        AscendC::CrossCoreSetFlag<0x2, PIPE_FIX>(1);
     }
 
     template <>
     CATLASS_DEVICE
-    void operator()<AscendC::AIV>(Params const &params)
+    void operator()<AscendC::AIV>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
     {
         uint32_t coreIdx = get_block_idx() + get_subblockid() * get_block_num(); 
         uint32_t coreNum = get_block_num() * get_subblockdim();
@@ -232,8 +275,6 @@ public:
         AscendC::GlobalTensor<ElementA> gmSymmetric;
         gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.symmetricPtr));
 
-        __gm__ void* srcPeermemPtr = shmem_ptr(params.symmetricPtr, params.rank);
-
         BlockEpilogueScheduler blockEpilogueScheduler(
             params.rank,
             params.rankSize,
@@ -248,39 +289,37 @@ public:
         );
 
         // ========= 搬运A矩阵到shmem start =========
-        AscendC::GlobalTensor<ElementA> dstAddress;
-        dstAddress.SetGlobalBuffer((__gm__ ElementA*) srcPeermemPtr);
+        if (params.ptrA != nullptr) {
+            uint32_t rowsToCopy = params.problemShape.m() / coreNum;
+            uint32_t rowOffset = rowsToCopy * coreIdx;
+            if (coreIdx == coreNum - 1) {
+                rowsToCopy += params.problemShape.m() % coreNum;
+            }
+            if (rowsToCopy > 0) {
+                MatrixCoord blockOffsetSrc{rowOffset, 0};
 
-        uint32_t rowsToCopy = params.problemShape.m() / coreNum;
-        uint32_t rowOffset = rowsToCopy * coreIdx;
-        if (coreIdx == coreNum - 1) {
-            rowsToCopy += params.problemShape.m() % coreNum;
+                auto blockSrc = gmA[params.layoutA.GetOffset(blockOffsetSrc)];
+                auto blockDst = gmSymmetric[params.layoutA.GetOffset(blockOffsetSrc)];
+
+                auto actualBlockShape = Catlass::MakeCoord<uint32_t>(rowsToCopy, params.problemShape.k());
+
+                auto layoutBlockSrc = params.layoutA.GetTileLayout(actualBlockShape);
+                auto layoutBlockDst = params.layoutA.GetTileLayout(actualBlockShape);
+
+                localCopyBlockEpilogue.InitBlockLoop();
+                localCopyBlockEpilogue(
+                    blockSrc, 
+                    layoutBlockSrc,
+                    blockDst, 
+                    layoutBlockDst,
+                    actualBlockShape
+                );
+                localCopyBlockEpilogue.FinalizeBlockLoop();
+            }
+            aclshmemx_barrier_all_vec();
         }
-        if (rowsToCopy > 0) {
-            MatrixCoord blockOffsetSrc{rowOffset, 0};
-
-            auto blockSrc = gmA[params.layoutA.GetOffset(blockOffsetSrc)];
-            auto blockDst = dstAddress[params.layoutA.GetOffset(blockOffsetSrc)];
-
-            auto actualBlockShape = Catlass::MakeCoord<uint32_t>(rowsToCopy, params.problemShape.k());
-
-            auto layoutBlockSrc = params.layoutA.GetTileLayout(actualBlockShape);
-            auto layoutBlockDst = params.layoutA.GetTileLayout(actualBlockShape);
-
-            localCopyBlockEpilogue.InitBlockLoop();
-            localCopyBlockEpilogue(
-                blockSrc, 
-                layoutBlockSrc,
-                blockDst, 
-                layoutBlockDst,
-                actualBlockShape
-            );
-            localCopyBlockEpilogue.FinalizeBlockLoop();
-        }
-
-        aclshmemx_barrier_all_vec();
         // ========= 搬运A矩阵到shmem end =========
-
+        
         // ======== all to allv start ========
         uint32_t commLoops = blockEpilogueScheduler.GetCommLoops();
         auto remapperDst = blockEpilogueScheduler.GetRemapperDst();
@@ -327,8 +366,10 @@ public:
     }
 
 private:
-    Catlass::Arch::Resource<ArchTag> resource;
+    Catlass::Arch::CrossCoreFlag flagAivFinishCumsum;
+    Catlass::Arch::CrossCoreFlag flagAicFinishStore;
+    Catlass::Arch::CrossCoreFlag flagAivFinishComm;
 };
 }
 
-#endif // CATCCOS_DGEMM_KERNEL_ALLTOALLV_GMM_V2_HPP
+#endif
