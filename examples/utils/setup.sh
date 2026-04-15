@@ -25,11 +25,21 @@ else
 fi
 
 # Configure CATLASS & SHMEM dependencies
-echo "Pulling 3rdparty code..."
-git submodule update --init --recursive || {
-    echo "[ERROR] Running git submodule update --init --recursive failed."
+submodule_status=$(git submodule status 2>&1)
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed to check submodule status."
     exit 1
-}
+fi
+
+if echo "$submodule_status" | grep -q '^[-+]'; then
+    echo "Initializing and updating submodules..."
+    git submodule update --init --recursive || {
+        echo "[ERROR] Running git submodule update --init --recursive failed."
+        exit 1
+    }
+else
+    echo "Submodules already initialized and up to date. Skipping."
+fi
 
 SHMEM_PATH="${PROJECT_ROOT}/3rdparty/shmem"
 

@@ -13,6 +13,11 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
 UTILS_PATH=${PROJECT_ROOT}/examples/utils
 CSV_FILE="${SCRIPT_DIR}/test_shapes.csv"
+  
+source $PROJECT_ROOT/3rdparty/shmem/install/set_env.sh || {
+    echo "[ERROR] Running set_env.sh in $PROJECT_ROOT/3rdparty/shmem/install failed."
+    exit 1
+}
 
 IFS=',' read -ra DEVICE_ID_LIST <<< "$1"
 RANK_SIZE=${#DEVICE_ID_LIST[@]}

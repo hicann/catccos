@@ -31,6 +31,11 @@ export SEARCH_PARAMS=0
 
 CSV_FILE="${SCRIPT_DIR}/test_shapes.csv"
 
+source $PROJECT_ROOT/3rdparty/shmem/install/set_env.sh || {
+    echo "[ERROR] Running set_env.sh in $PROJECT_ROOT/3rdparty/shmem/install failed."
+    exit 1
+}
+
 NUM_ARGS=$#
 
 case "$NUM_ARGS" in
