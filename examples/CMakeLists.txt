@@ -11,7 +11,7 @@ add_custom_target(catccos_examples)
 function(catccos_example_add_executable TARGET)
     set(OPTIONS)
     set(ONE_VALUE_ARGS)
-    set(MULTI_VALUE_ARGS SOURCES INCLUDES)
+    set(MULTI_VALUE_ARGS SOURCES INCLUDES COMPILE_DEFINITIONS)
 
     cmake_parse_arguments(
         ARG_PARSE
@@ -36,6 +36,11 @@ function(catccos_example_add_executable TARGET)
         list(APPEND INCLUDE_DIRS -I${INCLUDES})
     endforeach()
 
+    set(COMPILE_DEFS "")
+    foreach(DEF ${ARG_PARSE_COMPILE_DEFINITIONS})
+        list(APPEND COMPILE_DEFS -D${DEF})
+    endforeach()
+
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
         COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c220
@@ -46,6 +51,7 @@ function(catccos_example_add_executable TARGET)
                         -mllvm -cce-aicore-dcci-insert-for-scalar=false
                         -DL2_CACHE_HINT
                         -MD -MF ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.d
+                        ${COMPILE_DEFS}
                         -I${CMAKE_SOURCE_DIR}/include
                         -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
                         -I${CMAKE_SOURCE_DIR}/examples

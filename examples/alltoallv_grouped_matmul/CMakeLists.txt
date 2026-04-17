@@ -9,4 +9,5 @@
 catccos_example_add_executable(
     alltoallv_grouped_matmul
     SOURCES main.cpp
+    COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )

@@ -9,4 +9,5 @@
 catccos_example_add_executable(
     allgather_matmul_with_gather_result
     SOURCES main.cpp
+    COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )

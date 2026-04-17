@@ -9,4 +9,5 @@
 catccos_example_add_executable(
     allgather_matmul_dequant_bias
     SOURCES main.cpp
+    COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )

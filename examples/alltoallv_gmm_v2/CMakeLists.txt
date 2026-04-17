@@ -9,4 +9,5 @@
 catccos_example_add_executable(
     alltoallv_gmm_v2
     SOURCES main.cpp
+    COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )
