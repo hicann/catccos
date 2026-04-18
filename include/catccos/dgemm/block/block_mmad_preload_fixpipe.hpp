@@ -12,7 +12,6 @@
 #define CATCCOS_DGEMM_BLOCK_BLOCK_MMAD_PRELOAD_FIXPIPE_HPP
 
 #include "copy_gm_to_l1.hpp"
-#include "copy_l0c_to_gm.hpp"
 #include "catlass/catlass.hpp"
 #include "catlass/arch/resource.hpp"
 #include "catlass/coord.hpp"
@@ -22,6 +21,7 @@
 #include "catlass/gemm/tile/tile_copy.hpp"
 #include "catlass/gemm/tile/tile_mmad.hpp"
 #include "catlass/gemm/tile/copy_gm_to_l1.hpp"
+#include "catlass/gemm/tile/copy_l0c_to_gm.hpp"
 
 namespace Catccos::DGemm::Block {
 
