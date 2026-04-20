@@ -358,8 +358,8 @@ public:
                 blockEpilogueScheduler.UpdateSrcPrevSum(actualBlockShape.row());
             }
             blockEpilogueScheduler.UpdatePrevGroupSum();
-            aclshmemx_barrier_all_vec();
 
+            AscendC::SyncAll<true>();
             AscendC::CrossCoreSetFlag<0x2, PIPE_MTE3>(1);
         }
         // ======== all to allv end ========
