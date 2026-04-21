@@ -11,7 +11,7 @@ foreach(SHARE_LIB_NAME
     kernel_fp16
     kernel_int8
 )
-    add_impl_share_lib(${SHARE_LIB_NAME} ${SHARE_LIB_NAME}.cpp)
+    add_impl_share_lib(${SHARE_LIB_NAME} COMPILE_DEFINITIONS "CATLASS_ARCH=2201")
     LIST(APPEND SHARE_LIB_LINK ${SHARE_LIB_NAME})
 endforeach()
 

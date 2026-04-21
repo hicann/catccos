@@ -98,6 +98,30 @@ function main() {
     if [ -f "$FAILURE_LOG" ] && [ -s "$FAILURE_LOG" ]; then
         echo "Failed runs:" >> $SUMMARY_LOG
         cat $FAILURE_LOG >> $SUMMARY_LOG
+
+        echo ""
+        echo "=========================================="
+        echo "Showing logs for failed examples:"
+        echo "=========================================="
+        while IFS= read -r line; do
+            FAILED_DIR=$(echo "$line" | cut -d: -f1)
+            FAILED_TYPE=$(echo "$line" | cut -d: -f2 | xargs)
+            echo ""
+            echo ">>> [$FAILED_DIR] ($FAILED_TYPE)"
+            echo "-------------------------------------------"
+            if [ "$FAILED_TYPE" = "build failed" ]; then
+                if [ -f "$CURRENT_DIR/$FAILED_DIR/building_log.log" ]; then
+                    echo "=== building_log.log ==="
+                    cat "$CURRENT_DIR/$FAILED_DIR/building_log.log"
+                fi
+            else
+                if [ -f "$CURRENT_DIR/$FAILED_DIR/running_log.log" ]; then
+                    echo "=== running_log.log ==="
+                    cat "$CURRENT_DIR/$FAILED_DIR/running_log.log"
+                fi
+            fi
+            echo "-------------------------------------------"
+        done < "$FAILURE_LOG"
     fi
 
     [ -f "$SUCCESS_LOG" ] && rm "$SUCCESS_LOG"

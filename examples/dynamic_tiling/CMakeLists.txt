@@ -52,12 +52,22 @@ file(GLOB_RECURSE CATLASS_DEPEND_FILES ${CMAKE_SOURCE_DIR}/include/**.hpp)
 
 add_custom_target(lib_impl)
 function(add_impl_share_lib NAME)
+    set(options "")
+    set(oneValueArgs "")
+    set(multiValueArgs COMPILE_DEFINITIONS)
+    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    set(EXTRA_DEFS "")
+    foreach(DEF ${ARG_COMPILE_DEFINITIONS})
+        list(APPEND EXTRA_DEFS "-D${DEF}")
+    endforeach()
+
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
-        COMMAND ${CCEC} ${CCEC_COMPILER_OPTIONS} ${LIB_OPTIONS} ${INCLUDE_DIR}
+        COMMAND ${CCEC} ${CCEC_COMPILER_OPTIONS} ${EXTRA_DEFS} ${LIB_OPTIONS} ${INCLUDE_DIR}
             ${NAME}.cpp -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMENT "Compiling shared library: lib${NAME}.so"
+        COMMENT "Compiling shared library: lib${NAME}.so with defs: ${ARG_COMPILE_DEFINITIONS}"
     )
     add_custom_target(lib${NAME}.so ALL DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so)
     add_dependencies(lib_impl lib${NAME}.so)
