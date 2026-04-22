@@ -7,12 +7,12 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef GROUPED_MATMUL_ALLTOALLV_HOST_H
-#define GROUPED_MATMUL_ALLTOALLV_HOST_H
+#ifndef GROUPED_MATMUL_ALLTOALLV_TLA_HOST_H
+#define GROUPED_MATMUL_ALLTOALLV_TLA_HOST_H
 
 #include "operator_registry.h"
 
-class GroupedMatmulAllToAllVOperator : public CatccosOperator {
+class GroupedMatmulAllToAllVTlaOperator : public CatccosOperator {
 public:
     void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
         uint32_t rankId, std::string dataFile) override {
@@ -108,11 +108,11 @@ public:
     }
 
     CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {
-        return CocCommType::GROUPED_MATMUL_ALLTOALLV;
+        return CocCommType::GROUPED_MATMUL_ALLTOALLV_TLA;
     }
 
-    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) override {
-        constexpr int32_t blockNum = BLOCK_NUM;
+    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override {
+        constexpr int32_t blockNum= BLOCK_NUM;
         int64_t product = static_cast<int64_t>(blockNum) * cocTiling.commInterval;
 
         if (product % rankSize != 0) {
@@ -122,7 +122,6 @@ public:
     }
 };
 
-// 注册这个算子
-REGISTER_OPERATOR("GroupedMatmulAllToAllV", GroupedMatmulAllToAllVOperator);
+REGISTER_OPERATOR("GroupedMatmulAllToAllVTla", GroupedMatmulAllToAllVTlaOperator);
 
-#endif // GROUPED_MATMUL_ALLTOALLV_HOST_H
+#endif // GROUPED_MATMUL_MATMUL_ALLTOALLV_TLA_HOST_H

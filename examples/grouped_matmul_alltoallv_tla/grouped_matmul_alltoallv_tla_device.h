@@ -7,9 +7,9 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef GROUPED_MATMUL_ALLTOALLV_KERNEL_H
-#define GROUPED_MATMUL_ALLTOALLV_KERNEL_H
- 
+#ifndef GROUPED_MATMUL_ALLTOALLV_TLA_KERNEL_H
+#define GROUPED_MATMUL_ALLTOALLV_TLA_KERNEL_H
+
 #include "info.h"
  
 // from catlass
@@ -32,7 +32,7 @@
 #include "catccos/comm/block/comm_block_swizzle.hpp"
 #include "catccos/comm/tile/tile_remote_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/kernel/grouped_matmul_alltoallv.hpp"
+#include "catccos/dgemm/kernel/grouped_matmul_alltoallv_tla.hpp"
 #include "catccos/dgemm/alltoallv_allgather_problem_shape.hpp"
 #include "catccos/dgemm/block/block_scheduler_reducescatter_alltoallv.hpp"
 #include "catccos/comm/block/comm_block_scheduler_reducescatter_alltoallv.hpp"
@@ -49,12 +49,12 @@ template <
     uint32_t M0, uint32_t N0, uint32_t K0
 >
 CATLASS_DEVICE
-void GroupedMatmulAllToAllVImpl(
+void GroupedMatmulAllToAllVTlaImpl(
     ProblemShape const &problemShape,
     Catlass::GemmCoord const &l1TileShape,
-    GM_ADDR gmA, LayoutA const &layoutA,
-    GM_ADDR gmB, LayoutB const &layoutB,
-    GM_ADDR gmD, LayoutD const &layoutD,
+    GM_ADDR gmA, LayoutA const &tagA,
+    GM_ADDR gmB, LayoutB const &tagB,
+    GM_ADDR gmD, LayoutD const &tagD,
     GM_ADDR symmetricPtr, GM_ADDR syncMmadFinish, GM_ADDR syncCommFinish,
     Catlass::MatrixCoord const &commCoreSplit,
     Catlass::MatrixCoord const &commBlockShape,
@@ -62,42 +62,35 @@ void GroupedMatmulAllToAllVImpl(
     uint32_t commInterval
 )
 {
-    constexpr uint32_t preloadStages = 1;
-    constexpr uint32_t l1Stages = 2;
-    constexpr uint32_t l0AStages = 2;
-    constexpr uint32_t l0BStages = 2;
-    constexpr uint32_t l0CStages = 1;
     constexpr bool enableUnitFlag = true;
-    constexpr bool enableShuffleK = true;
-    using MmadDispatchPolicy = Catlass::Gemm::MmadAtlasA2PreloadAsync<
-        preloadStages,
-        l1Stages, l0AStages, l0BStages, l0CStages,
-        enableUnitFlag, enableShuffleK
-    >;
+    constexpr bool useHF32 = false;
+    using MmadDispatchPolicy = Catlass::Gemm::MmadPingpong<ArchTag, enableUnitFlag, useHF32>;
 
-    using L1TileShape = Catlass::GemmShape<M0, N0, K0>;
-    using L0TileShape = Catlass::GemmShape<M0, N0, 64>;
- 
-    using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
-    using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
-    using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;
-    using SymmetricType = DType;
- 
-    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
+    using L1TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<K0>>;
+    using L0TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<64>>;
+    
+    auto layoutA = tla::MakeLayoutFromTag(tagA);
+    auto layoutB = tla::MakeLayoutFromTag(tagB);
+    auto layoutD = tla::MakeLayoutFromTag(tagD);
+    using TileCopy =
+        Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
         MmadDispatchPolicy,
         L1TileShape, L0TileShape,
-        AType, BType, SymmetricType
+        ElementA, ElementB, ElementD, void, TileCopy
     >;
+
     constexpr uint32_t TP_SIZE_LIMITS = 1;
     constexpr uint32_t EP_SIZE_LIMITS = 8;
-    constexpr uint32_t LOCAL_EXPERT_NUM_LIMITS = 16;
+    constexpr uint32_t LOCAL_EXPERT_NUM_LIMITS = 64;
     using MoeConstraints = DGemm::MoeConstraints<TP_SIZE_LIMITS, EP_SIZE_LIMITS, LOCAL_EXPERT_NUM_LIMITS>;
     
     using BlockMmadScheduler = DGemm::Block::BlockMmadSchedulerReduceScatterAllToAllV<MoeConstraints>;
 
     constexpr bool IS_DYNAMIC = true;
- 
-    using RemoteSrcType = SymmetricType;
+    
+    using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;
+    using RemoteSrcType = DType;
     using RemoteDstType = DType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
@@ -115,7 +108,7 @@ void GroupedMatmulAllToAllVImpl(
     using BlockCommScheduler = CommEpilogue::Block::BlockCommSchedulerReduceScatterAllToAllV<MoeConstraints, IS_DYNAMIC, void>;
     
     constexpr uint32_t WORKSPACE_STAGES = 2;
-    using GroupedMatmulAllToAllVKernel = DGemm::Kernel::GroupedMatmulAllToAllV<
+    using GroupedMatmulAllToAllVKernel = DGemm::Kernel::GroupedMatmulAllToAllVTla<
         ProblemShape,
         BlockMmad,
         BlockComm,
@@ -140,6 +133,7 @@ void GroupedMatmulAllToAllVImpl(
     typename GroupedMatmulAllToAllVKernel::Params params{
         problemShape,
         commInterval,
+        tagD,
         gmA, layoutA,
         gmB, layoutB,
         gmD, layoutD,
@@ -162,7 +156,7 @@ template <
     class ProblemShape
 >
 CATLASS_DEVICE
-void GroupedMatmulAllToAllVImpl_M0_256(
+void GroupedMatmulAllToAllVTlaImpl_M0_256(
     ProblemShape const &problemShape,
     Catlass::GemmCoord const &l1TileShape,
     GM_ADDR gmA, LayoutA const &layoutA,
@@ -175,7 +169,7 @@ void GroupedMatmulAllToAllVImpl_M0_256(
     uint32_t commInterval
 )
 {
-    GroupedMatmulAllToAllVImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape, 256, 128, 256>(
+    GroupedMatmulAllToAllVTlaImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape, 256, 128, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB,
         gmD, layoutD, symmetricPtr, syncMmadFinish, syncCommFinish,  
         commCoreSplit, commBlockShape, commTileShape, commInterval
@@ -190,7 +184,7 @@ template <
     class ProblemShape
 >
 CATLASS_DEVICE
-void GroupedMatmulAllToAllVImpl_M0_128(
+void GroupedMatmulAllToAllVTlaImpl_M0_128(
     ProblemShape const &problemShape,
     Catlass::GemmCoord const &l1TileShape,
     GM_ADDR gmA, LayoutA const &layoutA,
@@ -203,7 +197,7 @@ void GroupedMatmulAllToAllVImpl_M0_128(
     uint32_t commInterval
 )
 {
-    GroupedMatmulAllToAllVImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape, 128, 256, 256>(
+    GroupedMatmulAllToAllVTlaImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape, 128, 256, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB,
         gmD, layoutD, symmetricPtr, syncMmadFinish, syncCommFinish,  
         commCoreSplit, commBlockShape, commTileShape, commInterval
@@ -217,7 +211,7 @@ template <
     class ElementD, class LayoutD
 >
 CATLASS_GLOBAL
-void GroupedMatmulAllToAllV(
+void GroupedMatmulAllToAllVTla(
     uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD,
     GM_ADDR gmLocalTokensPerExpert, GM_ADDR gmGlobalTokensPerLocalExpert,
     GM_ADDR symmetric, CocTilingParams cocTiling, GM_ADDR dump
@@ -231,7 +225,7 @@ template <
     class ElementD, class LayoutD
 >
 CATLASS_GLOBAL
-void GroupedMatmulAllToAllV(
+void GroupedMatmulAllToAllVTla(
     uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD,
     GM_ADDR gmLocalTokensPerExpert, GM_ADDR gmGlobalTokensPerLocalExpert,
     GM_ADDR symmetricPtr, CocTilingParams cocTiling
@@ -284,14 +278,14 @@ void GroupedMatmulAllToAllV(
     auto syncCommFinish = symmetricPtr + symmetricOffset;
 
     if (m0 == 128) {
-        GroupedMatmulAllToAllVImpl_M0_128<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape>(
+        GroupedMatmulAllToAllVTlaImpl_M0_128<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape>(
             problemShape, l1TileShape,
             gmA, layoutA, gmB, layoutB, gmD, layoutD,
             gmSymmetric, syncMmadFinish, syncCommFinish,
             commCoreSplit, commBlockShape, commTileShape, commInterval
         );
     } else {
-        GroupedMatmulAllToAllVImpl_M0_256<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape>(
+        GroupedMatmulAllToAllVTlaImpl_M0_256<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ProblemShape>(
             problemShape, l1TileShape,
             gmA, layoutA, gmB, layoutB, gmD, layoutD,
             gmSymmetric, syncMmadFinish, syncCommFinish,
@@ -300,4 +294,4 @@ void GroupedMatmulAllToAllV(
     } 
 }
  
-#endif // GROUPED_MATMUL_ALLTOALLV_KERNEL_H
+#endif // GROUPED_MATMUL_ALLTOALLV_TLA_KERNEL_H

@@ -43,7 +43,7 @@ function(catccos_example_add_executable TARGET)
 
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
-        COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c220
+        COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c220 ${CATLASS_ARCH_FLAGS}
                         -mllvm -cce-aicore-stack-size=0x8000
                         -mllvm -cce-aicore-function-stack-size=0x8000
                         -mllvm -cce-aicore-record-overflow=true
@@ -95,6 +95,7 @@ foreach(EXAMPLE
     matmul_reduce_scatter
     allgather_matmul_with_gather_result
     grouped_matmul_alltoallv
+    grouped_matmul_alltoallv_tla
     alltoallv_grouped_matmul
     allgather_matmul_dequant
     allgather_matmul_dequant_bias

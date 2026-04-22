@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "grouped_matmul_alltoallv_device.h"
-#include "grouped_matmul_alltoallv_host.h"
+#include "grouped_matmul_alltoallv_tla_device.h"
+#include "grouped_matmul_alltoallv_tla_host.h"
  
 using namespace AscendC;
 using namespace Catccos;
@@ -122,20 +122,20 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtSetDevice(deviceId));
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
-    aclshmemx_uniqueid_t default_flag_uid;
-    set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
-    status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
+ 	aclshmemx_uniqueid_t default_flag_uid;
+ 	set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
+ 	status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
-    auto op = OperatorRegistry::Instance().CreateOperator("GroupedMatmulAllToAllV");
+    auto op = OperatorRegistry::Instance().CreateOperator("GroupedMatmulAllToAllVTla");
     if (!op) {
-        std::cout << "Operator GroupedMatmulAllToAllV not found!" << std::endl;
+        std::cout << "Operator GroupedMatmulAllToAllVTla not found!" << std::endl;
         return -1;
     }
  
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, "./output");
     void *symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
-    uint8_t *symmetricPtr = (uint8_t *)symmPtr;
+    uint8_t *symmetricPtr = reinterpret_cast<uint8_t *>(symmPtr);
 
     uint8_t *aPtr = kernelParams.ptrA;
     uint8_t *bPtr = kernelParams.ptrB;
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtSynchronizeStream(stream));
     for (int i = 0; i < 1; i++) {
         uint64_t fftsAddr = shmemx_get_ffts_config();
-        GroupedMatmulAllToAllV<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
+        GroupedMatmulAllToAllVTla<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
             <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, localExpertPtr, globalExpertPtr, symmetricPtr, cocTiling);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));

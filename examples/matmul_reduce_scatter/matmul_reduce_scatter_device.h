@@ -33,7 +33,6 @@
 #include "catccos/comm/tile/tile_remote_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
 #include "catccos/dgemm/kernel/matmul_reduce_scatter.hpp"
-#include "catccos/dgemm/kernel/matmul_reduce_scatter.hpp"
 
 using namespace AscendC;
 using namespace Catccos;
