@@ -89,7 +89,7 @@ void AllToAllVGroupedMatmulImpl(
     // Declare BlockEpilogue
     constexpr uint32_t UB_STAGES = 2;
     constexpr Catccos::detail::CopyDirect COPY_DIRECT = Catccos::detail::CopyDirect::Put;
-    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
     using CopyTransport = Catccos::detail::CopyTransport;

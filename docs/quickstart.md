@@ -783,8 +783,8 @@ void ShmemMatmulReduceScatter(
     // === 8. 配置Block级通信核心（ReduceScatter） ===
     // ReduceScatter Block内数据搬运使用的缓冲区stage数（双缓冲）
     constexpr uint32_t UB_STAGES = 2;
-    // 通信后端调度策略：基于Atlas A2的远程拷贝，模式为 Scatter
-    using CommDispatchPolicy = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    // 通信后端调度策略：基于Atlas的远程拷贝，模式为 Scatter
+    using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     
     // 定义远端搬运的类型封装和搬运模式
     using RemoteSrcType = SymmetricType; // RemoteSrcType: 源数据类型（中间partial result）

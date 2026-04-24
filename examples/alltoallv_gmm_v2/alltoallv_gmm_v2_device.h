@@ -96,7 +96,7 @@ void AllToAllVGMMV2Impl(
     constexpr uint32_t UB_STAGES = 2;
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
-    using RemoteCommDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using RemoteCommDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
     using TileRemoteCopy = Catccos::Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;

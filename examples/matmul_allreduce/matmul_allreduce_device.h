@@ -84,7 +84,7 @@ void MatmulAllReduceImpl(
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
-    using ReduceScatterDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using ReduceScatterDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockReduceScatter = Comm::Block::CommBlock<
         ReduceScatterDispatch,
         RemoteSrcType, RemoteDstType,
@@ -92,7 +92,7 @@ void MatmulAllReduceImpl(
         TileRemoteCopy, TileScheduler
     >;
 
-    using AllGatherDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using AllGatherDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockAllGather = Comm::Block::CommBlock<
         AllGatherDispatch,
         RemoteSrcType, RemoteDstType,

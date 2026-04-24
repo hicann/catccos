@@ -32,9 +32,9 @@ struct AtlasA2CommToLocalMem {
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
-template <uint32_t UB_STAGES_, bool IsDynamic_=false>
-struct AtlasA2CommRemoteCopy {
-    using ArchTag = Catlass::Arch::AtlasA2;
+template <class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_=false>
+struct AtlasCommRemoteCopy {
+    using ArchTag = ArchTag_;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
