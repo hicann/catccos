@@ -89,3 +89,6 @@ bash scripts/run.sh [device_list]
 error num: 0
 PASS
 ```
+
+## 🛠 代码检查说明
+代码检查请参考[pre-commit-guide.md](./docs/pre-commit-guide.md)文档。
