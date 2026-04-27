@@ -85,10 +85,10 @@ public:
         uint32_t commInterval;
 
         // Methods
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() {}
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             GemmCoord const &problemShape_,
             uint32_t rank_, uint32_t rankSize_,
@@ -115,6 +115,52 @@ public:
         {
         }
     };
+
+    /// User-facing arguments
+    struct Arguments {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrGatherA;
+        GM_ADDR ptrSymmetric;
+        Catlass::MatrixCoord commCoreSplit;
+        Catlass::MatrixCoord commBlockShape;
+        Catlass::MatrixCoord commTileShape;
+        Catlass::MatrixCoord copyGatherABlockShape;
+        Catlass::MatrixCoord copyGatherATileShape;
+    };
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr) {
+        LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+        LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+        LayoutC layoutC{args.problemShape.m() * args.rankSize, args.problemShape.n()};
+        LayoutGatherA layoutGatherA{args.problemShape.m() * args.rankSize, args.problemShape.k()};
+
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        CommSchedulerParams commSchedulerParams{args.commCoreSplit};
+
+        typename BlockGatherA::TileRemoteCopy::Params copyGatherATileParams{args.copyGatherATileShape};
+        BlockGatherAParams copyGatherAParams{args.copyGatherABlockShape, copyGatherATileParams};
+
+        return Params(
+            args.problemShape,
+            args.rankIdx, args.rankSize,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrSymmetric,
+            blockCommParams,
+            commSchedulerParams,
+            copyGatherAParams,
+            args.ptrGatherA, layoutGatherA,
+            args.ptrC, layoutC,
+            args.commInterval
+        );
+    }
 
     // Methods
     CATLASS_DEVICE

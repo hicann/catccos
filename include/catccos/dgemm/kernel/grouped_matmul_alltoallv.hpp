@@ -70,10 +70,10 @@ public:
         BlockCommParams blockCommParams;
         BlockCommSchedulerParams blockCommSchedulerParams;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() = default;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             ProblemShape const &problemShape_, uint32_t commInterval_,
             GM_ADDR ptrA_, LayoutA const &layoutA_,
@@ -92,6 +92,61 @@ public:
         {
         }
     };
+
+    /// User-facing arguments
+    struct Arguments {
+        Catlass::GemmCoord gemmShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        uint32_t epSize;
+        uint32_t expertNum;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrLocalTokensPerExpert;
+        GM_ADDR ptrGlobalTokensPerLocalExpert;
+        GM_ADDR ptrSymmetric;
+        Catlass::MatrixCoord commCoreSplit;
+        Catlass::MatrixCoord commBlockShape;
+        Catlass::MatrixCoord commTileShape;
+    };
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr) {
+        
+        LayoutA layoutA{args.gemmShape.m(), args.gemmShape.k()};
+        LayoutB layoutB{args.gemmShape.k(), args.gemmShape.n()};
+        LayoutC layoutC{args.gemmShape.m(), args.gemmShape.n()};
+
+        ProblemShape problemShape{
+            args.gemmShape, args.rankSize, args.rankIdx, args.epSize, args.expertNum,
+            args.ptrLocalTokensPerExpert, args.ptrGlobalTokensPerLocalExpert
+        };
+
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        BlockCommSchedulerParams blockCommSchedulerParams{args.commCoreSplit};
+
+        constexpr size_t IPC_BUFF_MAX_SIZE = 200 * 1024 * 1024 * sizeof(half);
+        constexpr size_t SYNC_UNIT_SIZE = 4 * sizeof(int64_t);
+        uint64_t symmetricOffset = 0;
+        auto gmSymmetric = args.ptrSymmetric + symmetricOffset;
+        symmetricOffset += IPC_BUFF_MAX_SIZE;
+        auto syncMmadFinish = args.ptrSymmetric + symmetricOffset;
+        symmetricOffset += SYNC_UNIT_SIZE;
+        auto syncCommFinish = args.ptrSymmetric + symmetricOffset;
+
+        return Params(
+            problemShape,
+            args.commInterval,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrC, layoutC,
+            gmSymmetric, syncMmadFinish, syncCommFinish,
+            blockCommParams,
+            blockCommSchedulerParams
+        );
+    }
 
     CATLASS_DEVICE
     GroupedMatmulAllToAllV()

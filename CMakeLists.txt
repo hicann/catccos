@@ -33,3 +33,4 @@ endif()
 set(CCEC ${ASCEND_HOME_PATH}/tools/bisheng_compiler/bin/bisheng)
 
 add_subdirectory(examples)
+add_subdirectory(tests)

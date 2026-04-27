@@ -77,10 +77,10 @@ public:
         BlockCommParams commParams;
 
         // Methods
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() {}
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             GemmCoord const &problemShape_,
             uint32_t rank_, uint32_t rankSize_,
@@ -103,6 +103,43 @@ public:
         {
         }
     };
+
+    /// User-facing arguments
+    struct Arguments {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrSymmetric;
+        Catlass::MatrixCoord commCoreSplit;
+        Catlass::MatrixCoord commBlockShape;
+        Catlass::MatrixCoord commTileShape;
+    };
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr) {
+        LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+        LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+        LayoutC layoutC{args.problemShape.m() * args.rankSize, args.problemShape.n()};
+
+        typename AllGather::TileRemoteCopy::Params tileParams{args.commTileShape};
+        AllGatherParams allGatherParams{args.commBlockShape, tileParams};
+        BlockCommParams commParams{args.commCoreSplit};
+
+        return Params(
+            args.problemShape,
+            args.rankIdx, args.rankSize,
+            args.commInterval,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrC, layoutC,
+            args.ptrSymmetric,
+            allGatherParams,
+            commParams
+        );
+    }
 
     // Methods
     CATLASS_DEVICE

@@ -56,7 +56,7 @@ public:
             ReadFile(dataFile + "/global_tokens_per_expert_matrix.bin", tokenPerExpertHost, tokenPerExpertSize);
             ACL_CHECK(aclrtMemcpy(tokenPerExpertDevice, tokenPerExpertSize, tokenPerExpertHost, tokenPerExpertSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixTokenPerEP(EP * EP * expertPerRank, cocTiling.m / (EP * expertPerRank));
+            std::vector<uint32_t> matrixTokenPerEP(EP * EP * expertPerRank, cocTiling.m / (EP * expertPerRank));
             ACL_CHECK(aclrtMemcpy(tokenPerExpertDevice, tokenPerExpertSize, matrixTokenPerEP.data(), tokenPerExpertSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 

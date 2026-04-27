@@ -86,13 +86,13 @@ void AllToAllVGMMV2Impl(
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
  
-    using BlockMmad = Gemm::Block::BlockMmad<
+    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
         DispatchPolicy,
         L1TileShape, L0TileShape, 
         AType, BType, CType
     >;
 
-    using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<9, 1>;
+    using BlockScheduler = typename Catlass::Gemm::Block::GemmIdentityBlockSwizzle<9, 1>;
 
     constexpr bool IS_DYNAMIC = true;
  

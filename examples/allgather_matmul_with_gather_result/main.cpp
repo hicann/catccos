@@ -16,18 +16,17 @@ using namespace Catccos;
 using ElementA = half;
 using ElementB = half;
 using ElementC = half;
-using ElementGatherA = ElementA;
 
 using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
-using LayoutA0 = Catlass::layout::RowMajor;
-using LayoutB0 = Catlass::layout::RowMajor;
 using LayoutC = Catlass::layout::RowMajor;
-using LayoutGatherA = LayoutA;
+
+using Config = AllGatherMatmulWithGatherResultConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
+using DeviceOp = Config::Device;
 
 struct Options {
     static constexpr auto HELPER =
-       "Usage: allgather_matmul rank_size rank_id ip_port m n k [device_id_list]\n";
+       "Usage: allgather_matmul rank_size rank_id ip_port m n k data_path [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -41,80 +40,45 @@ struct Options {
     int Parse(int argc, char **argv)
     {
         enum class ArgsIndex {
-            RANK_SIZE_INDEX = 1,
-            RANK_ID_INDEX,
-            IP_PORT_INDEX,
-            M_INDEX,
-            N_INDEX,
-            K_INDEX,
-            DATA_PATH_INDEX,
-            DEVICE_LIST_INDEX,
-            INDEX_MAX
+            RANK_SIZE_INDEX = 1, RANK_ID_INDEX, IP_PORT_INDEX,
+            M_INDEX, N_INDEX, K_INDEX, DATA_PATH_INDEX,
+            DEVICE_LIST_INDEX, INDEX_MAX
         };
-
-        if (argc > ArgsIndex::INDEX_MAX) {
-            printf(HELPER);
-            return -1;
-        }
-
-        rankSize = std::atoi(argv[ArgsIndex::RANK_SIZE_INDEX]);
-        rankId = std::atoi(argv[ArgsIndex::RANK_ID_INDEX]);
-        ipPort = argv[ArgsIndex::IP_PORT_INDEX];
-        m = std::atoi(argv[ArgsIndex::M_INDEX]);
-        n = std::atoi(argv[ArgsIndex::N_INDEX]);
-        k = std::atoi(argv[ArgsIndex::K_INDEX]);
-        dataPath = argv[ArgsIndex::DATA_PATH_INDEX];
-        if (argc > ArgsIndex::DEVICE_LIST_INDEX) {
-            char *idListStr = argv[ArgsIndex::DEVICE_LIST_INDEX];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
-                deviceIdList.push_back(std::atoi(idToken));
-            }
-        } else {
-            for (size_t i = 0; i < rankSize; ++i) {
-                deviceIdList.push_back(i);
-            }
-        }
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) { printf(HELPER); return -1; }
+        rankSize = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_SIZE_INDEX)]);
+        rankId = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_ID_INDEX)]);
+        ipPort = argv[static_cast<int>(ArgsIndex::IP_PORT_INDEX)];
+        m = std::atoi(argv[static_cast<int>(ArgsIndex::M_INDEX)]);
+        n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
+        k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
+        dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char *s = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
+            for (char *t = std::strtok(s, ","); t; t = std::strtok(nullptr, ",")) deviceIdList.push_back(std::atoi(t));
+        } else { for (size_t i = 0; i < rankSize; ++i) deviceIdList.push_back(i); }
         return 0;
     }
-
-    std::string GetDataPath() const
-    {
-        return dataPath;
-    }
+    std::string GetDataPath() const { return dataPath; }
 };
 
 int main(int argc, char **argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0) {
-        std::cerr << "Invalid arguments\n";
-        return 1;
-    }
+    if (options.Parse(argc, argv) != 0) { std::cerr << "Invalid arguments\n"; return 1; }
     int rankSize = options.rankSize;
     int rankId = options.rankId;
-    std::string ipPort = options.ipPort;
-    uint32_t m = options.m;
-    uint32_t n = options.n;
-    uint32_t k = options.k;
+    uint32_t m = options.m, n = options.n, k = options.k;
     int32_t deviceId = options.deviceIdList[rankId];
 
     CocTilingParams cocTiling;
-    cocTiling.m = m;
-    cocTiling.n = n;
-    cocTiling.k = k;
-    COCMatMulInfo info{ int64_t(m), int64_t(k), int64_t(n) };
-    cocTiling.m0 = 128;
-    cocTiling.n0 = 256;
-    cocTiling.k0 = 256;
-    cocTiling.commTileM = 64;
-    cocTiling.commInterval = 3;
-    cocTiling.commNpuSplit = 1;
-    cocTiling.commDataSplit = 16;
-    cocTiling.commBlockM = 64;
-    cocTiling.rankSize = rankSize;
+    cocTiling.m = m; cocTiling.n = n; cocTiling.k = k;
+    cocTiling.m0 = 128; cocTiling.n0 = 256; cocTiling.k0 = 256;
+    cocTiling.commTileM = 64; cocTiling.commInterval = 3;
+    cocTiling.commNpuSplit = 1; cocTiling.commDataSplit = 16;
+    cocTiling.commBlockM = 64; cocTiling.rankSize = rankSize;
 
-    std::cout << "[TEST] input rank_size: " << rankSize << " rank_id:" << rankId << " input_ip: " << ipPort << std::endl;
+    std::cout << "[TEST] rank_size:" << rankSize << " rank_id:" << rankId << " ip:" << options.ipPort << std::endl;
 
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
@@ -122,49 +86,61 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
-    set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
+    set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, options.ipPort.c_str(), &attributes, &default_flag_uid);
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulWithGatherResult");
-    if (!op) {
-        std::cout << "Operator AllGatherMatmulWithGatherResult not found!" << std::endl;
-        return -1;
-    }
+    if (!op) { std::cout << "Operator not found!" << std::endl; return -1; }
 
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());
     void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
     uint8_t *gmSymmetric = (uint8_t *)symmPtr;
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
-    uint8_t *gatherAPtr = kernelParams.customPtrs[0];
+    // Construct DeviceDGemm Arguments
+    Catlass::GemmCoord problemShape{m, n, k};
+    Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+    Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, RoundUp(k, cocTiling.k0)};
+    Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.k0};
+
+    uint32_t commCoreNum = cocTiling.commDataSplit * cocTiling.commNpuSplit;
+    uint32_t copyCoreNum = BLOCK_NUM - commCoreNum;
+    uint32_t copyBlockM = CeilDiv((cocTiling.commInterval * cocTiling.m0), CeilDiv(copyCoreNum, (uint32_t)rankSize));
+    uint32_t copyBlockN = RoundUp<32 / sizeof(ElementA)>(k);
+    Catlass::MatrixCoord copyGatherABlockShape{copyBlockM, copyBlockN};
+
+    constexpr uint32_t UB_STAGES_VAL = 2;
+    uint32_t maxCopyLength = Catlass::Arch::AtlasA2::UB_SIZE / UB_STAGES_VAL / sizeof(ElementA);
+    uint32_t copyTileN = Min<uint32_t>(maxCopyLength, copyBlockN);
+    uint32_t copyTileM = maxCopyLength / copyTileN;
+    Catlass::MatrixCoord copyGatherATileShape{copyTileM, copyTileN};
+
+    DeviceOp::Arguments args{
+        problemShape,
+        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
+        cocTiling.commInterval,
+        kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
+        kernelParams.customPtrs[0], gmSymmetric,
+        commCoreSplit, commBlockShape, commTileShape,
+        copyGatherABlockShape, copyGatherATileShape
+    };
+
+    DeviceOp deviceOp;
+    deviceOp.Initialize(args);
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
-    std::cout << "Before calling AG_MM kernel " << std::endl;
-    for (int i = 0; i < 1; i++) {
-        uint64_t fftsAddr = shmemx_get_ffts_config();
-        AllGatherMatmulWithGatherResult<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gatherAPtr, gmSymmetric, cocTiling);
-    }
+    uint64_t fftsAddr = shmemx_get_ffts_config();
+    for (int i = 0; i < 1; i++) { deviceOp.Run(stream, BLOCK_NUM, fftsAddr); }
     ACL_CHECK(aclrtSynchronizeStream(stream));
-    std::cout << "After calling AG_MM kernel " << std::endl;
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
-    if (rankId == 0) {
-        std::printf("test finished\n");
-    }
+    if (rankId == 0) std::printf("test finished\n");
 
     shmem_free(symmPtr);
-
     FreeDeviceSpace(kernelParams);
-
-    std::cout << "[TEST] begin to exit...... rankId: " << rankId << std::endl;
     status = shmem_finalize();
     ACL_CHECK(aclrtDestroyStream(stream));
     ACL_CHECK(aclrtResetDevice(deviceId));
     ACL_CHECK(aclFinalize());
-
     return 0;
 }

@@ -47,6 +47,8 @@ dist/
 build/
 output/
 out/
+best_result.csv
+best_result_sorted.csv
 
 # log文件
 *.log

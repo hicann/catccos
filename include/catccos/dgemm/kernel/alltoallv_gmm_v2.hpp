@@ -111,10 +111,10 @@ public:
         Callback callback;
         int32_t syncInterval;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() = default;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             GemmCoord problemShape_,
             uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_,
@@ -143,6 +143,48 @@ public:
         }
     };
 
+    /// User-facing arguments
+    struct Arguments {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t epSize;
+        uint32_t expertNum;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrTokenPerExpert;
+        GM_ADDR ptrWorkspace;
+        GM_ADDR ptrSymmetric;
+        Catlass::MatrixCoord commBlockShape;
+        Catlass::MatrixCoord commTileShape;
+    };
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr) {
+        LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+        LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+        LayoutC layoutC{args.problemShape.m(), args.problemShape.n()};
+
+        uint32_t expertPerRank = args.expertNum / args.epSize;
+        uint32_t maxOutputSize = args.problemShape.m() * args.rankSize;
+
+        typename RemoteCommBlockEpilogue::TileRemoteCopy::Params tileParams{args.commTileShape};
+        RemoteCommParams remoteCommParams{args.commBlockShape, tileParams};
+        LocalCopyParams localCopyParams{};
+
+        return Params(
+            args.problemShape,
+            args.rankSize, expertPerRank, maxOutputSize,
+            args.rankIdx, args.rankSize,
+            args.ptrTokenPerExpert,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrC, layoutC,
+            args.ptrWorkspace, args.ptrSymmetric,
+            localCopyParams, remoteCommParams
+        );
+    }
+
     struct WorkspaceInfo {
         GM_ADDR ptrTempOut;
         GM_ADDR ptrcumsumMM;
@@ -164,7 +206,7 @@ public:
 
     template <int32_t CORE_TYPE = g_coreType>
     CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource);
+    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource = Catlass::Arch::Resource<ArchTag>());
 
     template <>
     CATLASS_DEVICE

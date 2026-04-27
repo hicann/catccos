@@ -15,8 +15,8 @@ EXAMPLES=(
     "allgather_matmul_dequant" 
     "allgather_matmul_dequant_bias" 
     "alltoallv_gmm_v2" 
-    # "alltoallv_grouped_matmul"
-    # "grouped_matmul_alltoallv"
+    "alltoallv_grouped_matmul"
+    "grouped_matmul_alltoallv"
     "matmul_allreduce" 
     "matmul_reduce_scatter"
 )
@@ -60,7 +60,7 @@ function fn_run_examples() {
 }
 
 function fn_run_cases_in_dynamic_tiling() {
-    cd "dynamic_tiling"
+    cd "../tests/dynamic_tiling"
 
     echo "Running cases for dynamic_tiling"
     bash scripts/build.sh > building_log.log 2>&1

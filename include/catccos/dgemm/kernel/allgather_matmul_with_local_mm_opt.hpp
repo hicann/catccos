@@ -73,10 +73,10 @@ public:
         CommSchedulerParams commSchedulerParams;
 
         // Methods
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() {}
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             GemmCoord const &problemShape_,
             uint32_t rank_, uint32_t rankSize_,
@@ -99,6 +99,46 @@ public:
         {
         }
     };
+
+    /// User API arguments
+    struct Arguments {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrSymmetric;
+        MatrixCoord commCoreSplit;
+        MatrixCoord commBlockShape;
+        MatrixCoord commTileShape;
+    };
+
+    static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    {
+        LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+        LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+        LayoutC layoutC{args.problemShape.m() * args.rankSize, args.problemShape.n(), args.problemShape.n()};
+
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        CommSchedulerParams commSchedulerParams{args.commCoreSplit};
+
+        return Params{
+            args.problemShape,
+            args.rankIdx, args.rankSize,
+            args.commInterval,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrC, layoutC,
+            args.ptrSymmetric,
+            blockCommParams,
+            commSchedulerParams
+        };
+    }
 
     // Methods
     CATLASS_DEVICE

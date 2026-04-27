@@ -73,10 +73,10 @@ public:
         BlockCommParams blockCommParams;
         BlockCommSchedulerParams blockCommSchedulerParams;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() = default;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             DistGemmCoord const &problemShape_, uint32_t rankIdx_, uint32_t rankSize_,
             uint32_t commInterval_,
@@ -97,6 +97,53 @@ public:
         {
         }
     };
+
+    /// User API arguments
+    struct Arguments {
+        GemmCoord problemShape;  // m (total, not per-rank), n, k
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrD;
+        GM_ADDR ptrSymmetric;
+        MatrixCoord commCoreSplit;
+        MatrixCoord commBlockShape;
+        MatrixCoord commTileShape;
+    };
+
+    static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    {
+        LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+        LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+        LayoutD layoutD{args.problemShape.m() / args.rankSize, args.problemShape.n()};
+
+        DistGemmCoord distProblemShape{
+            args.problemShape.m() / args.rankSize,
+            args.problemShape.n(),
+            args.problemShape.k(),
+            args.rankSize
+        };
+
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        BlockCommSchedulerParams blockCommSchedulerParams{args.commCoreSplit};
+
+        return Params{
+            distProblemShape,
+            args.rankIdx, args.rankSize,
+            args.commInterval,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrD, layoutD,
+            args.ptrSymmetric,
+            blockCommParams,
+            blockCommSchedulerParams
+        };
+    }
 
     CATLASS_DEVICE
     MatmulReduceScatter()

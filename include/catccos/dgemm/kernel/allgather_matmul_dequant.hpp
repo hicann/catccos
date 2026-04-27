@@ -91,11 +91,11 @@ public:
         uint32_t commInterval;
 
         // Methods
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params()
         {}
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             GemmCoord const &problemShape_,
             uint32_t rank_, uint32_t rankSize_,
@@ -120,6 +120,54 @@ public:
             commSchedulerParams(commSchedulerParams_),
             commInterval(commInterval_)
         {}
+    };
+
+    /// User-facing arguments (host-constructible)
+    struct Arguments {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrD;
+        GM_ADDR ptrScale;
+        GM_ADDR ptrWB;
+        GM_ADDR ptrSymmetric;
+        MatrixCoord commCoreSplit;
+        MatrixCoord commBlockShape;
+        MatrixCoord commTileShape;
+    };
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    {
+        uint32_t m = args.problemShape.m();
+        uint32_t n = args.problemShape.n();
+        uint32_t k = args.problemShape.k();
+
+        LayoutA layoutA{m, k};
+        LayoutB layoutB{k, n};
+        LayoutD layoutD{m * args.rankSize, n};
+        LayoutScale layoutScale{n};
+        LayoutWB layoutWB{};
+
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        CommSchedulerParams commSchedulerParams{args.commCoreSplit};
+
+        return Params(
+            args.problemShape,
+            args.rankIdx, args.rankSize,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrD, layoutD,
+            args.ptrScale, layoutScale,
+            args.ptrWB, layoutWB,
+            args.ptrSymmetric,
+            blockCommParams,
+            commSchedulerParams,
+            args.commInterval
+        );
     };
 
     // Methods

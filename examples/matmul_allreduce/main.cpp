@@ -15,15 +15,14 @@ using namespace Catccos;
 
 using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
-using LayoutC = Catlass::layout::RowMajor;
 using LayoutD = Catlass::layout::RowMajor;
-using LayoutA0 = Catlass::layout::RowMajor;
-using LayoutB0 = Catlass::layout::RowMajor;
 
 using ElementA = half;
 using ElementB = half;
-using ElementC = half;
 using ElementD = half;
+
+using Config = MatmulAllReduceConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD>;
+using DeviceOp = Config::Device;
 
 struct Options {
     static constexpr auto HELPER =
@@ -103,7 +102,6 @@ int main(int argc, char **argv)
     cocTiling.m = m;
     cocTiling.n = n;
     cocTiling.k = k;
-    COCMatMulInfo info{ int64_t(m), int64_t(k), int64_t(n) };
     cocTiling.m0 = 128;
     cocTiling.n0 = 256;
     cocTiling.k0 = 256;
@@ -138,14 +136,30 @@ int main(int argc, char **argv)
 
     uint8_t *aPtr = kernelParams.ptrA;
     uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
+    uint8_t *dPtr = kernelParams.ptrC;
+
+    // Construct DeviceDGemm Arguments
+    Catlass::GemmCoord problemShape{m, n, k};
+    Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+    Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+    Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+
+    DeviceOp::Arguments args{
+        problemShape,
+        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
+        cocTiling.commInterval,
+        aPtr, bPtr, dPtr, symmetricPtr,
+        commCoreSplit, commBlockShape, commTileShape
+    };
+
+    DeviceOp deviceOp;
+    deviceOp.Initialize(args);
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "Before calling MM_AR kernel " << std::endl;
+    uint64_t fftsAddr = shmemx_get_ffts_config();
     for (int i = 0; i < 1; i++) {
-        uint64_t fftsAddr = shmemx_get_ffts_config();
-        MatmulAllReduce<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, symmetricPtr, cocTiling);
+        deviceOp.Run(stream, BLOCK_NUM, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "After calling MM_AR kernel " << std::endl;

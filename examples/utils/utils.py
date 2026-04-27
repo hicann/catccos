@@ -13,8 +13,8 @@ import torch
 
 class DataType(IntEnum):
     FLOAT = 0
-    INT8 = 2
     FLOAT16 = 1
+    INT8 = 2
     BF16 = 27
 
     @classmethod

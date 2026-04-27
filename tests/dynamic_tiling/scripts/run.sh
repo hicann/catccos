@@ -16,10 +16,10 @@ set -e
 CURRENT_DIR=$(pwd)
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
-DATA_PATH=${PROJECT_ROOT}/examples/dynamic_tiling/output
-TILING_UTILS_PATH=${PROJECT_ROOT}/examples/dynamic_tiling/utils
+DATA_PATH=${PROJECT_ROOT}/tests/dynamic_tiling/output
+TILING_UTILS_PATH=${PROJECT_ROOT}/tests/dynamic_tiling/utils
 UTILS_PATH=${PROJECT_ROOT}/examples/utils
-PARENT_PATH=${PROJECT_ROOT}/examples/dynamic_tiling/
+PARENT_PATH=${PROJECT_ROOT}/tests/dynamic_tiling/
 
 # eg. 精度测试WARM_UP_TIMES设置成0, PERF_TEST_CYCLE_TIMES成1
 # eg. 性能测试WARM_UP_TIMES设置成10, PERF_TEST_CYCLE_TIMES成3
@@ -71,7 +71,7 @@ if [ $RANK_SIZE -gt 8 ]; then
     exit 1
 fi
 
-cd ${PROJECT_ROOT}/examples/dynamic_tiling/
+cd ${PROJECT_ROOT}/tests/dynamic_tiling/
 EXEC_BIN=${PROJECT_ROOT}/build/bin/dynamic_tiling
 
 if [ "$TEST_START_LINE" = "0" ]; then

@@ -2,4 +2,5 @@ catccos_example_add_executable(
     dispatch_gmm
     SOURCES main.cpp
     INCLUDES ../aux_ops ../aux_ops/moe_init_routing_v2
+    COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )

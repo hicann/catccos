@@ -31,6 +31,9 @@ using DefaultMoeConstraints = MoeConstraints<2, 8, 8>;
  
 struct AllToAllVAllGatherProblemShape {
     using UnderlyingProblemShape = GemmCoord;
+
+    CATLASS_HOST_DEVICE
+    AllToAllVAllGatherProblemShape() = default;
  
     CATLASS_HOST_DEVICE
     AllToAllVAllGatherProblemShape(
