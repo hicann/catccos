@@ -6,6 +6,12 @@ ORIGINAL_DIR=$(pwd)
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 trap 'cd "$ORIGINAL_DIR"' EXIT
 
+# Receive build options
+BUILD_OPTIONS="$*"
+if [ -n "$BUILD_OPTIONS" ]; then
+    echo "[INFO] Receiving build options: $BUILD_OPTIONS"
+fi
+
 # Configure CANN environment variables
 if [ -z "$ASCEND_HOME_PATH" ]; then
     echo "[WARN] ASCEND_HOME_PATH is not set."
@@ -46,7 +52,7 @@ SHMEM_PATH="${PROJECT_ROOT}/3rdparty/shmem"
 if [ -z $SHMEM_HOME_PATH ]; then
     cd "$SHMEM_PATH"
     if [ ! -d "$SHMEM_PATH/install" ]; then
-        bash scripts/build.sh || {
+        bash scripts/build.sh ${BUILD_OPTIONS} || {
             echo "[ERROR] Running build.sh in 3rdparty/shmem failed."
             exit 1
         }

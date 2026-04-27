@@ -41,9 +41,15 @@ function(catccos_example_add_executable TARGET)
         list(APPEND COMPILE_DEFS -D${DEF})
     endforeach()
 
+    if(CATLASS_BISHENG_ARCH STREQUAL "a5")
+        set(CCE_AICORE_ARCH_BASE dav-c310)
+    else()
+        set(CCE_AICORE_ARCH_BASE dav-c220)
+    endif()
+
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
-        COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c220 ${CATLASS_ARCH_FLAGS}
+        COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=${CCE_AICORE_ARCH_BASE} ${CATLASS_ARCH_FLAGS}
                         -mllvm -cce-aicore-stack-size=0x8000
                         -mllvm -cce-aicore-function-stack-size=0x8000
                         -mllvm -cce-aicore-record-overflow=true
@@ -96,6 +102,7 @@ foreach(EXAMPLE
     allgather_matmul_with_gather_result
     grouped_matmul_alltoallv
     grouped_matmul_alltoallv_tla
+    ascend950_grouped_matmul_alltoallv
     alltoallv_grouped_matmul
     allgather_matmul_dequant
     allgather_matmul_dequant_bias
