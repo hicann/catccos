@@ -42,6 +42,15 @@ def generate_constrained_row_sum_tensor(
     tensor[:, -1] = row_sum
     tensor[:, 1:] = tensor[:, 1:] - tensor[:, :-1]
     return tensor
+
+def generate_uniform_tokens_table(
+    row_sum: int,
+    size: tuple[int, int],
+    dtype: torch.dtype = torch.int32
+) -> torch.Tensor:
+    row, cols = size
+    tensor = torch.ones(size=size, dtype=torch.int32) * (row_sum // row)
+    return tensor
  
 def simulate_all_to_all_v_with_unpermute(
     output_list: list[torch.Tensor],
@@ -111,6 +120,7 @@ def generate_data(args: argparse.Namespace) -> None:
         tensor_to_file(global_tokens_per_expert[rank_idx], f"./output/local_tokens_per_expert_{rank_idx}.bin")
         tensor_to_file(global_tokens_per_local_expert_world[rank_idx],
                        f"./output/global_tokens_per_local_expert_{rank_idx}.bin")
+        tensor_to_file(global_tokens_per_expert, f"./output/global_tokens_per_expert_{rank_idx}.bin")
  
         output = unpermute_output_list[rank_idx]
         padding_output = torch.zeros(size=(rank_size * m, n), dtype=torch.float32)
