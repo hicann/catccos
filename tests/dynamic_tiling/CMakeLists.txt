@@ -78,6 +78,7 @@ add_subdirectory(impl)
 include_directories(
     ${ASCEND_HOME_PATH}/include/experiment/runtime
     ${ASCEND_HOME_PATH}/include/experiment/msprof
+    ${ASCEND_HOME_PATH}/aarch64-linux/pkg_inc
     ${ASCEND_HOME_PATH}/include ${CMAKE_SOURCE_DIR}/include
     ${SHMEM_HOME_PATH}/shmem/include
     ${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/host

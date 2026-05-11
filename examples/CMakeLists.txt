@@ -99,6 +99,7 @@ foreach(EXAMPLE
     matmul_allreduce
     allgather_matmul
     matmul_reduce_scatter
+    ascend950_matmul_reduce_scatter
     allgather_matmul_with_gather_result
     grouped_matmul_alltoallv
     grouped_matmul_alltoallv_tla
