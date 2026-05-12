@@ -11,3 +11,12 @@ catccos_example_add_executable(
     SOURCES main.cpp
     COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )
+
+# Compile wrapper to shared library for PyTorch extension
+if(CATCCOS_TORCH_EXTENSION)
+catccos_example_add_library(
+    allgather_matmul
+    SOURCES allgather_matmul_wrapper.cpp
+    COMPILE_DEFINITIONS CATLASS_ARCH=2201
+)
+endif()
