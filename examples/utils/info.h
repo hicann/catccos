@@ -10,11 +10,13 @@
 #ifndef INFO_H
 #define INFO_H
 
-#include "utils.h"
-#include <map>
 #include <acl/acl.h>
 #include <limits.h>
+
 #include <cmath>
+#include <map>
+
+#include "utils.h"
 
 static uint64_t SHMEM_MALLOC_MAX_SIZE = 1024UL * 1024UL * 1024;
 constexpr uint32_t M0 = 128;
@@ -38,9 +40,11 @@ constexpr int32_t INPUT_DTYPE = 2;
 
 using half = __fp16;
 
-enum CocCommType {
+enum CocCommType
+{
     MATMUL_ALLREDUCE = 0,
     ALLGATHER_MATMUL,
+    ALLGATHER_MATMUL_ASCEND950,
     MATMUL_REDUCE_SCATTER,
     ASCEND950_MATMUL_REDUCE_SCATTER,
     ALLGATHER_MATMUL_WITH_GATHER_RESULT,
@@ -57,13 +61,15 @@ enum CocCommType {
     UNKNOWN
 };
 
-enum CocDataType {
+enum CocDataType
+{
     FP16 = 1,
     INT8 = 2,
     BF16 = 27
 };
 
-struct CocTilingParams {
+struct CocTilingParams
+{
     uint32_t m = 0;
     uint32_t k = 0;
     uint32_t n = 0;
@@ -83,47 +89,54 @@ struct CocTilingParams {
     uint32_t topK = 1;
 };
 
-struct COCMatMulInfo{
+struct COCMatMulInfo
+{
     int64_t m;
     int64_t k;
     int64_t n;
 };
 
-struct KernelParams {
+struct KernelParams
+{
     uint8_t *ptrA;
     uint8_t *ptrB;
     uint8_t *ptrC;
     uint8_t **customPtrs;
     uint32_t customCount;
 
-    KernelParams() : ptrA(nullptr), ptrB(nullptr), ptrC(nullptr), 
-                         customPtrs(nullptr), customCount(0) {}
+    KernelParams() : ptrA(nullptr), ptrB(nullptr), ptrC(nullptr), customPtrs(nullptr), customCount(0) {}
 
-    template<typename... Args>
-    void SetKernelParams(uint8_t *a, uint8_t *b, uint8_t *c, Args... args) {
+    template <typename... Args>
+    void SetKernelParams(uint8_t *a, uint8_t *b, uint8_t *c, Args... args)
+    {
         ptrA = a;
         ptrB = b;
         ptrC = c;
 
         const int argsCount = sizeof...(args);
         customCount = argsCount;
-    
-        if (customPtrs != nullptr) {
+
+        if (customPtrs != nullptr)
+        {
             ACL_CHECK(aclrtFreeHost(customPtrs));
         }
-    
-        if (argsCount > 0) {
+
+        if (argsCount > 0)
+        {
             ACL_CHECK(aclrtMallocHost((void **)(&customPtrs), argsCount * sizeof(uint8_t *)));
             uint8_t *pointers[] = {args...};
-    
-            for (size_t i = 0; i < argsCount; ++i) {
+
+            for (size_t i = 0; i < argsCount; ++i)
+            {
                 customPtrs[i] = pointers[i];
             }
         }
     }
-    
-    ~KernelParams() {
-        if (customPtrs != nullptr) {
+
+    ~KernelParams()
+    {
+        if (customPtrs != nullptr)
+        {
             ACL_CHECK(aclrtFreeHost(customPtrs));
         }
     }
@@ -137,7 +150,8 @@ inline void FreeDeviceSpace(KernelParams &params)
     params.ptrA = nullptr;
     params.ptrB = nullptr;
     params.ptrC = nullptr;
-    for (uint32_t i = 0; i < params.customCount; i++) {
+    for (uint32_t i = 0; i < params.customCount; i++)
+    {
         ACL_CHECK(aclrtFree(params.customPtrs[i]));
     }
 }
@@ -146,6 +160,7 @@ inline void FreeDeviceSpace(KernelParams &params)
 const std::map<std::string, CocCommType> CommTypeMap = {
     {"mmar", CocCommType::MATMUL_ALLREDUCE},
     {"agmm", CocCommType::ALLGATHER_MATMUL},
+    {"agmma5", CocCommType::ALLGATHER_MATMUL_ASCEND950},
     {"mmrs", CocCommType::MATMUL_REDUCE_SCATTER},
     {"a5mmrs", CocCommType::ASCEND950_MATMUL_REDUCE_SCATTER},
     {"agmmwg", CocCommType::ALLGATHER_MATMUL_WITH_GATHER_RESULT},
@@ -160,36 +175,40 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     // 新增算子继续添加...
 };
 
-inline CocCommType GetCommType(const std::string& kernelName) {
+inline CocCommType GetCommType(const std::string &kernelName)
+{
     auto it = CommTypeMap.find(kernelName);
-    if (it != CommTypeMap.end()) {
+    if (it != CommTypeMap.end())
+    {
         return it->second;
     }
     return CocCommType::UNKNOWN;
 }
 
 const std::map<CocCommType, std::string> CommTypeOpNameMap = {
-    { MATMUL_ALLREDUCE, "MatmulAllReduce" },
-    { ALLGATHER_MATMUL, "AllGatherMatmul" },
-    { MATMUL_REDUCE_SCATTER, "MatmulReduceScatter" },
-    { ASCEND950_MATMUL_REDUCE_SCATTER, "Ascend950MatmulReduceScatter" },
-    { ALLGATHER_MATMUL_WITH_GATHER_RESULT, "AllGatherMatmulWithGatherResult" },
-    { GROUPED_MATMUL_ALLTOALLV, "GroupedMatmulAllToAllV" },
-    { GROUPED_MATMUL_ALLTOALLV_TLA, "GroupedMatmulAllToAllVTla" },
-    { ASCEND950_GROUPED_MATMUL_ALLTOALLV, "Ascend950GroupedMatmulAllToAllV" },
-    { ALLTOALLV_GROUPED_MATMUL, "AllToAllVGroupedMatmul" },
-    { ALLGATHER_MATMUL_RDMA, "AllGatherMatmulRdma" },
-    { ALLTOALLV_GMM_V2, "AllToAllVGMMV2" },
-    { ALLGATHER_MATMUL_DEQUANT, "AllGatherMatmulDequant" },
-    { ALLGATHER_MATMUL_DEQUANT_BIAS, "AllGatherMatmulDequantBias" },
+    {MATMUL_ALLREDUCE, "MatmulAllReduce"},
+    {ALLGATHER_MATMUL, "AllGatherMatmul"},
+    {ALLGATHER_MATMUL_ASCEND950, "AllGatherMatmulAscend950"},
+    {MATMUL_REDUCE_SCATTER, "MatmulReduceScatter"},
+    {ASCEND950_MATMUL_REDUCE_SCATTER, "Ascend950MatmulReduceScatter"},
+    {ALLGATHER_MATMUL_WITH_GATHER_RESULT, "AllGatherMatmulWithGatherResult"},
+    {GROUPED_MATMUL_ALLTOALLV, "GroupedMatmulAllToAllV"},
+    {GROUPED_MATMUL_ALLTOALLV_TLA, "GroupedMatmulAllToAllVTla"},
+    {ASCEND950_GROUPED_MATMUL_ALLTOALLV, "Ascend950GroupedMatmulAllToAllV"},
+    {ALLTOALLV_GROUPED_MATMUL, "AllToAllVGroupedMatmul"},
+    {ALLGATHER_MATMUL_RDMA, "AllGatherMatmulRdma"},
+    {ALLTOALLV_GMM_V2, "AllToAllVGMMV2"},
+    {ALLGATHER_MATMUL_DEQUANT, "AllGatherMatmulDequant"},
+    {ALLGATHER_MATMUL_DEQUANT_BIAS, "AllGatherMatmulDequantBias"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)
 {
-    if (div == 0) {
+    if (div == 0)
+    {
         return 0;
     }
     return (num + div - 1) / div;
 }
 
-#endif // INFO_H
+#endif  // INFO_H

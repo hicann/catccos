@@ -49,7 +49,7 @@ function(catccos_example_add_executable TARGET)
         list(APPEND COMPILE_DEFS -D${DEF})
     endforeach()
 
-    if(CATLASS_BISHENG_ARCH STREQUAL "a5")
+    if("${CATLASS_BISHENG_ARCH}" STREQUAL "a5")
         set(CCE_AICORE_ARCH_BASE dav-c310)
     else()
         set(CCE_AICORE_ARCH_BASE dav-c220)
@@ -207,6 +207,7 @@ endif()
 foreach(EXAMPLE
     matmul_allreduce
     allgather_matmul
+    allgather_matmul_ascend950
     matmul_reduce_scatter
     ascend950_matmul_reduce_scatter
     allgather_matmul_with_gather_result
