@@ -89,7 +89,7 @@ for (int blockCluster = 0; blockCluster < commLoops; blockCluster++) {
         for (int tile = 0; tile < tileLoops; tile++) {
 
             // Catccos::Comm::Tile
-            // TileMmad使用指令shmem_mte_get/put_mem_nbi
+            // Tile使用指令shmem_mte_get/put_mem_nbi
             for (int tileRepeat = 0; tileRepeat < r; tileRepeat++) {
                 for (int tileLength = 0; tileLength < l; tileLength++) {
                     dataCopy.call(dst, src);
