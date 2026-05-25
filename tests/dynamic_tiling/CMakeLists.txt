@@ -6,9 +6,18 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
+# Profiling option (default OFF)
+option(ENABLE_TIMER "Enable AscendTimer profiling instrumentation" OFF)
+
+set(PROFILING_FLAGS "")
+if(ENABLE_TIMER)
+    set(PROFILING_FLAGS -DENABLE_TIMER --cce-aicore-block-local-init)
+endif()
+
 # Compile kernel
 set(CCEC_COMPILER_OPTIONS
     -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c220
+    ${PROFILING_FLAGS}
     -mllvm -cce-aicore-stack-size=0x8000
     -mllvm -cce-aicore-function-stack-size=0x8000
     -mllvm -cce-aicore-record-overflow=true
@@ -21,7 +30,9 @@ set(LIB_OPTIONS
 set(INCLUDE_DIR
     -I${CMAKE_SOURCE_DIR}/include
     -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
+    -I${CMAKE_SOURCE_DIR}/tools
     -I${CMAKE_SOURCE_DIR}/examples/utils
+    -I${CMAKE_SOURCE_DIR}/examples/tools
     -I${CMAKE_SOURCE_DIR}/examples
     -I${ASCEND_HOME_PATH}/include
     -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
@@ -47,6 +58,13 @@ set(LINK_LIB
     -Wl,-rpath,${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     -lruntime -lstdc++ -lascendcl
     -lmf_smem -lmf_hybm_core -lshmem
+    -lgraph_base -ltiling_api -lplatform -lregister
+)
+set(KERNEL_LINK_LIB
+    -L${ASCEND_HOME_PATH}/lib64
+    -Wl,-rpath,${ASCEND_HOME_PATH}/lib64
+    -lruntime -lstdc++ -lascendcl
+    -lgraph_base -ltiling_api -lplatform -lregister
 )
 file(GLOB_RECURSE CATLASS_DEPEND_FILES ${CMAKE_SOURCE_DIR}/include/**.hpp)
 
@@ -65,7 +83,7 @@ function(add_impl_share_lib NAME)
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
         COMMAND ${CCEC} ${CCEC_COMPILER_OPTIONS} ${EXTRA_DEFS} ${LIB_OPTIONS} ${INCLUDE_DIR}
-            ${NAME}.cpp -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
+            ${NAME}.cpp ${KERNEL_LINK_LIB} -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "Compiling shared library: lib${NAME}.so with defs: ${ARG_COMPILE_DEFINITIONS}"
     )
@@ -100,7 +118,10 @@ target_include_directories(tiling_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tiling)
 target_compile_options(tiling_lib PRIVATE -O3)
 
 add_executable(dynamic_tiling main.cpp)
-target_link_libraries(dynamic_tiling tiling_lib runtime ascendcl shmem ${SHARE_LIB_LINK})
+if(ENABLE_TIMER)
+    target_compile_definitions(dynamic_tiling PRIVATE ENABLE_TIMER)
+endif()
+target_link_libraries(dynamic_tiling tiling_lib ${SHARE_LIB_LINK} runtime ascendcl shmem graph_base tiling_api platform register)
 target_compile_options(dynamic_tiling PRIVATE -O3)
 set_target_properties(dynamic_tiling PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}

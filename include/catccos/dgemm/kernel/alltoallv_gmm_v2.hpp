@@ -20,6 +20,9 @@
 #include "catlass/matrix_coord.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
 #include "catlass/detail/callback.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 #include "shmem.h"
 #include "kernel_operator.h"
@@ -199,9 +202,24 @@ public:
     CATLASS_DEVICE
     AlltoallvGMMKernel()
     {   
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         flagAivFinishCumsum = Catlass::Arch::CrossCoreFlag(0);
         flagAicFinishStore = Catlass::Arch::CrossCoreFlag(4);
         
+    }
+
+    CATLASS_DEVICE
+    ~AlltoallvGMMKernel()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -212,7 +230,6 @@ public:
     CATLASS_DEVICE
     void operator()<AscendC::AIC>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
     {
-        // cube_guard();
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
 
@@ -411,6 +428,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAivFinishCumsum;
     Catlass::Arch::CrossCoreFlag flagAicFinishStore;
     Catlass::Arch::CrossCoreFlag flagAivFinishComm;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 }
 

@@ -183,6 +183,8 @@ else
         (( IDX+=1 ))
     done
     python3 ${TILING_UTILS_PATH}/get_best_result.py "${CSV_FILE}"
+
+    python3 ${TILING_UTILS_PATH}/process.py "./output_timer/" "${KERNEL_NAME}"
 fi
 
 cd ${CURRENT_DIR}

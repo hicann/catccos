@@ -18,6 +18,9 @@
  
 #include "catccos/catccos.hpp"
 #include "catccos/layout/dist_matrix.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
  
 namespace Catccos::DGemm::Kernel {
  
@@ -144,12 +147,27 @@ public:
     CATLASS_DEVICE
     AllToAllVGroupedMatmul()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishComm[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
     }
- 
+
+    CATLASS_DEVICE
+    ~AllToAllVGroupedMatmul()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
+    }
+
     template <int32_t CORE_TYPE = g_coreType>
     CATLASS_DEVICE
     void operator()(Params const &params);
@@ -181,9 +199,12 @@ public:
             scheduler.UpdateCommContext(commIdx);
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
             auto const &gmSymmetric = gmSymmetricList[stageIdx];
- 
+
             Catlass::Arch::CrossCoreWaitFlag(flagAivFinishComm[stageIdx]);
- 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
+
             for (uint32_t localExpertIdx = 0; localExpertIdx < params.problemShape.localExpertNum(); ++localExpertIdx) {
                 auto const &layoutB = params.layoutB;
                 AscendC::GlobalTensor<ElementB> gmB;
@@ -220,10 +241,13 @@ public:
                 }
             }
  
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageIdx]);
         }
     }
- 
+
     template <>
     CATLASS_DEVICE
     void operator()<AscendC::AIV>(Params const &params)
@@ -275,6 +299,9 @@ public:
                 Catlass::Arch::CrossCoreWaitFlag(flagAicFinishStore[stageIdx]);
                 Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
             }
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
             // 选择唯一的 aicore，将当前 rank 的 syncMmadFinish 设置为 commIdx + 1，表示上一个通信轮次计算任务已完成
             if (isRootCore) {
                 aclshmemx_signal_op(syncMmadFinish, commIdx + 1, ACLSHMEM_SIGNAL_SET, rankIdx);
@@ -317,6 +344,9 @@ public:
             }
             // 等待当前通信轮次下数据接收完成后，所有的 aic 通知 aiv 开始计算本轮的
             Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishComm[stageIdx]);
         }
         blockRemoteCopy.FinalizeBlockLoop();
@@ -326,6 +356,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishComm[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
  
 }  // namespace Catccos::DGemm::Kernel

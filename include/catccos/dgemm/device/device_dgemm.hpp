@@ -11,10 +11,12 @@
 #ifndef CATCCOS_DGEMM_DEVICE_DEVICE_DGEMM_HPP
 #define CATCCOS_DGEMM_DEVICE_DEVICE_DGEMM_HPP
 
+#include <cstddef>
 #include <acl/acl.h>
 #include "catlass/catlass.hpp"
 #include "catlass/status.hpp"
-#include "catlass/detail/kernel_adapter.hpp"
+#include "kernel_adapter.hpp"
+#include "AscendTimer_host.hpp"
 
 namespace Catccos::DGemm::Device {
 
@@ -22,46 +24,98 @@ template <class DGemmKernel>
 class DeviceDGemm {
 public:
     using Kernel = DGemmKernel;
-    /// Argument structure: User API
     using Arguments = typename DGemmKernel::Arguments;
-    /// Argument structure: Kernel API
     using Params = typename DGemmKernel::Params;
 
 private:
-    /// kernel API parameters object
     Params params_;
+    uint8_t* timerBuffer_ = nullptr;
+    size_t timerBufferSize_ = 0;
 
 public:
     DeviceDGemm() {}
-    ~DeviceDGemm() {}
+    ~DeviceDGemm() {
+        if (timerBuffer_ != nullptr){
+            aclrtFree(timerBuffer_);
+            timerBuffer_ = nullptr;
+            timerBufferSize_ = 0;
+        }
+    }
 
-    /// Access the Params structure
     Params const &params() const
     {
         return params_;
     }
 
-    /// Gets the workspace size
     static size_t GetWorkspaceSize(Arguments const &args)
     {
         return DGemmKernel::GetWorkspaceSize(args);
     }
 
-    /// Initializes DGemm state from arguments
     Catlass::Status Initialize(Arguments const &args, uint8_t *workspace = nullptr)
     {
         params_ = DGemmKernel::ToUnderlyingArguments(args, workspace);
         return Catlass::Status::kSuccess;
     }
 
-    /// Primary run() entry point API
+    void ExportTimerCsv() {
+#ifdef ENABLE_TIMER
+        if (timerBuffer_ == nullptr) {
+            fprintf(stderr, "timerBuffer_ is nullptr, returning\n");
+            return;
+        }
+
+        int rankIdInt = shmem_my_pe();
+        uint32_t rankId = (rankIdInt >= 0) ? static_cast<uint32_t>(rankIdInt) : 0;
+
+        size_t timerBufferSize = AscendTimerHost::GetTotalTimerBufferSize() * sizeof(int64_t);
+        if (timerBufferSize == 0) return;
+
+        std::string out_dir = "output_timer";
+        mkdir(out_dir.c_str(), 0777);
+        std::string csv_path = out_dir + "/timer_rank_" + std::to_string(rankId) + ".csv";
+
+        auto time_result = AscendTimerHost::GetTimeResult(timerBuffer_);
+        std::string data_dir = out_dir + "/data";
+        mkdir(data_dir.c_str(), 0777);
+        std::string raw_csv_path = data_dir + "/timer_rank_" + std::to_string(rankId) + "_timeline.csv";
+        std::string dur_csv_path = out_dir + "/timer_rank_" + std::to_string(rankId) + ".csv";
+        AscendTimerHost::WriteAllTimerResults(raw_csv_path, dur_csv_path, time_result);
+        fprintf(stderr, "[Timer] Raw CSV: %s\n", raw_csv_path.c_str());
+        fprintf(stderr, "[Timer] Duration CSV: %s\n", dur_csv_path.c_str());
+#endif
+    }
+
     inline Catlass::Status Run(aclrtStream stream, uint32_t blockDim, uint64_t fftsAddr)
     {
-        if (fftsAddr == 0) {
-            Catlass::KernelAdapter<DGemmKernel><<<blockDim, nullptr, stream>>>(params_);
-        } else {
-            Catlass::KernelAdapter<DGemmKernel><<<blockDim, nullptr, stream>>>(params_, fftsAddr);
+#ifdef ENABLE_TIMER
+        (void)AscendTimerHost::GetPlatformCoreNum();
+        AscendTimerHost::ConfigureCoreNum(static_cast<int>(blockDim));
+        size_t timerBufferSize = AscendTimerHost::GetTotalTimerBufferSize() * sizeof(int64_t);
+        
+        if (timerBufferSize > timerBufferSize_ && timerBuffer_ != nullptr) {
+            aclrtFree(timerBuffer_);
+            timerBuffer_ = nullptr;
+            timerBufferSize_ = 0;
         }
+
+        if (timerBufferSize > 0 && timerBuffer_ == nullptr) {
+            ACL_CHECK(aclrtMalloc(reinterpret_cast<void **>(&timerBuffer_), timerBufferSize, ACL_MEM_MALLOC_HUGE_FIRST));
+            timerBufferSize_ = timerBufferSize;
+        }
+#endif
+
+        if (fftsAddr == 0) {
+            KernelAdapter<DGemmKernel><<<blockDim, nullptr, stream>>>(params_, timerBuffer_);
+        } else {
+            KernelAdapter<DGemmKernel><<<blockDim, nullptr, stream>>>(params_, fftsAddr, timerBuffer_);
+        }
+        
+        ACL_CHECK(aclrtSynchronizeStream(stream));
+#ifdef ENABLE_TIMER
+        ExportTimerCsv();
+#endif
+
         return Catlass::Status::kSuccess;
     }
 

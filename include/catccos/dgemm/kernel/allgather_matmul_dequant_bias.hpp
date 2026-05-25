@@ -17,6 +17,9 @@
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
 #include "catccos/comm/comm_dispatch_policy.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 namespace Catccos::DGemm::Kernel {
 
@@ -162,10 +165,25 @@ public:
     CATLASS_DEVICE
     AllGatherDequantMatmulBias()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t i = 0; i < WORKSPACE_STAGES; ++i) {
             flagAicFinishStore[i] = Catlass::Arch::CrossCoreFlag(i);    // 将id设置为0,1... (WORKSPACE_STAGES-1)
             flagAivFinishCompute[i] = Catlass::Arch::CrossCoreFlag(i);
         }
+    }
+
+    CATLASS_DEVICE
+    ~AllGatherDequantMatmulBias()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -216,6 +234,9 @@ public:
             uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
             Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
             for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum) {
                 auto blockOffset = mmadScheduler.GetBlockOffset(loopIdx);
                 auto actualBlockShape = mmadScheduler.GetActualBlockShapeByOffset(blockOffset);
@@ -245,8 +266,10 @@ public:
                     gmBias[offsetBias],
                     actualBlockShape.GetCoordMNK());
             }
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
-
         }
         AscendC::PipeBarrier<PIPE_ALL>();
     }
@@ -298,6 +321,10 @@ public:
 
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
+
             blockRemoteCopy.InitBlockLoop();
             if (subcoreIdx == 0 && aicoreIdx < commAicoreNum) {
                 for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum) {
@@ -329,6 +356,9 @@ public:
             aclshmemx_barrier_all_vec();
 
             // set aic
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageId]);
         }
     }
@@ -338,6 +368,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 
 }  // namespace Catccos::DGemm::Kernel

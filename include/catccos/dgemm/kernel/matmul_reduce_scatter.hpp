@@ -18,6 +18,9 @@
 #include "catlass/arch/cross_core_sync.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 namespace Catccos::DGemm::Kernel {
 
@@ -148,10 +151,25 @@ public:
     CATLASS_DEVICE
     MatmulReduceScatter()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
+    }
+
+    CATLASS_DEVICE
+    ~MatmulReduceScatter()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -196,6 +214,9 @@ public:
             if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageIdx]);
             }
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
 
             uint32_t actualBlockPerComm = (commIdx == commLoops - 1) ?
                 (coreLoops - blockPerComm * commIdx) : blockPerComm;
@@ -239,6 +260,9 @@ public:
                     actualBlockShape
                 );
             }
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageIdx]);
         }
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -274,7 +298,7 @@ public:
             {params.problemShape, L1TileShape::ToCoordMN()});
         
         uint32_t commLoops = commScheduler.GetCommLoops();
-        
+
         for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
             auto const &gmSymmetric = gmSymmetricList[stageIdx];
@@ -284,6 +308,9 @@ public:
 
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
             AscendC::SetAtomicAdd<ElementD>();
             AscendC::PipeBarrier<PIPE_ALL>();
             blockRemoteCopy.InitBlockLoop();
@@ -322,6 +349,9 @@ public:
 
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             if (commIdx < commLoops - WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageIdx]);
             }
@@ -332,6 +362,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 
 }  // namespace Catccos::DGemm::Kernel

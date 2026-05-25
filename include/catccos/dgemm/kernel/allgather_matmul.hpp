@@ -17,6 +17,9 @@
 #include "catlass/arch/cross_core_sync.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 namespace Catccos::DGemm::Kernel {
 
@@ -73,10 +76,10 @@ public:
         CommSchedulerParams commSchedulerParams;
 
         // Methods
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() {}
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             GemmCoord const &problemShape_,
             uint32_t rank_, uint32_t rankSize_,
@@ -100,14 +103,69 @@ public:
         }
     };
 
+     /// User API arguments
+     struct Arguments {
+         GemmCoord problemShape;
+         uint32_t rankIdx;
+         uint32_t rankSize;
+         uint32_t commInterval;
+         GM_ADDR ptrA;
+         GM_ADDR ptrB;
+         GM_ADDR ptrC;
+         GM_ADDR ptrSymmetric;
+         MatrixCoord commCoreSplit;
+         MatrixCoord commBlockShape;
+         MatrixCoord commTileShape;
+     };
+
+     static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+
+     static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+     {
+         LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+         LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+         LayoutC layoutC{args.problemShape.m() * args.rankSize, args.problemShape.n(), args.problemShape.n()};
+
+         typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+         BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+         CommSchedulerParams commSchedulerParams{args.commCoreSplit};
+
+         return Params{
+             args.problemShape,
+             args.rankIdx, args.rankSize,
+             args.commInterval,
+             args.ptrA, layoutA,
+             args.ptrB, layoutB,
+             args.ptrC, layoutC,
+             args.ptrSymmetric,
+             blockCommParams,
+             commSchedulerParams
+         };
+     }
+
     // Methods
     CATLASS_DEVICE
     AllGatherMatmul()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t stageIdx = 0; stageIdx< WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
+    }
+
+    CATLASS_DEVICE
+    ~AllGatherMatmul()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -158,6 +216,9 @@ public:
 
             // wait aiv
             Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
 
             for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum) {
                 auto blockOffset = mmadScheduler.GetBlockOffset(loopIdx);
@@ -166,7 +227,7 @@ public:
                 uint32_t srcRankIdx = blockOffset.rank();
                 MatrixCoord commOffsetA{layoutSymmetricRow(Catlass::MakeCoord<int>(stageId, srcRankIdx, 0)), 0};
                 MatrixCoord commOffsetC{layoutCRow(Catlass::MakeCoord<int>(srcRankIdx, commIdx, 0)), 0};
-                
+
                 auto offsetA = commOffsetA + blockOffset.GetCoordMK();
                 auto offsetB = blockOffset.GetCoordKN();
                 auto offsetC = commOffsetC + blockOffset.GetCoordMN();
@@ -181,7 +242,9 @@ public:
                     gmBlockC, layoutC,
                     actualBlockShape.GetCoordMNK());
             }
-
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
         }
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -235,13 +298,16 @@ public:
 
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
             blockRemoteCopy.InitBlockLoop();
             if (subcoreIdx == 0 && aicoreIdx < commAicoreNum) {
                 for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum) {
                     DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
                     MatrixCoord blockOffsetInRank = commScheduler.GetBlockOffsetInRank(commBlockCoord.GetCoordInRank());
                     MatrixCoord actualCommBlockShape = commScheduler.GetActualBlockShapeByOffset(blockOffsetInRank);
-                    
+
                     uint32_t remoteRankIdx = commBlockCoord.rank();
 
                    auto offsetSrc = commSrcOffset + blockOffsetInRank;
@@ -265,6 +331,9 @@ public:
             aclshmemx_barrier_all_vec();
 
             // set aic
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageId]);
         }
 
@@ -275,6 +344,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 
 } // namespace Catccos::Gemm::Kernel

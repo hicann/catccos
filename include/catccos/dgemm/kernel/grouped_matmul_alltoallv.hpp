@@ -17,6 +17,9 @@
 #include "catccos/catccos.hpp"
 #include "catccos/symm_coord.hpp"
 #include "catccos/layout/dist_matrix.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 namespace Catccos::DGemm::Kernel {
 
@@ -151,10 +154,25 @@ public:
     CATLASS_DEVICE
     GroupedMatmulAllToAllV()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishComm[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
+    }
+
+    CATLASS_DEVICE
+    ~GroupedMatmulAllToAllV()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -192,6 +210,9 @@ public:
             if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAivFinishComm[stageIdx]);
             }
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
 
             for (uint32_t localExpertIdx = 0; localExpertIdx < params.problemShape.localExpertNum(); ++localExpertIdx) {
                 scheduler.UpdateLocalExpertContext(localExpertIdx);
@@ -228,6 +249,9 @@ public:
                 mmad.SynchronizeBlock();
             }
             
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageIdx]);
         }
     }
@@ -286,6 +310,9 @@ public:
             Catlass::Arch::CrossCoreWaitFlag(flagAicFinishStore[stageIdx]);
             Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
             if (isSyncCore) {
                 aclshmemx_signal_op(syncMmadFinish, commIdx + 1, ACLSHMEM_SIGNAL_SET, rankIdx);
             }
@@ -331,6 +358,9 @@ public:
                 aclshmem_signal_wait_until(syncCommFinish, ACLSHMEM_CMP_EQ, receiveAccum);
             }
             Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishComm[stageIdx]);
         }
     }
@@ -339,6 +369,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishComm[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 
 }  // namespace Catccos::DGemm::Kernel

@@ -16,6 +16,8 @@ set(CATCCOS_TORCH_SUPPORTED
 
 add_custom_target(catccos_examples)
 
+option(ENABLE_TIMER "Enable AscendTimer profiling instrumentation" OFF)
+
 function(catccos_example_add_executable TARGET)
     set(OPTIONS)
     set(ONE_VALUE_ARGS)
@@ -49,6 +51,11 @@ function(catccos_example_add_executable TARGET)
         list(APPEND COMPILE_DEFS -D${DEF})
     endforeach()
 
+    set(PROFILING_FLAGS "")
+    if(ENABLE_TIMER)
+        set(PROFILING_FLAGS -DENABLE_TIMER --cce-aicore-block-local-init)
+    endif()
+
     if("${CATLASS_BISHENG_ARCH}" STREQUAL "a5")
         set(CCE_AICORE_ARCH_BASE dav-c310)
     else()
@@ -58,6 +65,7 @@ function(catccos_example_add_executable TARGET)
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
         COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=${CCE_AICORE_ARCH_BASE} ${CATLASS_ARCH_FLAGS}
+                        ${PROFILING_FLAGS}
                         -mllvm -cce-aicore-stack-size=0x8000
                         -mllvm -cce-aicore-function-stack-size=0x8000
                         -mllvm -cce-aicore-record-overflow=true
@@ -70,6 +78,7 @@ function(catccos_example_add_executable TARGET)
                         -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
                         -I${CMAKE_SOURCE_DIR}/examples
                         -I${CMAKE_SOURCE_DIR}/examples/utils
+                        -I${CMAKE_SOURCE_DIR}/tools
                         -I${ASCEND_HOME_PATH}/include
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/impl

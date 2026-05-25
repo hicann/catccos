@@ -17,6 +17,9 @@
 #include "catlass/arch/cross_core_sync.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 namespace Catccos::DGemm::Kernel {
 
@@ -154,10 +157,25 @@ public:
     CATLASS_DEVICE
     MatmulAllReduce()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t i = 0; i < WORKSPACE_STAGES; ++i) {
             flagAicFinishStore[i] = Catlass::Arch::CrossCoreFlag(i);
             flagAivFinishCompute[i] = Catlass::Arch::CrossCoreFlag(i);
         }
+    }
+
+    CATLASS_DEVICE
+    ~MatmulAllReduce()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -200,10 +218,13 @@ public:
 
         for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;
-            
+
             if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
             }
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
 
             uint32_t commBlockOffset = commIdx * blockPerComm;
             for (
@@ -233,7 +254,9 @@ public:
                     actualBlockShape
                 );
             }
-
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
         }
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -294,6 +317,9 @@ public:
             // Local matmul is completed, waiting until tasks on all devices are complete.
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
             AscendC::SetAtomicAdd<ElementD>();
             AscendC::PipeBarrier<PIPE_ALL>();
             reduceScatter.InitBlockLoop();
@@ -391,6 +417,9 @@ public:
             // AllGather is completed, waiting until tasks on all devices are complete.
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageId]);
         }
     }
@@ -400,6 +429,9 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 
 } // namespace Catco::DGemm::Kernel
