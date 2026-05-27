@@ -153,6 +153,11 @@ public:
         LayoutD layoutD{m * args.rankSize, n};
         LayoutScale layoutScale{n};
         LayoutWB layoutWB{};
+        if constexpr (std::is_void_v<PrologueB>) {
+            layoutWB = LayoutWB{k, n};
+        } else {
+            layoutWB = LayoutWB{k, n, L1TileShape::K, L1TileShape::N};
+        }
 
         typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
         BlockCommParams blockCommParams{args.commBlockShape, tileParams};
