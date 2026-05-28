@@ -25,8 +25,8 @@
 #include "torch_register.h"
 #include "catccos_torch_kernel.h"
 #include "utils.h"
-#include "utils/shmem_init.h"
-#include "utils/info.h"
+#include "shmem_init.h"
+#include "info.h"
 
 
 using half = __fp16;

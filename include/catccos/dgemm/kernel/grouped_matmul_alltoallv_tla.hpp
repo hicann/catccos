@@ -17,9 +17,6 @@
 #include "catccos/catccos.hpp"
 #include "catccos/symm_coord.hpp"
 #include "catccos/layout/dist_matrix.hpp"
-#ifdef ENABLE_TIMER
-#include "AscendTimer_device.hpp"
-#endif
 
 namespace Catccos::DGemm::Kernel {
 
@@ -36,22 +33,25 @@ template <
 >
 class GroupedMatmulAllToAllVTla {
 public:
-    using ProblemShape = ProblemShape_; 
+    using ProblemShape = ProblemShape_;
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
     using L1TileShape = typename BlockMmad::L1TileShape;
     using ElementA = typename BlockMmad::ElementA;
-    using LayoutA = typename BlockMmad::LayoutA;
     using ElementB = typename BlockMmad::ElementB;
-    using LayoutB = typename BlockMmad::LayoutB;
     using ElementC = typename BlockMmad::ElementC;
+    using LayoutTagA = typename BlockMmad::TileCopy::LayoutTagA;
+    using LayoutTagB = typename BlockMmad::TileCopy::LayoutTagB;
+    using LayoutTagC = typename BlockMmad::TileCopy::LayoutTagC;
+    using LayoutA = typename BlockMmad::LayoutA;
+    using LayoutB = typename BlockMmad::LayoutB;
     using LayoutC = typename BlockMmad::LayoutC;
 
     using BlockComm = BlockComm_;
     using BlockCommParams = typename BlockComm::Params;
 
     using ElementComm = typename BlockComm::ElementSrc;
-    using LayoutComm = typename BlockComm::LayoutSrc;
+    using LayoutTagComm = typename BlockComm::LayoutSrc;
 
     using BlockMmadScheduler = BlockMmadScheduler_;
     using BlockCommScheduler = BlockCommScheduler_;
@@ -73,20 +73,20 @@ public:
         LayoutB layoutB;
         __gm__ ElementC *ptrC;
         LayoutC layoutC;
-        LayoutComm layoutComm;
+        LayoutTagComm layoutTagComm;
         GM_ADDR ptrSymmetric;
         GM_ADDR syncMmadFinish;
         GM_ADDR syncCommFinish;
         BlockCommParams blockCommParams;
         BlockCommSchedulerParams blockCommSchedulerParams;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() = default;
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(
             ProblemShape const &problemShape_, uint32_t commInterval_,
-            LayoutComm layoutComm_,
+            LayoutTagComm layoutTagComm_,
             GM_ADDR ptrA_, LayoutA const &layoutA_,
             GM_ADDR ptrB_, LayoutB const &layoutB_,
             GM_ADDR ptrC_, LayoutC const &layoutC_,
@@ -94,7 +94,7 @@ public:
             BlockCommParams const &blockCommParams_,
             BlockCommSchedulerParams const &blockCommSchedulerParams_
         ) : problemShape(problemShape_), commInterval(commInterval_),
-            layoutComm(layoutComm_),
+            layoutTagComm(layoutTagComm_),
             ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
             ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
@@ -105,28 +105,71 @@ public:
         }
     };
 
+    /// User API arguments
+    struct Arguments {
+        Catlass::GemmCoord gemmShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        uint32_t epSize;
+        uint32_t expertNum;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrLocalTokensPerExpert;
+        GM_ADDR ptrGlobalTokensPerLocalExpert;
+        GM_ADDR ptrSymmetric;
+        MatrixCoord commCoreSplit;
+        MatrixCoord commBlockShape;
+        MatrixCoord commTileShape;
+    };
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    {
+        LayoutTagA layoutTagA{args.gemmShape.m(), args.gemmShape.k()};
+        LayoutTagB layoutTagB{args.gemmShape.k(), args.gemmShape.n()};
+        LayoutTagC layoutTagC{args.gemmShape.m(), args.gemmShape.n()};
+
+        ProblemShape problemShape{
+            args.gemmShape, args.rankSize, args.rankIdx, args.epSize, args.expertNum,
+            args.ptrLocalTokensPerExpert, args.ptrGlobalTokensPerLocalExpert
+        };
+
+        auto layoutA = tla::MakeLayoutFromTag(layoutTagA);
+        auto layoutB = tla::MakeLayoutFromTag(layoutTagB);
+        auto layoutC = tla::MakeLayoutFromTag(layoutTagC);
+
+        uint64_t symmetricOffset = 0;
+        auto gmSymmetric = args.ptrSymmetric + symmetricOffset;
+        symmetricOffset += IPC_BUFF_MAX_SIZE;
+        auto syncMmadFinish = args.ptrSymmetric + symmetricOffset;
+        symmetricOffset += SYNC_UNIT_SIZE;
+        auto syncCommFinish = args.ptrSymmetric + symmetricOffset;
+
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        BlockCommSchedulerParams blockCommSchedulerParams{args.commCoreSplit};
+
+        return Params(
+            problemShape,
+            args.commInterval,
+            layoutTagC,
+            args.ptrA, layoutA,
+            args.ptrB, layoutB,
+            args.ptrC, layoutC,
+            gmSymmetric, syncMmadFinish, syncCommFinish,
+            blockCommParams,
+            blockCommSchedulerParams
+        );
+    }
+
     CATLASS_DEVICE
     GroupedMatmulAllToAllVTla()
     {
-#ifdef ENABLE_TIMER
-        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
-        if (timer_buffer != nullptr) {
-            timer.Init(timer_buffer);
-            timer.Tik();
-        }
-#endif
         for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishComm[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
-    }
-
-    CATLASS_DEVICE
-    ~GroupedMatmulAllToAllVTla()
-    {
-#ifdef ENABLE_TIMER
-        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
-#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -171,9 +214,6 @@ public:
             if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAivFinishComm[stageIdx]);
             }
-#ifdef ENABLE_TIMER
-            timer.Tik(AscendTimer::AIC);
-#endif
 
             auto tensorSymmetric = tla::MakeTensor(gmSymmetric, layoutSymmetric, Catlass::Arch::PositionGM{});
 
@@ -211,9 +251,6 @@ public:
                 blockMmad.SynchronizeBlock();
             }
 
-#ifdef ENABLE_TIMER
-            timer.Tok<Overwrite>(AscendTimer::AIC);
-#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageIdx]);
         }
     }
@@ -240,7 +277,7 @@ public:
 
         BlockComm blockRemoteCopy(resource, params.blockCommParams);
 
-        auto const &layoutC = params.layoutComm;
+        auto const &layoutC = params.layoutTagComm;
         AscendC::GlobalTensor<ElementC> gmC;
         gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrC));
 
@@ -263,8 +300,10 @@ public:
         }
         aclshmemx_barrier_all_vec();
 
+        auto commLoops = scheduler.GetCommLoops();
+
         uint32_t receiveAccum = 0;
-        for (uint32_t commIdx = 0; commIdx < scheduler.GetCommLoops(); ++commIdx) {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
 
             scheduler.UpdateCommContext(commIdx);
@@ -273,9 +312,6 @@ public:
             Catlass::Arch::CrossCoreWaitFlag(flagAicFinishStore[stageIdx]);
             AscendC::SyncAll<true>();
 
-#ifdef ENABLE_TIMER
-            timer.Tik(AscendTimer::AIV);
-#endif
             if (isSyncCore) {
                 aclshmemx_signal_op(syncMmadFinish, commIdx + 1, ACLSHMEM_SIGNAL_SET, rankIdx);
             }
@@ -321,10 +357,9 @@ public:
                 aclshmem_signal_wait_until(syncCommFinish, ACLSHMEM_CMP_EQ, receiveAccum);
             }
             AscendC::SyncAll<true>();
-#ifdef ENABLE_TIMER
-            timer.Tok<Overwrite>(AscendTimer::AIV);
-#endif
-            Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishComm[stageIdx]);
+            if (commIdx < commLoops - WORKSPACE_STAGES) {
+                Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishComm[stageIdx]);
+            }
         }
     }
 
@@ -332,9 +367,6 @@ private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishComm[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
-#ifdef ENABLE_TIMER
-    AscendTimerDevice timer;
-#endif
 };
 
 }  // namespace Catccos::DGemm::Kernel

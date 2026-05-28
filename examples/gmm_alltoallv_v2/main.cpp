@@ -120,6 +120,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
@@ -164,7 +165,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < 1; i++) {
         uint64_t fftsAddr = shmemx_get_ffts_config();
         GMMAllToAllVV2<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, workspaceDevice, symmetricPtr, globalTokensPerExpertDevice, cocTiling);
+            <<<blockNum, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, workspaceDevice, symmetricPtr, globalTokensPerExpertDevice, cocTiling);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
  

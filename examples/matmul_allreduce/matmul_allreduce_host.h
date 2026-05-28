@@ -88,7 +88,8 @@ public:
         auto blockCount = MAX_BLOCK_COUNT;
         uint32_t kLoops = CeilDev(cocTiling.k, cocTiling.k0);
         int32_t maxPeerMemPerRank = SHMEM_BUFF_BYTES / INPUT_DTYPE / rankSize / blockCount;
-        if (cocTiling.commInterval * cocTiling.m0 * cocTiling.k0 * BLOCK_NUM >= maxPeerMemPerRank) {
+        auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
+        if (cocTiling.commInterval * cocTiling.m0 * cocTiling.k0 * blockNum >= maxPeerMemPerRank) {
             return false;
         }
         return true;

@@ -35,7 +35,7 @@ using LayoutC = Catlass::layout::RowMajor;
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchMatmulAllReduceWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -55,7 +55,7 @@ static void LaunchMatmulAllReduceWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -69,7 +69,7 @@ static void LaunchMatmulAllReduceWithConfig(
 }
 
 void LaunchMatmulAllReduceBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -78,16 +78,16 @@ void LaunchMatmulAllReduceBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchMatmulAllReduceWithConfig<MatmulAllReduceConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchMatmulAllReduceWithConfig<MatmulAllReduceConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -107,7 +107,7 @@ static void LaunchAllGatherMatmulWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -117,7 +117,7 @@ static void LaunchAllGatherMatmulWithConfig(
 }
 
 void LaunchAllGatherMatmulBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -126,16 +126,16 @@ void LaunchAllGatherMatmulBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulWithConfig<AllGatherMatmulConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllGatherMatmulWithConfig<AllGatherMatmulConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchMatmulReduceScatterWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -155,7 +155,7 @@ static void LaunchMatmulReduceScatterWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -169,7 +169,7 @@ static void LaunchMatmulReduceScatterWithConfig(
 }
 
 void LaunchMatmulReduceScatterBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -178,16 +178,16 @@ void LaunchMatmulReduceScatterBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchMatmulReduceScatterWithConfig<MatmulReduceScatterConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchMatmulReduceScatterWithConfig<MatmulReduceScatterConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulWithGatherResultWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -200,7 +200,7 @@ static void LaunchAllGatherMatmulWithGatherResultWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.k0};
 
         uint32_t commCoreNum = cocTiling.commDataSplit * cocTiling.commNpuSplit;
-        uint32_t copyCoreNum = BLOCK_NUM - commCoreNum;
+        uint32_t copyCoreNum = blockNum - commCoreNum;
         uint32_t rankSize = static_cast<uint32_t>(shmem_n_pes());
         uint32_t copyBlockM = CeilDiv((cocTiling.commInterval * cocTiling.m0), CeilDiv(copyCoreNum, rankSize));
         uint32_t copyBlockN = RoundUp<32 / sizeof(ElementA)>(cocTiling.k);
@@ -224,7 +224,7 @@ static void LaunchAllGatherMatmulWithGatherResultWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -234,7 +234,7 @@ static void LaunchAllGatherMatmulWithGatherResultWithConfig(
 }
 
 void LaunchAllGatherMatmulWithGatherResultBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -243,16 +243,16 @@ void LaunchAllGatherMatmulWithGatherResultBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulWithGatherResultWithConfig<AllGatherMatmulWithGatherResultConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllGatherMatmulWithGatherResultWithConfig<AllGatherMatmulWithGatherResultConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchGroupedMatmulAllToAllVWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -275,7 +275,7 @@ static void LaunchGroupedMatmulAllToAllVWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -289,7 +289,7 @@ static void LaunchGroupedMatmulAllToAllVWithConfig(
 }
 
 void LaunchGroupedMatmulAllToAllVBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -298,16 +298,16 @@ void LaunchGroupedMatmulAllToAllVBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchGroupedMatmulAllToAllVWithConfig<GroupedMatmulAllToAllVConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchGroupedMatmulAllToAllVWithConfig<GroupedMatmulAllToAllVConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllToAllVGroupedMatmulWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -329,7 +329,7 @@ static void LaunchAllToAllVGroupedMatmulWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -339,7 +339,7 @@ static void LaunchAllToAllVGroupedMatmulWithConfig(
 }
 
 void LaunchAllToAllVGroupedMatmulBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -348,17 +348,17 @@ void LaunchAllToAllVGroupedMatmulBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchAllToAllVGroupedMatmulWithConfig<AllToAllVGroupedMatmulConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllToAllVGroupedMatmulWithConfig<AllToAllVGroupedMatmulConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
 #ifdef RDMA_TRANSPORT
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulRdmaWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
@@ -378,7 +378,7 @@ static void LaunchAllGatherMatmulRdmaWithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -388,7 +388,7 @@ static void LaunchAllGatherMatmulRdmaWithConfig(
 }
 
 void LaunchAllGatherMatmulRdmaBF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -397,17 +397,17 @@ void LaunchAllGatherMatmulRdmaBF16(
     (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulRdmaWithConfig<AllGatherMatmulRdmaConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllGatherMatmulRdmaWithConfig<AllGatherMatmulRdmaConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 #endif
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllToAllVGMMV2WithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -430,7 +430,7 @@ static void LaunchAllToAllVGMMV2WithConfig(
         };
         DeviceOp op;
         op.Initialize(args);
-        op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
     };
     if (!transA && !transB) {
         launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
@@ -440,7 +440,7 @@ static void LaunchAllToAllVGMMV2WithConfig(
 }
 
 void LaunchAllToAllVGMMV2BF16(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -448,9 +448,9 @@ void LaunchAllToAllVGMMV2BF16(
 {
     if (cocTiling.m0 == 128) {
         LaunchAllToAllVGMMV2WithConfig<AllToAllVGMMV2Config_M0_128>(
-            stream, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllToAllVGMMV2WithConfig<AllToAllVGMMV2Config_M0_256>(
-            stream, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
     }
 }

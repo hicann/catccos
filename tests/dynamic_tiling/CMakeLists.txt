@@ -31,7 +31,7 @@ set(INCLUDE_DIR
     -I${CMAKE_SOURCE_DIR}/include
     -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
     -I${CMAKE_SOURCE_DIR}/tools
-    -I${CMAKE_SOURCE_DIR}/examples/utils
+    -I${CMAKE_SOURCE_DIR}/utils
     -I${CMAKE_SOURCE_DIR}/examples/tools
     -I${CMAKE_SOURCE_DIR}/examples
     -I${ASCEND_HOME_PATH}/include
@@ -58,13 +58,15 @@ set(LINK_LIB
     -Wl,-rpath,${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     -lruntime -lstdc++ -lascendcl
     -lmf_smem -lmf_hybm_core -lshmem
-    -lgraph_base -ltiling_api -lplatform -lregister
+    -lgraph_base -ltiling_api -lunified_dlog -lplatform -lregister
+    -Wl,--no-as-needed -ldl -Wl,--as-needed
 )
 set(KERNEL_LINK_LIB
     -L${ASCEND_HOME_PATH}/lib64
     -Wl,-rpath,${ASCEND_HOME_PATH}/lib64
     -lruntime -lstdc++ -lascendcl
-    -lgraph_base -ltiling_api -lplatform -lregister
+    -lgraph_base -ltiling_api -lunified_dlog -lplatform -lregister
+    -Wl,--no-as-needed -ldl -Wl,--as-needed
 )
 file(GLOB_RECURSE CATLASS_DEPEND_FILES ${CMAKE_SOURCE_DIR}/include/**.hpp)
 
@@ -101,7 +103,7 @@ include_directories(
     ${SHMEM_HOME_PATH}/shmem/include
     ${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/host
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/examples/utils
+    ${CMAKE_SOURCE_DIR}/utils
     ${CMAKE_SOURCE_DIR}/examples
 )
 link_directories(${CMAKE_RUNTIME_OUTPUT_DIRECTORY} ${ASCEND_HOME_PATH}/lib64
@@ -121,7 +123,7 @@ add_executable(dynamic_tiling main.cpp)
 if(ENABLE_TIMER)
     target_compile_definitions(dynamic_tiling PRIVATE ENABLE_TIMER)
 endif()
-target_link_libraries(dynamic_tiling tiling_lib ${SHARE_LIB_LINK} runtime ascendcl shmem graph_base tiling_api platform register)
+target_link_libraries(dynamic_tiling tiling_lib ${SHARE_LIB_LINK} runtime ascendcl shmem graph_base tiling_api unified_dlog platform register -Wl,--no-as-needed dl -Wl,--as-needed)
 target_compile_options(dynamic_tiling PRIVATE -O3)
 set_target_properties(dynamic_tiling PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}

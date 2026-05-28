@@ -38,6 +38,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
  	aclshmemx_uniqueid_t default_flag_uid;
@@ -95,7 +96,7 @@ int main(int argc, char **argv)
     int64_t inuptXDtypeSize = sizeof(ElementA);
     int64_t quantMode = -1;
     int64_t scaleDim0 = 0;
-    uint32_t aivNum = 2 * BLOCK_NUM;
+    uint32_t aivNum = 2 * blockNum;
     int64_t ubSize = 196352;
     // moeInitRoutingQuantV2TilingBase.DoTiling(m, k, topK, expertCapacity, cocTiling.expertNum, activeNum, dropPadMode,
     //                                          expertTokensCountOrCumsumFlag, expertTokensBeforeCapacityFlag,
@@ -144,7 +145,7 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < 1; i++) {
         AllToAllVGMMV2<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(
+            <<<blockNum, nullptr, stream>>>(
                 fftsAddr,
                 aPtr,
                 bPtr,

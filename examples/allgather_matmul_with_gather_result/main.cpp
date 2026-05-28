@@ -83,6 +83,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
@@ -104,7 +105,7 @@ int main(int argc, char **argv)
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.k0};
 
     uint32_t commCoreNum = cocTiling.commDataSplit * cocTiling.commNpuSplit;
-    uint32_t copyCoreNum = BLOCK_NUM - commCoreNum;
+    uint32_t copyCoreNum = blockNum - commCoreNum;
     uint32_t copyBlockM = CeilDiv((cocTiling.commInterval * cocTiling.m0), CeilDiv(copyCoreNum, (uint32_t)rankSize));
     uint32_t copyBlockN = RoundUp<32 / sizeof(ElementA)>(k);
     Catlass::MatrixCoord copyGatherABlockShape{copyBlockM, copyBlockN};
@@ -130,7 +131,7 @@ int main(int argc, char **argv)
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++) { deviceOp.Run(stream, BLOCK_NUM, fftsAddr); }
+    for (int i = 0; i < 1; i++) { deviceOp.Run(stream, blockNum, fftsAddr); }
     ACL_CHECK(aclrtSynchronizeStream(stream));
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());

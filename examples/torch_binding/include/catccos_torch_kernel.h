@@ -15,7 +15,7 @@
 #include <vector>
 
 // Include Catccos types
-#include "utils/info.h"
+#include "info.h"
 
 namespace CatccosKernel {
 

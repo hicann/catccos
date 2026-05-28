@@ -124,6 +124,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
@@ -154,12 +155,12 @@ int main(int argc, char **argv)
         uint8_t *deviceDump{nullptr};
         ACL_CHECK(aclrtMalloc(reinterpret_cast<void **>(&deviceDump), ALL_DUMPSIZE, ACL_MEM_MALLOC_HUGE_FIRST));
         AllGatherMatmul<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gmSymmetric, cocTiling, deviceDump);
+            <<<blockNum, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gmSymmetric, cocTiling, deviceDump);
         ACL_CHECK(aclrtSynchronizeStream(stream));
         Adx::AdumpPrintWorkSpace(deviceDump, ALL_DUMPSIZE, stream, "test");
 #else
         AllGatherMatmul<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gmSymmetric, cocTiling);
+            <<<blockNum, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gmSymmetric, cocTiling);
 #endif
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));

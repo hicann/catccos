@@ -17,9 +17,11 @@ set(CATCCOS_TORCH_SUPPORTED
 add_custom_target(catccos_examples)
 
 option(ENABLE_TIMER "Enable AscendTimer profiling instrumentation" OFF)
+set(CATCCOS_SHARED_LAUNCHER_EXAMPLES ALL CACHE STRING
+    "Semicolon-separated examples built as shared libraries with linked launcher executables. Use ALL for every example." FORCE)
 
 function(catccos_example_add_executable TARGET)
-    set(OPTIONS)
+    set(OPTIONS SHARED_LAUNCHER)
     set(ONE_VALUE_ARGS)
     set(MULTI_VALUE_ARGS SOURCES INCLUDES COMPILE_DEFINITIONS)
 
@@ -62,9 +64,13 @@ function(catccos_example_add_executable TARGET)
         set(CCE_AICORE_ARCH_BASE dav-c220)
     endif()
 
+    set(KERNEL_LIB_NAME ${TARGET}_impl)
+    set(KERNEL_LIB_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${KERNEL_LIB_NAME}.so)
+    set(EXECUTABLE_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET})
+
     add_custom_command(
-        OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
-        COMMAND ${CCEC} -O2 -std=c++17 -xcce --cce-aicore-arch=${CCE_AICORE_ARCH_BASE} ${CATLASS_ARCH_FLAGS}
+        OUTPUT ${KERNEL_LIB_PATH}
+        COMMAND ${CCEC} -O2 -shared -fPIC -std=c++17 -xcce --cce-aicore-arch=${CCE_AICORE_ARCH_BASE} ${CATLASS_ARCH_FLAGS}
                         ${PROFILING_FLAGS}
                         -mllvm -cce-aicore-stack-size=0x8000
                         -mllvm -cce-aicore-function-stack-size=0x8000
@@ -72,12 +78,11 @@ function(catccos_example_add_executable TARGET)
                         -mllvm -cce-aicore-addr-transform
                         -mllvm -cce-aicore-dcci-insert-for-scalar=false
                         -DL2_CACHE_HINT
-                        -MD -MF ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.d
                         ${COMPILE_DEFS}
                         -I${CMAKE_SOURCE_DIR}/include
                         -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
                         -I${CMAKE_SOURCE_DIR}/examples
-                        -I${CMAKE_SOURCE_DIR}/examples/utils
+                        -I${CMAKE_SOURCE_DIR}/utils
                         -I${CMAKE_SOURCE_DIR}/tools
                         -I${ASCEND_HOME_PATH}/include
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
@@ -93,21 +98,47 @@ function(catccos_example_add_executable TARGET)
                         -I${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/host
                         -I${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/device
                         ${INCLUDE_DIRS}
+                        ${KERNEL_SOURCES}
                         -L${ASCEND_HOME_PATH}/lib64
                         -L${SHMEM_HOME_PATH}/memfabric_hybrid/lib
                         -L${SHMEM_HOME_PATH}/shmem/lib
+                        -Wl,-rpath,${ASCEND_HOME_PATH}/lib64
+                        -lruntime -lstdc++ -lm -lascendcl
+                        -lshmem
+                        -lgraph_base -ltiling_api -lplatform -lregister
+                        -Wl,--no-as-needed -ldl -Wl,--as-needed
+                        -o ${KERNEL_LIB_PATH}
+        DEPENDS ${KERNEL_SOURCES}
+        VERBATIM
+        COMMENT "Generating shared kernel library ${KERNEL_LIB_NAME}"
+    )
+
+    add_custom_command(
+        OUTPUT ${EXECUTABLE_PATH}
+        COMMAND ${CMAKE_CXX_COMPILER}
+                        -L${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+                        -L${ASCEND_HOME_PATH}/lib64
+                        -L${SHMEM_HOME_PATH}/memfabric_hybrid/lib
+                        -L${SHMEM_HOME_PATH}/shmem/lib
+                        -Wl,-rpath,${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+                        -Wl,-rpath,${ASCEND_HOME_PATH}/lib64
+                        -Wl,-rpath,${SHMEM_HOME_PATH}/memfabric_hybrid/lib
+                        -Wl,-rpath,${SHMEM_HOME_PATH}/shmem/lib
+                        -Wl,--no-as-needed
+                        ${KERNEL_LIB_PATH}
+                        -Wl,--as-needed
                         -lruntime -lstdc++ -lm -lascendcl
                         -lshmem -lgraph_base -ltiling_api -lplatform -lregister
-                        ${KERNEL_SOURCES} -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
-        DEPENDS ${KERNEL_SOURCES}
-        DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.d
+                        -Wl,--no-as-needed -ldl -Wl,--as-needed
+                        -o ${EXECUTABLE_PATH}
+        DEPENDS ${KERNEL_LIB_PATH}
         VERBATIM
-        COMMENT "Generating executable kernel ${TARGET}"
+        COMMENT "Generating executable ${TARGET}"
     )
 
     add_custom_target(
         ${TARGET}
-        DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET}
+        DEPENDS ${EXECUTABLE_PATH}
     )
     add_dependencies(catccos_examples ${TARGET})
 endfunction()
@@ -175,7 +206,7 @@ function(catccos_example_add_library TARGET)
                         -I${CMAKE_SOURCE_DIR}/include
                         -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
                         -I${CMAKE_SOURCE_DIR}/examples
-                        -I${CMAKE_SOURCE_DIR}/examples/utils
+                        -I${CMAKE_SOURCE_DIR}/utils
                         -I${ASCEND_HOME_PATH}/include
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/impl
@@ -195,6 +226,7 @@ function(catccos_example_add_library TARGET)
                         -L${SHMEM_HOME_PATH}/shmem/lib
                         -lruntime -lstdc++ -lm -lascendcl
                         -lshmem -lgraph_base -ltiling_api -lplatform -lregister
+                        -Wl,--no-as-needed -ldl -Wl,--as-needed
                         ${KERNEL_SOURCES} -o ${CMAKE_BINARY_DIR}/lib/lib${TARGET}_kernel.so
         DEPENDS ${KERNEL_SOURCES}
         DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}_kernel.d

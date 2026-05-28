@@ -61,9 +61,9 @@ struct Options {
 };
 
 template <class DeviceOp>
-void RunKernel(DeviceOp &deviceOp, aclrtStream stream, uint64_t fftsAddr)
+void RunKernel(DeviceOp &deviceOp, aclrtStream stream, uint32_t blockNum, uint64_t fftsAddr)
 {
-    for (int i = 0; i < 1; i++) { deviceOp.Run(stream, BLOCK_NUM, fftsAddr); }
+    for (int i = 0; i < 1; i++) { deviceOp.Run(stream, blockNum, fftsAddr); }
 }
 
 int main(int argc, char **argv)
@@ -88,6 +88,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
@@ -132,7 +133,7 @@ int main(int argc, char **argv)
         };
         DeviceOp deviceOp;
         deviceOp.Initialize(args);
-        RunKernel(deviceOp, stream, fftsAddr);
+        RunKernel(deviceOp, stream, blockNum, fftsAddr);
     } else {
         using DeviceOp = ConfigNoPadding::Device;
         DeviceOp::Arguments args{
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
         };
         DeviceOp deviceOp;
         deviceOp.Initialize(args);
-        RunKernel(deviceOp, stream, fftsAddr);
+        RunKernel(deviceOp, stream, blockNum, fftsAddr);
     }
 
     ACL_CHECK(aclrtSynchronizeStream(stream));

@@ -28,7 +28,7 @@ set(TORCH_BINDING_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/examples
-    ${CMAKE_SOURCE_DIR}/examples/utils
+    ${CMAKE_SOURCE_DIR}/utils
 
     ${SHMEM_HOME_PATH}/shmem/include
     ${SHMEM_HOME_PATH}/shmem/src

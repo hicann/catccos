@@ -112,7 +112,7 @@ public:
     }
 
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) override {
-        constexpr int32_t blockNum = BLOCK_NUM;
+        auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
         int64_t product = static_cast<int64_t>(blockNum) * cocTiling.commInterval;
 
         if (product % rankSize != 0) {

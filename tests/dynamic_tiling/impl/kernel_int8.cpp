@@ -26,7 +26,7 @@ using LayoutScale = Catlass::layout::VectorLayout;
 
 template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulDequantBiasWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling)
 {
@@ -50,11 +50,11 @@ static void LaunchAllGatherMatmulDequantBiasWithConfig(
     };
     DeviceOp op;
     op.Initialize(args);
-    op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+    op.Run((aclrtStream)stream, blockNum, fftsAddr);
 }
 
 void LaunchAllGatherMatmulDequantBiasINT8(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -65,10 +65,10 @@ void LaunchAllGatherMatmulDequantBiasINT8(
     (void)transB;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulDequantBiasWithConfig<AllGatherMatmulDequantBiasConfig_M0_128>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling);
     } else {
         LaunchAllGatherMatmulDequantBiasWithConfig<AllGatherMatmulDequantBiasConfig_M0_256>(
-            stream, fftsAddr, kernelParams, symmetricPtr, cocTiling);
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling);
     }
 }
 
@@ -78,7 +78,7 @@ void LaunchAllGatherMatmulDequantBiasINT8(
 
 template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulDequantWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling)
@@ -103,11 +103,11 @@ static void LaunchAllGatherMatmulDequantWithConfig(
     };
     DeviceOp op;
     op.Initialize(args);
-    op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+    op.Run((aclrtStream)stream, blockNum, fftsAddr);
 }
 
 void LaunchAllGatherMatmulDequantINT8(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -117,10 +117,10 @@ void LaunchAllGatherMatmulDequantINT8(
     (void)transB;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulDequantWithConfig<AllGatherMatmulDequantConfig_M0_128>(
-            stream, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
     } else {
         LaunchAllGatherMatmulDequantWithConfig<AllGatherMatmulDequantConfig_M0_256>(
-            stream, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
     }
 }
 
@@ -130,7 +130,7 @@ void LaunchAllGatherMatmulDequantINT8(
 
 template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulDequantPaddingWithConfig(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling)
@@ -155,11 +155,11 @@ static void LaunchAllGatherMatmulDequantPaddingWithConfig(
     };
     DeviceOp op;
     op.Initialize(args);
-    op.Run((aclrtStream)stream, BLOCK_NUM, fftsAddr);
+    op.Run((aclrtStream)stream, blockNum, fftsAddr);
 }
 
 void LaunchAllGatherMatmulDequantPaddingINT8(
-    void *stream, uint64_t fftsAddr,
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
     uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
@@ -169,9 +169,9 @@ void LaunchAllGatherMatmulDequantPaddingINT8(
     (void)transB;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulDequantPaddingWithConfig<AllGatherMatmulDequantPaddingConfig_M0_128>(
-            stream, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
     } else {
         LaunchAllGatherMatmulDequantPaddingWithConfig<AllGatherMatmulDequantPaddingConfig_M0_256>(
-            stream, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
     }
 }

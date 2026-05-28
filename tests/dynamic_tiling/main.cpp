@@ -176,6 +176,8 @@ int main(int argc, char **argv)
     int32_t deviceId = options.deviceIdList[rankId];
     std::string dataFile = options.dataFile;
     const std::vector<std::vector<uint32_t>> shapes = InitTestShapes(options);
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
+    // auto blockNum = BLOCK_NUM;
 
     std::cout << "[TEST] input rank_size: " << rankSize << " rank_id: " << rankId << " input_ip: " << ipPort << "\n";
 
@@ -278,12 +280,12 @@ int main(int argc, char **argv)
         auto kernelFunc = KernelDispatcher::GetKernelFunc(actualKernelType, dataType);
 
         for (size_t i = 0; i < warmUpTimes; i++) {
-            kernelFunc(stream, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, cocTilings[0], transA, transB);
+            kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, cocTilings[0], transA, transB);
         }
 
         for (CocTilingParams tiling : cocTilings) {
             for (size_t i = 0; i < testCycleTimes; i++) {
-                kernelFunc(stream, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, tiling, transA, transB);
+                kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, tiling, transA, transB);
             }
         }
 

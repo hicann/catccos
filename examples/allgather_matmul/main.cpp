@@ -118,6 +118,9 @@ int main(int argc, char **argv)
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
     ACL_CHECK(aclrtCreateStream(&stream));
+
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
+
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
@@ -158,7 +161,7 @@ int main(int argc, char **argv)
     std::cout << "Before calling AG_MM kernel " << std::endl;
     uint64_t fftsAddr = shmemx_get_ffts_config();
     for (int i = 0; i < 1; i++) {
-        deviceOp.Run(stream, BLOCK_NUM, fftsAddr);
+        deviceOp.Run(stream, blockNum, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "After calling AG_MM kernel " << std::endl;

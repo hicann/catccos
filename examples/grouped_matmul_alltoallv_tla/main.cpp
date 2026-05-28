@@ -15,15 +15,14 @@ using namespace Catccos;
  
 using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
-using LayoutC = Catlass::layout::RowMajor;
 using LayoutD = Catlass::layout::RowMajor;
-using LayoutA0 = Catlass::layout::RowMajor;
-using LayoutB0 = Catlass::layout::RowMajor;
 
 using ElementA = half;
 using ElementB = half;
-using ElementC = half;
 using ElementD = half;
+
+using Config = GroupedMatmulAllToAllVTlaConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD>;
+using DeviceOp = Config::Device;
  
 struct Options {
     static constexpr auto helper = "Usage: gmm_alltoallv m n k ep_size expert_num device_list\n";
@@ -120,6 +119,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
  	aclshmemx_uniqueid_t default_flag_uid;
@@ -137,17 +137,30 @@ int main(int argc, char **argv)
     void *symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
     uint8_t *symmetricPtr = reinterpret_cast<uint8_t *>(symmPtr);
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
-    uint8_t *localExpertPtr = kernelParams.customPtrs[0];
-    uint8_t *globalExpertPtr = kernelParams.customPtrs[1];
+    // Construct DeviceDGemm Arguments
+    Catlass::GemmCoord problemShape{m, n, k};
+    Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+    Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+    Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+
+    DeviceOp::Arguments args{
+        problemShape,
+        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
+        cocTiling.commInterval,
+        options.epSize, options.expertNum,
+        kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
+        kernelParams.customPtrs[0], kernelParams.customPtrs[1],
+        symmetricPtr,
+        commCoreSplit, commBlockShape, commTileShape
+    };
+
+    DeviceOp deviceOp;
+    deviceOp.Initialize(args);
  
     ACL_CHECK(aclrtSynchronizeStream(stream));
+    uint64_t fftsAddr = shmemx_get_ffts_config();
     for (int i = 0; i < 1; i++) {
-        uint64_t fftsAddr = shmemx_get_ffts_config();
-        GroupedMatmulAllToAllVTla<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, localExpertPtr, globalExpertPtr, symmetricPtr, cocTiling);
+        deviceOp.Run(stream, blockNum, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
  

@@ -15,6 +15,14 @@
 #include <mutex>
 #include "catccos_operator.h"
 
+#ifdef ASCENDC_ASSERT
+#undef ASCENDC_ASSERT
+#endif
+#include <tiling/platform/platform_ascendc.h>
+#ifdef ASCENDC_ASSERT
+#undef ASCENDC_ASSERT
+#endif
+
 class OperatorRegistry {
 public:
     static OperatorRegistry& Instance() {

@@ -12,7 +12,7 @@
 
 #include <unordered_map>
 
-using KernelFuncPtr = void (*)(void *, uint64_t, KernelParams &, uint8_t *, uint8_t *,
+using KernelFuncPtr = void (*)(void *, uint32_t, uint64_t, KernelParams &, uint8_t *, uint8_t *,
     CocTilingParams &, uint32_t, uint32_t);
 
 class KernelDispatcher {
@@ -46,7 +46,7 @@ public:
 };
 
 #define REGISTER_KERNEL_FUNC(kernelName, commType, dataType)                                                           \
-    void Launch##kernelName##dataType(void *, uint64_t, KernelParams &, uint8_t *,                   \
+    void Launch##kernelName##dataType(void *, uint32_t, uint64_t, KernelParams &, uint8_t *,                   \
         uint8_t *, CocTilingParams &, uint32_t, uint32_t);                                                             \
     namespace {                                                                                                        \
         struct AutoRegister##kernelName##dataType {                                                                    \

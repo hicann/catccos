@@ -52,6 +52,30 @@ public:
         return static_cast<int>(BLOCK_NUM);
     }
 
+    static inline int GetPlatformCoreNumAic()
+    {
+#if __has_include("tiling/platform/platform_ascendc.h")
+        auto platform = platform_ascendc::PlatformAscendCManager::GetInstance();
+        if (platform != nullptr) {
+            int coreNum = static_cast<int>(platform->GetCoreNumAic());
+            if (coreNum > 0) return coreNum;
+        }
+#endif
+        return static_cast<int>(BLOCK_NUM);
+    }
+
+    static inline int GetPlatformCoreNumAiv()
+    {
+#if __has_include("tiling/platform/platform_ascendc.h")
+        auto platform = platform_ascendc::PlatformAscendCManager::GetInstance();
+        if (platform != nullptr) {
+            int coreNum = static_cast<int>(platform->GetCoreNumAiv());
+            if (coreNum > 0) return coreNum;
+        }
+#endif
+        return static_cast<int>(BLOCK_NUM);
+    }
+
     static inline void ConfigureCoreNum(int coreNum)
     {
         runtimePlatformCoreNum_ = coreNum > 0 ? coreNum : static_cast<int>(BLOCK_NUM);
