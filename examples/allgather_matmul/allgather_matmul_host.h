@@ -11,6 +11,7 @@
 #define ALLGATHER_MATMUL_HOST_H
 
 #include "operator_registry.h"
+#include "padding.h"
 
 class AllGatherMatmulOperator : public CatccosOperator {
 public:
@@ -71,7 +72,20 @@ public:
     }
 
     size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override {
-        return 0;
+        constexpr uint32_t alignByByte = 512;
+        constexpr uint32_t alignByElement = alignByByte / sizeof(int16_t);
+
+        bool isNeedPaddingB = IsNeedPadding(cocTiling.k, cocTiling.n, cocTiling.transB, alignByElement);
+        size_t sizeWB = 0;
+        if (isNeedPaddingB) {
+            if (cocTiling.m0 == 128) {
+                sizeWB = GetWorkspaceLen(cocTiling.k, cocTiling.n, TILE_SHAPE_256, TILE_SHAPE_256) * sizeof(int16_t);
+            } else {
+                sizeWB = GetWorkspaceLen(cocTiling.k, cocTiling.n, TILE_SHAPE_256, TILE_SHAPE_128) * sizeof(int16_t);
+            }
+        }
+
+        return sizeWB;
     }
 
     CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {

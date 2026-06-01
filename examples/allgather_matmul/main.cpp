@@ -21,8 +21,9 @@ using ElementA = half;
 using ElementB = half;
 using ElementC = half;
 
-using Config = AllGatherMatmulConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
-using DeviceOp = Config::Device;
+// Use padding config (workSpaceSize > 0 means padding is needed)
+using ConfigPadding = AllGatherMatmulPaddingConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
+using ConfigNoPadding = AllGatherMatmulConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 
 struct Options {
     static constexpr auto HELPER =
@@ -136,6 +137,12 @@ int main(int argc, char **argv)
     void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
     uint8_t *gmSymmetric = (uint8_t *)symmPtr;
 
+    size_t workSpaceSize = op->GetWorkspaceSize(cocTiling);
+    uint8_t *workspaceDevice{nullptr};
+    if (workSpaceSize > 0) {
+        ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    }
+
     uint8_t *aPtr = kernelParams.ptrA;
     uint8_t *bPtr = kernelParams.ptrB;
     uint8_t *cPtr = kernelParams.ptrC;
@@ -146,23 +153,40 @@ int main(int argc, char **argv)
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
 
-    DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
-        cocTiling.commInterval,
-        aPtr, bPtr, cPtr, gmSymmetric,
-        commCoreSplit, commBlockShape, commTileShape
-    };
-
-    DeviceOp deviceOp;
-    deviceOp.Initialize(args);
-
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "Before calling AG_MM kernel " << std::endl;
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++) {
-        deviceOp.Run(stream, blockNum, fftsAddr);
+    
+    if (workSpaceSize > 0) {
+        using DeviceOp = ConfigPadding::Device;
+        DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
+            cocTiling.commInterval,
+            aPtr, bPtr, cPtr, workspaceDevice, gmSymmetric,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp deviceOp;
+        deviceOp.Initialize(args);
+        for (int i = 0; i < 1; i++) {	 
+            deviceOp.Run(stream, blockNum, fftsAddr);
+        }
+    } else {
+        using DeviceOp = ConfigNoPadding::Device;
+        DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
+            cocTiling.commInterval,
+            aPtr, bPtr, cPtr, workspaceDevice, gmSymmetric,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp deviceOp;
+        deviceOp.Initialize(args);
+        for (int i = 0; i < 1; i++) {	 
+            deviceOp.Run(stream, blockNum, fftsAddr);
+        }
     }
+
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "After calling AG_MM kernel " << std::endl;
 
@@ -172,7 +196,7 @@ int main(int argc, char **argv)
     }
 
     shmem_free(symmPtr);
-
+    if (workSpaceSize > 0) { ACL_CHECK(aclrtFree(workspaceDevice)); }
     FreeDeviceSpace(kernelParams);
 
     std::cout << "[TEST] begin to exit...... rankId: " << rankId << std::endl;

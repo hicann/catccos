@@ -40,7 +40,8 @@ template <
     class ElementA, class LayoutA,
     class ElementB, class LayoutB,
     class ElementC, class LayoutC,
-    uint32_t M0_, uint32_t N0_, uint32_t K0_
+    bool EnablePadding_,
+    uint32_t M0_ = 128, uint32_t N0_ = 256, uint32_t K0_ = 256
 >
 struct AllGatherMatmulConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
@@ -54,11 +55,17 @@ struct AllGatherMatmulConfig {
     using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
-        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType
-    >;
 
     static constexpr bool IS_DYNAMIC = true;
+
+    using PaddingHelperB = typename Catccos::Padding::PaddingHelper<BType, EnablePadding_>;
+    using LayoutWB = typename PaddingHelperB::LayoutW;
+    using ActualTypeB = typename PaddingHelperB::ActualType;
+    using GlobalPaddingB = typename PaddingHelperB::GlobalPadding;
+
+    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, ActualTypeB, CType
+    >;
 
     using BlockMmadScheduler = Catccos::DGemm::Block::GemmBlockSwizzleAllGatherMesh<7, 1>;
     using BlockCommScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
@@ -79,6 +86,7 @@ struct AllGatherMatmulConfig {
     >;
 
     using Kernel = DGemm::Kernel::AllGatherMatmul<
+        GlobalPaddingB,
         BlockMmad,
         BlockComm,
         BlockMmadScheduler,
@@ -89,11 +97,16 @@ struct AllGatherMatmulConfig {
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
-// Pre-defined tiling configurations
+// Without padding
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
-using AllGatherMatmulConfig_M0_128 = AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 128, 256, 256>;
+using AllGatherMatmulConfig_M0_128 = AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, false, 128, 256, 256>;
+template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
+using AllGatherMatmulConfig_M0_256 = AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, false, 256, 128, 256>;
 
+// With padding
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
-using AllGatherMatmulConfig_M0_256 = AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>;
+using AllGatherMatmulPaddingConfig_M0_128 = AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, true, 128, 256, 256>;
+template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
+using AllGatherMatmulPaddingConfig_M0_256 = AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, true, 256, 128, 256>;
 
 #endif // ALLGATHER_MATMUL_KERNEL_H

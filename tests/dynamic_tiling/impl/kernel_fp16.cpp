@@ -89,6 +89,7 @@ template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulWithConfig(
     void *stream, uint32_t blockNum, uint64_t fftsAddr,
     KernelParams& kernelParams,
+    uint8_t *workSpace,
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
 {
@@ -102,7 +103,7 @@ static void LaunchAllGatherMatmulWithConfig(
             problemShape,
             static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, symmetricPtr,
+            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, workSpace, symmetricPtr,
             commCoreSplit, commBlockShape, commTileShape
         };
         DeviceOp op;
@@ -123,13 +124,12 @@ void LaunchAllGatherMatmulFP16(
     uint8_t *symmetricPtr, CocTilingParams& cocTiling,
     uint32_t transA, uint32_t transB)
 {
-    (void)workSpace;
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulWithConfig<AllGatherMatmulConfig_M0_128>(
-            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllGatherMatmulWithConfig<AllGatherMatmulConfig_M0_256>(
-            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
     }
 }
 
