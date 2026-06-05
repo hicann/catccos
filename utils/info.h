@@ -44,7 +44,7 @@ enum CocCommType
 {
     MATMUL_ALLREDUCE = 0,
     ALLGATHER_MATMUL,
-    ALLGATHER_MATMUL_ASCEND950,
+    ASCEND950_ALLGATHER_MATMUL,
     MATMUL_REDUCE_SCATTER,
     ASCEND950_MATMUL_REDUCE_SCATTER,
     ALLGATHER_MATMUL_WITH_GATHER_RESULT,
@@ -160,7 +160,7 @@ inline void FreeDeviceSpace(KernelParams &params)
 const std::map<std::string, CocCommType> CommTypeMap = {
     {"mmar", CocCommType::MATMUL_ALLREDUCE},
     {"agmm", CocCommType::ALLGATHER_MATMUL},
-    {"agmma5", CocCommType::ALLGATHER_MATMUL_ASCEND950},
+    {"a5agmm", CocCommType::ASCEND950_ALLGATHER_MATMUL},
     {"mmrs", CocCommType::MATMUL_REDUCE_SCATTER},
     {"a5mmrs", CocCommType::ASCEND950_MATMUL_REDUCE_SCATTER},
     {"agmmwg", CocCommType::ALLGATHER_MATMUL_WITH_GATHER_RESULT},
@@ -188,7 +188,7 @@ inline CocCommType GetCommType(const std::string &kernelName)
 const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {MATMUL_ALLREDUCE, "MatmulAllReduce"},
     {ALLGATHER_MATMUL, "AllGatherMatmul"},
-    {ALLGATHER_MATMUL_ASCEND950, "AllGatherMatmulAscend950"},
+    {ASCEND950_ALLGATHER_MATMUL, "Ascend950AllGatherMatmul"},
     {MATMUL_REDUCE_SCATTER, "MatmulReduceScatter"},
     {ASCEND950_MATMUL_REDUCE_SCATTER, "Ascend950MatmulReduceScatter"},
     {ALLGATHER_MATMUL_WITH_GATHER_RESULT, "AllGatherMatmulWithGatherResult"},

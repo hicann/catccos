@@ -26,11 +26,11 @@ if [ $RANK_SIZE -gt 8 ]; then
     exit 1
 fi
 
-cd ${PROJECT_ROOT}/examples/allgather_matmul_ascend950/
+cd ${PROJECT_ROOT}/examples/ascend950_allgather_matmul/
 
 DATA_DIR=`realpath ./out`
 echo "DATA_DIR: $DATA_DIR"
-EXEC_BIN=${PROJECT_ROOT}/build/bin/allgather_matmul_ascend950
+EXEC_BIN=${PROJECT_ROOT}/build/bin/ascend950_allgather_matmul
 
 tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     echo "Processing test case: M=${M}, K=${K}, N=${N}"

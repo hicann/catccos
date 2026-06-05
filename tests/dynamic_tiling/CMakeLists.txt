@@ -6,24 +6,48 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
+# Ascend950-only build: skip A2 kernel .so and non-A5 host operators (x86-friendly).
+option(CATCCOS_A5_ONLY_BUILD "dynamic_tiling: only a5agmm/a5mmrs kernels and hosts" ON)
+
 # Profiling option (default OFF)
 option(ENABLE_TIMER "Enable AscendTimer profiling instrumentation" OFF)
+option(ENABLE_A5_PERF "Enable Ascend950 AIC/AIV split perf (no block-local-init)" OFF)
 
-set(PROFILING_FLAGS "")
+set(PROFILING_FLAGS_A2 "")
+set(PROFILING_FLAGS_ASCEND950 "")
 if(ENABLE_TIMER)
-    set(PROFILING_FLAGS -DENABLE_TIMER --cce-aicore-block-local-init)
+    # AscendTimer uses block-local class members; requires --cce-aicore-block-local-init on dav-c220.
+    set(PROFILING_FLAGS_A2 -DENABLE_TIMER --cce-aicore-block-local-init)
+    # dav-c310 (Ascend950) rejects block-local-init; a5agmm/a5mmrs kernel .so build without device timer for now.
+    set(PROFILING_FLAGS_ASCEND950 "")
+    message(STATUS "ENABLE_TIMER: ON for A2 (dav-c220) kernels only; Ascend950 kernels omit timer until c310 supports block-local-init")
+endif()
+if(ENABLE_A5_PERF)
+    set(PROFILING_FLAGS_ASCEND950 -DENABLE_A5_PERF)
+    message(STATUS "ENABLE_A5_PERF: ON for Ascend950 kernels (AIC=MatMul, AIV=Comm)")
 endif()
 
 # Compile kernel
 set(CCEC_COMPILER_OPTIONS
     -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c220
-    ${PROFILING_FLAGS}
+    ${PROFILING_FLAGS_A2}
     -mllvm -cce-aicore-stack-size=0x8000
     -mllvm -cce-aicore-function-stack-size=0x8000
     -mllvm -cce-aicore-record-overflow=true
     -mllvm -cce-aicore-addr-transform
     -mllvm -cce-aicore-dcci-insert-for-scalar=false
 )
+
+set(CCEC_COMPILER_OPTIONS_ASCEND950
+    -O2 -std=c++17 -xcce --cce-aicore-arch=dav-c310
+    ${PROFILING_FLAGS_ASCEND950}
+    -mllvm -cce-aicore-stack-size=0x8000
+    -mllvm -cce-aicore-function-stack-size=0x8000
+    -mllvm -cce-aicore-record-overflow=true
+    -mllvm -cce-aicore-addr-transform
+    -mllvm -cce-aicore-dcci-insert-for-scalar=false
+)
+
 set(LIB_OPTIONS
     --shared -fPIC
 )
@@ -72,7 +96,7 @@ file(GLOB_RECURSE CATLASS_DEPEND_FILES ${CMAKE_SOURCE_DIR}/include/**.hpp)
 
 add_custom_target(lib_impl)
 function(add_impl_share_lib NAME)
-    set(options "")
+    set(options ASCEND950)
     set(oneValueArgs "")
     set(multiValueArgs COMPILE_DEFINITIONS)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -82,9 +106,15 @@ function(add_impl_share_lib NAME)
         list(APPEND EXTRA_DEFS "-D${DEF}")
     endforeach()
 
+    if(ARG_ASCEND950)
+        set(CCEC_OPTS ${CCEC_COMPILER_OPTIONS_ASCEND950})
+    else()
+        set(CCEC_OPTS ${CCEC_COMPILER_OPTIONS})
+    endif()
+
     add_custom_command(
         OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
-        COMMAND ${CCEC} ${CCEC_COMPILER_OPTIONS} ${EXTRA_DEFS} ${LIB_OPTIONS} ${INCLUDE_DIR}
+        COMMAND ${CCEC} ${CCEC_OPTS} ${EXTRA_DEFS} ${LIB_OPTIONS} ${INCLUDE_DIR}
             ${NAME}.cpp ${KERNEL_LINK_LIB} -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/lib${NAME}.so
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "Compiling shared library: lib${NAME}.so with defs: ${ARG_COMPILE_DEFINITIONS}"
@@ -104,6 +134,7 @@ include_directories(
     ${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/host
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/utils
+    ${CMAKE_SOURCE_DIR}/tools
     ${CMAKE_SOURCE_DIR}/examples
 )
 link_directories(${CMAKE_RUNTIME_OUTPUT_DIRECTORY} ${ASCEND_HOME_PATH}/lib64
@@ -116,12 +147,25 @@ set(TILING_SOURCES
     tiling/allgather_tiling.cpp
 )
 add_library(tiling_lib SHARED ${TILING_SOURCES})
-target_include_directories(tiling_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tiling)
+target_include_directories(tiling_lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/tiling
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/utils
+)
+if(CATCCOS_A5_ONLY_BUILD)
+    target_compile_definitions(tiling_lib PUBLIC CATCCOS_A5_ONLY_BUILD)
+endif()
 target_compile_options(tiling_lib PRIVATE -O3)
 
 add_executable(dynamic_tiling main.cpp)
+if(CATCCOS_A5_ONLY_BUILD)
+    target_compile_definitions(dynamic_tiling PRIVATE CATCCOS_A5_ONLY_BUILD)
+endif()
 if(ENABLE_TIMER)
     target_compile_definitions(dynamic_tiling PRIVATE ENABLE_TIMER)
+endif()
+if(ENABLE_A5_PERF)
+    target_compile_definitions(dynamic_tiling PRIVATE ENABLE_A5_PERF)
 endif()
 target_link_libraries(dynamic_tiling tiling_lib ${SHARE_LIB_LINK} runtime ascendcl shmem graph_base tiling_api unified_dlog platform register -Wl,--no-as-needed dl -Wl,--as-needed)
 target_compile_options(dynamic_tiling PRIVATE -O3)

@@ -56,6 +56,13 @@ bash scripts/run.sh [kernel_name] [data_type] [test_start_line] [test_collect_ro
   bash scripts/run.sh "agmm" 27 0 10 4,5,6,7
   ```
 
+- **Ascend950 算子示例**（FP16，`libkernel_fp16_ascend950.so`）：
+  ```bash
+  bash scripts/run.sh "a5agmm" 1 0,1          # AllGather-MatMul 精度
+  bash scripts/run.sh "a5mmrs" 1 0,1         # MatMul-ReduceScatter 精度
+  bash scripts/run.sh "a5mmrs" 1 0 10 0,1   # MatMul-ReduceScatter 性能（LUT）
+  ```
+
 ## 3. 配置计算规模
 
 矩阵计算参数（包括 `M`, `K`, `N`, `Transpose A`, `Transpose B`）在配置文件中定义：
@@ -90,6 +97,8 @@ scripts/test_shapes.csv
 | gmmata | GROUPED_MATMUL_ALLTOALLV |
 | atagmm | ALLTOALLV_GROUPED_MATMUL |
 | agmmrdma | ALLGATHER_MATMUL_RDMA |
+| a5agmm | ASCEND950_ALLGATHER_MATMUL |
+| a5mmrs | ASCEND950_MATMUL_REDUCE_SCATTER |
 | atavgmmv2 | ALLTOALLV_GMM_V2 |
 | agmmdq | ALLGATHER_MATMUL_DEQUANT |
 | agmmdqbs | ALLGATHER_MATMUL_DEQUANT_BIAS |

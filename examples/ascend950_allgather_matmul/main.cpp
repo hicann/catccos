@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "allgather_matmul_device_ascend950.h"
-#include "allgather_matmul_host_ascend950.h"
+#include "ascend950_allgather_matmul_device.h"
+#include "ascend950_allgather_matmul_host.h"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -17,16 +17,16 @@ using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
 using LayoutC = Catlass::layout::RowMajor;
 
-using LayoutA0 = Catlass::layout::RowMajor;
-using LayoutB0 = Catlass::layout::RowMajor;
-
 using ElementA = half;
 using ElementB = half;
 using ElementC = half;
 
+using Config = Ascend950AllGatherMatmulConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
+using DeviceOp = Config::Device;
+
 struct Options
 {
-    static constexpr auto HELPER = "Usage: allgather_matmul rank_size rank_id ip_port m n k [device_id_list]\n";
+    static constexpr auto HELPER = "Usage: ascend950_allgather_matmul rank_size rank_id ip_port m n k [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -107,7 +107,6 @@ int main(int argc, char **argv)
     cocTiling.m = m;
     cocTiling.n = n;
     cocTiling.k = k;
-    COCMatMulInfo info{int64_t(m), int64_t(k), int64_t(n)};
     cocTiling.m0 = 128;
     cocTiling.n0 = 256;
     cocTiling.k0 = 256;
@@ -131,10 +130,10 @@ int main(int argc, char **argv)
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
-    auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulAscend950");
+    auto op = OperatorRegistry::Instance().CreateOperator("Ascend950AllGatherMatmul");
     if (!op)
     {
-        std::cout << "Operator AllGatherMatmulAscend950 not found!" << std::endl;
+        std::cout << "Operator Ascend950AllGatherMatmul not found!" << std::endl;
         return -1;
     }
     KernelParams kernelParams;
@@ -146,22 +145,33 @@ int main(int argc, char **argv)
     uint8_t *bPtr = kernelParams.ptrB;
     uint8_t *cPtr = kernelParams.ptrC;
 
+    Catlass::GemmCoord problemShape{m, n, k};
+    Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+    Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
+    Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+
+    DeviceOp::Arguments args{problemShape,
+                             static_cast<uint32_t>(rankId),
+                             static_cast<uint32_t>(rankSize),
+                             cocTiling.commInterval,
+                             aPtr,
+                             bPtr,
+                             cPtr,
+                             gmSymmetric,
+                             commCoreSplit,
+                             commBlockShape,
+                             commTileShape};
+
+    DeviceOp deviceOp;
+    deviceOp.Initialize(args);
+
+    uint64_t fftsAddr = shmemx_get_ffts_config();
+
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "Before calling AG_MM kernel " << std::endl;
     for (int i = 0; i < 1; i++)
     {
-        uint64_t fftsAddr = shmemx_get_ffts_config();
-#if defined(ENABLE_ASCENDC_DUMP)
-        uint8_t *deviceDump{nullptr};
-        ACL_CHECK(aclrtMalloc(reinterpret_cast<void **>(&deviceDump), ALL_DUMPSIZE, ACL_MEM_MALLOC_HUGE_FIRST));
-        AllGatherMatmul<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<blockNum, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gmSymmetric, cocTiling, deviceDump);
-        ACL_CHECK(aclrtSynchronizeStream(stream));
-        Adx::AdumpPrintWorkSpace(deviceDump, ALL_DUMPSIZE, stream, "test");
-#else
-        AllGatherMatmul<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<blockNum, nullptr, stream>>>(fftsAddr, aPtr, bPtr, cPtr, gmSymmetric, cocTiling);
-#endif
+        deviceOp.Run(stream, BLOCK_NUM, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "After calling AG_MM kernel " << std::endl;
@@ -171,6 +181,8 @@ int main(int argc, char **argv)
         op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
         std::printf("test finished\n");
     }
+
+    shmem_free(symmPtr);
 
     FreeDeviceSpace(kernelParams);
 

@@ -92,8 +92,8 @@ if [ "$TEST_TYPE" = "0" ]; then
         echo "Processing test case: M=${M}, K=${K}, N=${N}, TransA=${TA}, TransB=${TB}"
 
         rm -rf output/*.bin
-        case "$KERNEL_NAME" in 
-            "mmar"|"agmm"|"mmrs"|"agmmwg"|"agmmrdma")
+        case "$KERNEL_NAME" in
+            "mmar"|"agmm"|"a5agmm"|"mmrs"|"a5mmrs"|"agmmwg"|"agmmrdma")
                 python3 ${UTILS_PATH}/gen_data.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
                 ;;
             "gmmata")
@@ -125,7 +125,7 @@ if [ "$TEST_TYPE" = "0" ]; then
         # Wait until all process exit
         wait
 
-        if [ "$KERNEL_NAME" = "agmm" -o "$KERNEL_NAME" = "agmmrdma" ]; then
+        if [ "$KERNEL_NAME" = "agmm" -o "$KERNEL_NAME" = "a5agmm" -o "$KERNEL_NAME" = "agmmrdma" ]; then
             python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden.bin ${DATA_TYPE} ${M} ${N} ${K}
         elif [ "$KERNEL_NAME" = "agmmwg" ]; then
             python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden.bin ${DATA_TYPE} ${M} ${N} ${K}
@@ -163,7 +163,7 @@ else
 
         # Start Process
         rm -rf output/*.bin
-        case "$KERNEL_NAME" in 
+        case "$KERNEL_NAME" in
             "atagmm")
                 python3 ${UTILS_PATH}/gen_uniform_tokens_table.py ${RANK_SIZE} ${M} ${N} ${K} --expert 8 --ep ${RANK_SIZE}
                 ;;

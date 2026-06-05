@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef CATCCOS_DGEMM_KERNEL_ALLGATHER_MATMUL_ASCEND950_HPP
-#define CATCCOS_DGEMM_KERNEL_ALLGATHER_MATMUL_ASCEND950_HPP
+#ifndef CATCCOS_DGEMM_KERNEL_ASCEND950_ALLGATHER_MATMUL_HPP
+#define CATCCOS_DGEMM_KERNEL_ASCEND950_ALLGATHER_MATMUL_HPP
 
 #include "catccos/catccos.hpp"
 
@@ -17,6 +17,9 @@
 #include "catlass/arch/resource.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
+#ifdef ENABLE_TIMER
+#include "AscendTimer_device.hpp"
+#endif
 
 namespace Catccos::DGemm::Kernel
 {
@@ -26,7 +29,7 @@ using Catlass::MatrixCoord;
 
 template <class BlockMmad_, class BlockAllGather_, class BlockScheduler_, class BlockAllGatherScheduler_,
           uint32_t WORKSPACE_STAGES_>
-class AllGatherMatmul
+class Ascend950AllGatherMatmul
 {
    public:
     using BlockMmad = BlockMmad_;
@@ -78,10 +81,10 @@ class AllGatherMatmul
         BlockCommParams commParams;
 
         // Methods
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params() {}
 
-        CATLASS_DEVICE
+        CATLASS_HOST_DEVICE
         Params(GemmCoord const &problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
                LayoutGatherSrc layoutGatherSrc_, GM_ADDR ptrA_, LayoutA const &layoutA_, GM_ADDR ptrB_,
                LayoutB const &layoutB_, GM_ADDR ptrC_, LayoutC const &layoutC_, GM_ADDR ptrSymmetric_,
@@ -104,15 +107,71 @@ class AllGatherMatmul
         }
     };
 
+    struct Arguments
+    {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrSymmetric;
+        MatrixCoord commCoreSplit;
+        MatrixCoord commBlockShape;
+        MatrixCoord commTileShape;
+    };
+
+    static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+
+    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    {
+        (void)workspace;
+        uint32_t m = args.problemShape.m();
+        uint32_t n = args.problemShape.n();
+        uint32_t k = args.problemShape.k();
+
+        LayoutGatherSrc layoutGatherSrc{m, k, k};
+        Catlass::layout::RowMajor layoutTagB{k, n, n};
+        Catlass::layout::RowMajor layoutTagC{m * args.rankSize, n, n};
+
+        auto layoutA = tla::MakeLayoutFromTag(layoutGatherSrc);
+        auto layoutB = tla::MakeLayoutFromTag(layoutTagB);
+        auto layoutC = tla::MakeLayoutFromTag(layoutTagC);
+
+        typename BlockAllGather::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockAllGatherParams allGatherParams{args.commBlockShape, tileParams};
+        BlockCommParams commParams{args.commCoreSplit};
+
+        return Params(args.problemShape, args.rankIdx, args.rankSize, args.commInterval, layoutGatherSrc, args.ptrA,
+                      layoutA, args.ptrB, layoutB, args.ptrC, layoutC, args.ptrSymmetric, allGatherParams, commParams);
+    }
+
     // Methods
     CATLASS_DEVICE
-    AllGatherMatmul()
+    Ascend950AllGatherMatmul()
     {
+#ifdef ENABLE_TIMER
+        __gm__ uint8_t *timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr)
+        {
+            timer.Init(timer_buffer);
+            timer.Tik();
+        }
+#endif
         for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx)
         {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
+    }
+
+    CATLASS_DEVICE
+    ~Ascend950AllGatherMatmul()
+    {
+#ifdef ENABLE_TIMER
+        timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
+#endif
     }
 
     template <int32_t CORE_TYPE = g_coreType>
@@ -166,6 +225,9 @@ class AllGatherMatmul
 
             // wait aiv
             Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIC);
+#endif
 
             for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum)
             {
@@ -189,8 +251,14 @@ class AllGatherMatmul
 
                 mmad(tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape.GetCoordMNK());
             }
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIC);
+#endif
 
-            Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
+            if (commIdx < commLoops - WORKSPACE_STAGES)
+            {
+                Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
+            }
         }
         AscendC::PipeBarrier<PIPE_ALL>();
     }
@@ -230,6 +298,9 @@ class AllGatherMatmul
             }
             aclshmemx_barrier_all_vec();
 
+#ifdef ENABLE_TIMER
+            timer.Tik(AscendTimer::AIV);
+#endif
             uint32_t actualCommSizeM = Min(commSizeM, params.problemShape.m() - commIdx * commSizeM);
             auto actualCommShape = DistMatrixCoord(actualCommSizeM, params.problemShape.k(), params.rankSize);
             MatrixCoord loopsInRank = CeilDiv(MatrixCoord(actualCommShape.GetCoordInRank()), commBlockShape);
@@ -267,6 +338,10 @@ class AllGatherMatmul
             allGather.FinalizeBlockLoop();
 
             aclshmemx_barrier_all_vec();
+
+#ifdef ENABLE_TIMER
+            timer.Tok<Overwrite>(AscendTimer::AIV);
+#endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageId]);
         }
     }
@@ -276,8 +351,11 @@ class AllGatherMatmul
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
+#ifdef ENABLE_TIMER
+    AscendTimerDevice timer;
+#endif
 };
 
 }  // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_DGEMM_KERNEL_ALLGATHER_MATMUL_ASCEND950_HPP
+#endif  // CATCCOS_DGEMM_KERNEL_ASCEND950_ALLGATHER_MATMUL_HPP

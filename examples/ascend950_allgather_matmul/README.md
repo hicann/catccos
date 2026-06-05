@@ -3,14 +3,14 @@
 1. **编译项目**
    进入示例目录并执行编译脚本：
    ```bash
-   cd examples/allgather_matmul_ascend950
+   cd examples/ascend950_allgather_matmul
    bash scripts/make_main.sh
    ```
 
 2. **运行AllGather-MatMul-Ascend950示例程序**
    进入示例目录并执行运行脚本：
    ```bash
-   cd examples/allgather_matmul_ascend950
+   cd examples/ascend950_allgather_matmul
    bash scripts/run.sh [device_list]
    ```
 

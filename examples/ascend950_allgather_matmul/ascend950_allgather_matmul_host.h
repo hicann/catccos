@@ -7,12 +7,12 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef ALLGATHER_MATMUL_HOST_ASCEND950_H
-#define ALLGATHER_MATMUL_HOST_ASCEND950_H
+#ifndef ASCEND950_ALLGATHER_MATMUL_HOST_H
+#define ASCEND950_ALLGATHER_MATMUL_HOST_H
 
 #include "operator_registry.h"
 
-class AllGatherMatmulOperator : public CatccosOperator
+class Ascend950AllGatherMatmulOperator : public CatccosOperator
 {
    public:
     void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling, uint32_t rankId,
@@ -82,7 +82,7 @@ class AllGatherMatmulOperator : public CatccosOperator
 
     size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override { return 0; }
 
-    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override { return CocCommType::ALLGATHER_MATMUL; }
+    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override { return CocCommType::ASCEND950_ALLGATHER_MATMUL; }
 
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override
     {
@@ -97,6 +97,6 @@ class AllGatherMatmulOperator : public CatccosOperator
     }
 };
 
-REGISTER_OPERATOR("AllGatherMatmulAscend950", AllGatherMatmulOperator);
+REGISTER_OPERATOR("Ascend950AllGatherMatmul", Ascend950AllGatherMatmulOperator);
 
-#endif  // ALLGATHER_MATMUL_HOST_ASCEND950_H
+#endif  // ASCEND950_ALLGATHER_MATMUL_HOST_H

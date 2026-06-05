@@ -248,7 +248,7 @@ endif()
 foreach(EXAMPLE
     matmul_allreduce
     allgather_matmul
-    allgather_matmul_ascend950
+    ascend950_allgather_matmul
     matmul_reduce_scatter
     ascend950_matmul_reduce_scatter
     allgather_matmul_with_gather_result
