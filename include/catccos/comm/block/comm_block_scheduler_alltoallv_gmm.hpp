@@ -69,8 +69,10 @@ struct BlockCommSchedulerAllToAllVGmm {
         cumsumMM(cumsumMM_),
         tokenPerExpert(tokenPerExpert_)
     {
-        for (int32_t i = 0; i < rank * expertPerRank; i++) {
-            commContext.prevSum += tokenPerExpert(coreIdx * EP * expertPerRank + i);
+        if (coreIdx < EP) {
+            for (int32_t i = 0; i < rank * expertPerRank; i++) {
+                commContext.prevSum += tokenPerExpert(coreIdx * EP * expertPerRank + i);
+            }
         }
 
         if (coreIdx == coreNum - 1) {

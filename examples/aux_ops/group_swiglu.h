@@ -25,6 +25,35 @@
 using namespace AscendC;
 using namespace Catlass;
 
+namespace Catccos::DGemm::Kernel {
+
+template <
+    class SwigluKernel
+>
+struct AivFinishSync {
+    CATLASS_DEVICE
+    void operator()() const
+    {
+        Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(ptr->flagAivFinishStore);
+    }
+
+    SwigluKernel *ptr;
+};
+
+template <
+    class SwigluKernel
+>
+struct AicWaitSync {
+    CATLASS_DEVICE
+    void operator()() const
+    {
+        Catlass::Arch::CrossCoreWaitFlag(ptr->flagAivFinishStore);
+        Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
+    }
+
+    SwigluKernel *ptr;
+};
+
 template <
     class ArchTag_,
     class SwigluBlock_
@@ -40,6 +69,9 @@ public:
 
     using SwigluParams = typename SwigluBlock::Params;
 
+    friend class AivFinishSync<SwigluKernel>;
+    friend class AicWaitSync<SwigluKernel>;
+
     struct Params {
         uint32_t problemCount;
         MatrixCoord problemShape;
@@ -48,7 +80,8 @@ public:
         LayoutC layoutC;
         LayoutD layoutD;
         GM_ADDR ptrGroupList;
-        Callback callback;
+        Callback waitCallback;
+        Callback notifyCallback;
         int32_t syncInterval;
 
         CATLASS_DEVICE
@@ -61,14 +94,16 @@ public:
             GM_ADDR ptrC_, LayoutC layoutC_,
             GM_ADDR ptrD_, LayoutD layoutD_,
             GM_ADDR ptrGroupList_,
-            const Callback &callback_ = Callback{},
+            const Callback &waitCallback_ = Callback{},
+            const Callback &notifyCallback_ = Callback{},
             int32_t syncInterval_ = INT_MAX
         ) : problemCount(problemCount_),
             problemShape(problemShape_),
             ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
             ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)), layoutD(layoutD_),
             ptrGroupList(ptrGroupList_),
-            callback(callback_),
+            waitCallback(waitCallback_),
+            notifyCallback(notifyCallback_),
             syncInterval(syncInterval_)
         {
         }
@@ -77,6 +112,7 @@ public:
     CATLASS_DEVICE
     SwigluKernel()
     {
+        flagAivFinishStore = Catlass::Arch::CrossCoreFlag(4);
     }
 
 
@@ -109,7 +145,7 @@ public:
             LayoutD layoutD = params.layoutD.GetTileLayout(MakeCoord(currentM, nOut));
             
             if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == 0) {
-                params.callback();
+                params.waitCallback();
             }
             
             uint32_t rows = currentM;
@@ -142,10 +178,18 @@ public:
             gmGroupOffsetC += currentM * params.problemShape.column();
 
             startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
-        }
-        Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
-        
+
+            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == params.problemCount - 1) {
+                AscendC::PipeBarrier<PIPE_MTE3>();
+                params.notifyCallback();
+            }
+
+        }   
     }
+
+private:
+    Catlass::Arch::CrossCoreFlag flagAivFinishStore;
 };
+}
 
 #endif

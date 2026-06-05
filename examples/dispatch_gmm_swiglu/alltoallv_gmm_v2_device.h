@@ -63,7 +63,8 @@ void SwigluImpl(
     GM_ADDR groupListPtr,
     GM_ADDR ptrWorkspace,
     uint32_t expertPerRank,
-    const Callback &callback,
+    const Callback &waitCallback,
+    const Callback &notifyCallback,
     int32_t syncInterval,
     Catlass::Arch::Resource<ArchTag> resource
 )
@@ -79,7 +80,7 @@ void SwigluImpl(
 
     using SwigluBlock = Catlass::Epilogue::Block::BlockEpilogue<EpilogueDispatchPolicy, CType, DType, TileCopy, SwigluTileScheduler>;
 
-    using Swiglu = SwigluKernel<ArchTag, SwigluBlock>;
+    using Swiglu = Catccos::DGemm::Kernel::SwigluKernel<ArchTag, SwigluBlock>;
 
     LayoutC layoutC{problemShape.m(), problemShape.n()};
     typename DType::Layout layoutD{problemShape.m(), problemShape.n() / 2};
@@ -90,7 +91,8 @@ void SwigluImpl(
         gmC, layoutC,
         gmD, layoutD,
         groupListPtr,
-        callback,
+        waitCallback,
+        notifyCallback,
         syncInterval
     };
 
@@ -210,6 +212,7 @@ void AllToAllVGMMSwigluImpl(
     >;
     using AicFinishSync = Catccos::DGemm::Kernel::AicFinishSync<MatmulKernel>;
     using AivWaitSync = Catccos::DGemm::Kernel::AivWaitSync<MatmulKernel>;
+    using EmptyCallBack = Catccos::DGemm::Kernel::AllToAllVGmmEmptyCallBack<MatmulKernel>;
 
     LayoutA layoutA{problemShape.m(), problemShape.k()};
     LayoutB layoutB{problemShape.k(), problemShape.n()};
@@ -227,6 +230,7 @@ void AllToAllVGMMSwigluImpl(
     MatmulKernel mmKernel;
     AicFinishSync aicFinishSync{&mmKernel};
     AivWaitSync aivWaitSync{&mmKernel};
+    EmptyCallBack emptyCallBack{&mmKernel};
     int32_t syncInterval = expertPerRank - 1;
     
     typename MatmulKernel::Params params {
@@ -262,6 +266,7 @@ void AllToAllVGMMSwigluImpl(
             nullptr,
             expertPerRank,
             MakeCallback(&aivWaitSync),
+            MakeCallback(&emptyCallBack),
             syncInterval,
             resource
         );

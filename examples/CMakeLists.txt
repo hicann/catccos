@@ -262,6 +262,7 @@ foreach(EXAMPLE
     dispatch_gmm
     dispatch_gmm_swiglu
     gmm_alltoallv_v2
+    dispatch_ffn_combine
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

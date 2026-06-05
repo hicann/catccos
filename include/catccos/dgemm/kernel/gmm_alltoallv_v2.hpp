@@ -57,37 +57,10 @@ namespace Catccos::DGemm::Kernel {
 template <
     class MatmulKernel
 >
-struct EmptyCallBack {
+struct GmmAllToAllVEmptyCallBack {
     CATLASS_DEVICE
     void operator()() const
     {
-    }
-
-    MatmulKernel *ptr;
-};
-
-template <
-    class MatmulKernel
->
-struct AivFinishSync {
-    CATLASS_DEVICE
-    void operator()() const
-    {
-        Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(ptr->flagAivFinishStore);
-    }
-
-    MatmulKernel *ptr;
-};
-
-template <
-    class MatmulKernel
->
-struct AicWaitSync {
-    CATLASS_DEVICE
-    void operator()() const
-    {
-        Catlass::Arch::CrossCoreWaitFlag(ptr->flagAivFinishStore);
-        Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
     }
 
     MatmulKernel *ptr;
@@ -123,9 +96,7 @@ public:
     using LocalCopyParams = typename LocalCopyBlockEpilogue::Params;
     using RemoteCommParams = typename RemoteCommBlockEpilogue::Params;
 
-    friend class AivFinishSync<GMMAlltoallvKernel>;
-    friend class AicWaitSync<GMMAlltoallvKernel>;
-    friend class EmptyCallBack<GMMAlltoallvKernel>;
+    friend class GmmAllToAllVEmptyCallBack<GMMAlltoallvKernel>;
 
     struct Params {
         GemmCoord problemShape;
@@ -253,7 +224,7 @@ public:
             // Determine the starting loopIdx of the current core under the current groupIdx
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
-            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == params.expertPerRank - 1) {
+            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == 0) {
                 params.callback();     // GMM2等swigluquant-2
             }
 

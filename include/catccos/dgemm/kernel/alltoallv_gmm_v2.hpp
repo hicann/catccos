@@ -60,6 +60,18 @@ struct AivWaitSync {
 };
 
 template <
+    class MatmulKernel
+>
+struct AllToAllVGmmEmptyCallBack {
+    CATLASS_DEVICE
+    void operator()() const
+    {
+    }
+
+    MatmulKernel *ptr;
+};
+
+template <
     class BlockMmad_,
     class BlockScheduler_,
     class ElementGroupList_,
@@ -91,6 +103,7 @@ public:
 
     friend class AicFinishSync<AlltoallvGMMKernel>;
     friend class AivWaitSync<AlltoallvGMMKernel>;
+    friend class AllToAllVGmmEmptyCallBack<AlltoallvGMMKernel>;
 
     struct Params {
         GemmCoord problemShape;

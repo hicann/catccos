@@ -96,7 +96,7 @@ void GMMAllToAllVImpl(
     constexpr Catccos::detail::CopyDirect COPY_DIRECT = Catccos::detail::CopyDirect::Put;
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
-    using RemoteCommDispatch = Comm::AtlasA2CommRemoteCopy<UB_STAGES, IS_DYNAMIC>;
+    using RemoteCommDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, COPY_DIRECT, CopyTransport::Mte>;
@@ -149,7 +149,7 @@ void GMMAllToAllVImpl(
         RemoteCommBlock,
         BlockCommScheduler
     >;
-    using EmptyCallBack = Catccos::DGemm::Kernel::EmptyCallBack<MatmulKernel>;
+    using EmptyCallBack = Catccos::DGemm::Kernel::GmmAllToAllVEmptyCallBack<MatmulKernel>;
     // using AivWaitSync = Catccos::DGemm::Kernel::AivWaitSync<MatmulKernel>;
 
     LayoutA layoutA{problemShape.m(), problemShape.k()};
