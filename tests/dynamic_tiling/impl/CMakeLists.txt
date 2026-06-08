@@ -15,12 +15,14 @@ foreach(SHARE_LIB_NAME
     LIST(APPEND SHARE_LIB_LINK ${SHARE_LIB_NAME})
 endforeach()
 
-foreach(SHARE_LIB_NAME
-    kernel_fp16_ascend950
-    kernel_bf16_ascend950
-)
-    add_impl_share_lib(${SHARE_LIB_NAME} ASCEND950 COMPILE_DEFINITIONS "CATLASS_ARCH=3510")
-    LIST(APPEND SHARE_LIB_LINK ${SHARE_LIB_NAME})
-endforeach()
+if(CATCCOS_ENABLE_A5_BUILD)
+    foreach(SHARE_LIB_NAME
+        kernel_fp16_ascend950
+        kernel_bf16_ascend950
+    )
+        add_impl_share_lib(${SHARE_LIB_NAME} ASCEND950 COMPILE_DEFINITIONS "CATLASS_ARCH=3510")
+        LIST(APPEND SHARE_LIB_LINK ${SHARE_LIB_NAME})
+    endforeach()
+endif()
 
 set(SHARE_LIB_LINK ${SHARE_LIB_LINK} PARENT_SCOPE)

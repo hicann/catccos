@@ -6,8 +6,13 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-# Ascend950-only build: skip A2 kernel .so and non-A5 host operators (x86-friendly).
-option(CATCCOS_A5_ONLY_BUILD "dynamic_tiling: only a5agmm/a5mmrs kernels and hosts" ON)
+# Default A2 (dav-c220). Set ON or pass build.sh -soc_type Ascend950 to additionally build a5agmm/a5mmrs.
+option(CATCCOS_ENABLE_A5_BUILD "dynamic_tiling: additionally build a5agmm/a5mmrs kernels and hosts" OFF)
+
+message(STATUS "dynamic_tiling: building A2 kernels (dav-c220)")
+if(CATCCOS_ENABLE_A5_BUILD)
+    message(STATUS "dynamic_tiling: additionally building Ascend950 kernels (dav-c310)")
+endif()
 
 # Profiling option (default OFF)
 option(ENABLE_TIMER "Enable AscendTimer profiling instrumentation" OFF)
@@ -132,9 +137,9 @@ include_directories(
     ${ASCEND_HOME_PATH}/include ${CMAKE_SOURCE_DIR}/include
     ${SHMEM_HOME_PATH}/shmem/include
     ${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/host
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/utils
     ${CMAKE_SOURCE_DIR}/tools
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/examples
 )
 link_directories(${CMAKE_RUNTIME_OUTPUT_DIRECTORY} ${ASCEND_HOME_PATH}/lib64
@@ -152,14 +157,14 @@ target_include_directories(tiling_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/utils
 )
-if(CATCCOS_A5_ONLY_BUILD)
-    target_compile_definitions(tiling_lib PUBLIC CATCCOS_A5_ONLY_BUILD)
+if(CATCCOS_ENABLE_A5_BUILD)
+    target_compile_definitions(tiling_lib PUBLIC CATCCOS_ENABLE_A5_BUILD)
 endif()
 target_compile_options(tiling_lib PRIVATE -O3)
 
 add_executable(dynamic_tiling main.cpp)
-if(CATCCOS_A5_ONLY_BUILD)
-    target_compile_definitions(dynamic_tiling PRIVATE CATCCOS_A5_ONLY_BUILD)
+if(CATCCOS_ENABLE_A5_BUILD)
+    target_compile_definitions(dynamic_tiling PRIVATE CATCCOS_ENABLE_A5_BUILD)
 endif()
 if(ENABLE_TIMER)
     target_compile_definitions(dynamic_tiling PRIVATE ENABLE_TIMER)

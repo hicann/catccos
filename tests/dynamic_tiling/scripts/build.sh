@@ -12,7 +12,30 @@ CURRENT_DIR=$(pwd)
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
 
-source $PROJECT_ROOT/examples/utils/setup.sh || {
+SETUP_ARGS=()
+CMAKE_EXTRA=()
+REMAINING_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -soc_type)
+            if [[ "${2:-}" == "Ascend950" ]]; then
+                SETUP_ARGS=(-soc_type Ascend950)
+                CMAKE_EXTRA=(-DCATCCOS_ENABLE_A5_BUILD=ON)
+                shift 2
+            else
+                echo "[ERROR] Unsupported -soc_type: ${2:-<empty>}. Only Ascend950 is supported."
+                exit 1
+            fi
+            ;;
+        *)
+            REMAINING_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+source $PROJECT_ROOT/examples/utils/setup.sh "${SETUP_ARGS[@]}" || {
     echo "[ERROR] Running setup.sh in $PROJECT_ROOT/examples/utils failed."
     exit 1
 }
@@ -20,5 +43,5 @@ source $PROJECT_ROOT/examples/utils/setup.sh || {
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR "$@"
+cmake -B $BUILD_DIR -S $SOURCE_DIR "${CMAKE_EXTRA[@]}" "${REMAINING_ARGS[@]}"
 cmake --build $BUILD_DIR --target dynamic_tiling -j

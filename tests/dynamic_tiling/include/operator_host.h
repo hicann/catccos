@@ -21,7 +21,10 @@
 #include "alltoallv_gmm_v2/alltoallv_gmm_v2_host.h"
 #include "allgather_matmul_dequant/allgather_matmul_dequant_host.h"
 #include "allgather_matmul_dequant_bias/allgather_matmul_dequant_bias_host.h"
+
+#ifdef CATCCOS_ENABLE_A5_BUILD
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_host.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_host.h"
+#endif
 
 #endif // OPERATOR_HOST_H

@@ -11,11 +11,16 @@
 
 ## 1. 编译项目
 
-进入测试目录并执行编译脚本：
+进入测试目录并执行编译脚本。默认编译 A2（dav-c220）算子；通过 `-soc_type Ascend950` 可**额外**编译 Ascend950（a5agmm / a5mmrs）算子：
 
 ```bash
 cd tests/dynamic_tiling
+
+# 默认仅 A2（agmm / mmrs / mmar 等）
 bash scripts/build.sh
+
+# A2 + Ascend950（在 A2 基础上额外编译 a5agmm / a5mmrs）
+bash scripts/build.sh -soc_type Ascend950
 ```
 
 ## 2. 运行 Dynamic-Tiling 示例程序
