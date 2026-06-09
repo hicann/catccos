@@ -11,7 +11,11 @@ foreach(SHARE_LIB_NAME
     kernel_fp16
     kernel_int8
 )
-    add_impl_share_lib(${SHARE_LIB_NAME} COMPILE_DEFINITIONS "CATLASS_ARCH=2201")
+    if(RDMA_TRANSPORT)
+        add_impl_share_lib(${SHARE_LIB_NAME} COMPILE_DEFINITIONS "CATLASS_ARCH=2201" "RDMA_TRANSPORT")
+    else()
+        add_impl_share_lib(${SHARE_LIB_NAME} COMPILE_DEFINITIONS "CATLASS_ARCH=2201")
+    endif()
     LIST(APPEND SHARE_LIB_LINK ${SHARE_LIB_NAME})
 endforeach()
 

@@ -9,8 +9,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 #
 CURRENT_DIR=$(pwd)
-SCRIPT_DIR=$(cd "$(dirname "${BASE_SOURCE[0]}")" &>/dev/null && pwd)
-PROJECT_ROOT=$( dirname $(dirname "$SCRIPT_DIR"))
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
 
 source $PROJECT_ROOT/examples/utils/setup.sh || {
     echo "[ERROR] Running setup.sh in $PROJECT_ROOT/examples/utils failed."
@@ -19,6 +19,7 @@ source $PROJECT_ROOT/examples/utils/setup.sh || {
 
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
+rm -rf $BUILD_DIR
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR -DRDMA_TRANSPORT=1
-cmake --build $BUILD_DIR --target allgather_matmul_rdma -j
+cmake -B $BUILD_DIR -S $SOURCE_DIR "$@" -DRDMA_TRANSPORT=ON
+cmake --build $BUILD_DIR --target dynamic_tiling -j

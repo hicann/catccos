@@ -122,7 +122,7 @@ int main(int argc, char **argv)
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
-    attributes->option_attr.data_op_engine_type = SHMEM_DATA_OP_ROCE;
+    attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_ROCE;
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulRdma");

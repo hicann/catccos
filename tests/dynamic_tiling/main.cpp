@@ -177,7 +177,6 @@ int main(int argc, char **argv)
     std::string dataFile = options.dataFile;
     const std::vector<std::vector<uint32_t>> shapes = InitTestShapes(options);
     auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
-    // auto blockNum = BLOCK_NUM;
 
     std::cout << "[TEST] input rank_size: " << rankSize << " rank_id: " << rankId << " input_ip: " << ipPort << "\n";
 
@@ -188,16 +187,12 @@ int main(int argc, char **argv)
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
-    status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
-#ifdef RDMA_TRANSPORT
     if (commType == ALLGATHER_MATMUL_RDMA) {
         attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_ROCE;
     }
-#endif
+    status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
-    uint64_t fftsAddr{0};
-    uint32_t fftsLen{0};
-    RT_CHECK(rtGetC2cCtrlAddr(&fftsAddr, &fftsLen));
+    uint64_t fftsAddr = shmemx_get_ffts_config();
 
     std::string currentTime = GetCurrentTime();
     std::string opName = CommTypeOpNameMap.at(commType);
