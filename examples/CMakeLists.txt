@@ -261,6 +261,7 @@ foreach(EXAMPLE
     alltoallv_gmm_v2
     dispatch_gmm
     dispatch_gmm_swiglu
+    dispatch_gmm_dequant_swiglu
     gmm_alltoallv_v2
     dispatch_ffn_combine
 )

@@ -38,6 +38,12 @@ struct AtlasCommRemoteCopy {
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
+template <class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_=false>
+struct AtlasCommRemoteChunkCopy {
+    using ArchTag = ArchTag_;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+};
+
 template <uint32_t UB_STAGES_, bool IsDynamic_=false>
 struct AtlasA2CommLocalCopy {
     using ArchTag = Catlass::Arch::AtlasA2;
