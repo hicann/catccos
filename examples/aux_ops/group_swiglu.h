@@ -144,7 +144,7 @@ public:
 
             LayoutD layoutD = params.layoutD.GetTileLayout(MakeCoord(currentM, nOut));
             
-            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == 0) {
+            if (groupIdx % params.syncInterval == 0) {
                 params.waitCallback();
             }
             

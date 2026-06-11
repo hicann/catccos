@@ -224,7 +224,7 @@ public:
             // Determine the starting loopIdx of the current core under the current groupIdx
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
-            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == 0) {
+            if (groupIdx % params.syncInterval == 0) {
                 params.callback();     // GMM2等swigluquant-2
             }
 

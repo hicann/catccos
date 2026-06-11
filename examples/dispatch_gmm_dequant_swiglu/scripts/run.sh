@@ -65,6 +65,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     for (( idx =0; idx < ${RANK_SIZE}; idx = idx + 1 )); do
         python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin $DATA_TYPE ${M} ${N} ${K} &
     done
+    wait
 done
 
 cd ${CURRENT_DIR}
