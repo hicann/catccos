@@ -32,6 +32,7 @@
 #include "catccos/dgemm/block/block_swizzle_allgather.hpp"
 #include "catccos/dgemm/kernel/allgather_matmul_with_local_mm_opt.hpp"
 #include "catccos/dgemm/device/device_dgemm.hpp"
+#include "padding.h"
 
 using namespace AscendC;
 using namespace Catccos;

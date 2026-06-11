@@ -22,7 +22,6 @@ from glob import glob
 import argparse
 import torch
 import torch_npu
-import fcntl
 
 
 def load_torch_library(lib_name):
@@ -89,50 +88,52 @@ def worker(args):
     torch_npu.npu.set_device(rank_id)
     local_mem_size = 1024 * 1024 * 1024
 
-    manager = torch.classes.CatccosOps.Manager()
-    manager.attr_init(rank_id, rank_size, local_mem_size, ip_port)
+    status = torch.ops.catccos.init(rank_id, rank_size, local_mem_size, ip_port)
+    if status != 0:
+        raise RuntimeError(f"Rank {rank_id}: torch.ops.catccos.init failed with status {status}")
     print(f"Rank {rank_id}: ACLCATCCOS init success!")
 
-    # Create AllGatherMatmul operator
-    ag_mm = torch.classes.CatccosOps.AllGatherMatmul()
+    try:
+        # Load input tensors from files
+        a_file = os.path.join(data_dir, f"rank_{rank_id}_a.bin")
+        b_file = os.path.join(data_dir, f"rank_{rank_id}_b.bin")
 
-    # Load input tensors from files
-    a_file = os.path.join(data_dir, f"rank_{rank_id}_a.bin")
-    b_file = os.path.join(data_dir, f"rank_{rank_id}_b.bin")
+        # Each rank has input shape (m, k) and (k, n)
+        # Output shape is (m * rankSize, n) for allgather_matmul
+        a_shape = (m, k)
+        b_shape = (k, n)
 
-    # Each rank has input shape (m, k) and (k, n)
-    # Output shape is (m * rankSize, n) for allgather_matmul
-    a_shape = (m, k)
-    b_shape = (k, n)
-    c_shape = (m * rank_size, n)
+        tensor_a = load_tensor_from_file(a_file, a_shape, torch.float16)
+        tensor_b = load_tensor_from_file(b_file, b_shape, torch.float16)
 
-    tensor_a = load_tensor_from_file(a_file, a_shape, torch.float16)
-    tensor_b = load_tensor_from_file(b_file, b_shape, torch.float16)
+        # Move to NPU
+        tensor_a_npu = tensor_a.npu()
+        tensor_b_npu = tensor_b.npu()
 
-    # Move to NPU
-    tensor_a_npu = tensor_a.npu()
-    tensor_b_npu = tensor_b.npu()
+        # Execute kernel
+        tensor_c_npu = torch.ops.catccos.allgather_matmul(tensor_a_npu, tensor_b_npu, rank_size)
 
-    # Allocate output buffer
-    tensor_c_npu = torch.zeros(c_shape, dtype=torch.float16).npu()
+        # Synchronize
+        torch_npu.npu.synchronize()
 
-    # Execute kernel
-    ag_mm.compute(tensor_c_npu, tensor_a_npu, tensor_b_npu)
+        # Write output to file (only rank 0 writes)
+        if rank_id == 0:
+            c_output_file = os.path.join(data_dir, "output.bin")
+            tensor_c_cpu = tensor_c_npu.cpu()
 
-    # Synchronize
-    torch_npu.npu.synchronize()
+            with open(c_output_file, "wb") as f:
+                f.write(tensor_c_cpu.numpy().tobytes())
 
-    # Write output to file (only rank 0 writes)
-    if rank_id == 0:
-        c_output_file = os.path.join(data_dir, "output.bin")
-        tensor_c_cpu = tensor_c_npu.cpu()
-
-        with open(c_output_file, "wb") as f:
-            f.write(tensor_c_cpu.numpy().tobytes())
-
-        print(f"Rank {rank_id}: Done! Output written to {c_output_file}")
-    else:
-        print(f"Rank {rank_id}: Done!")
+            print(f"Rank {rank_id}: Done! Output written to {c_output_file}")
+        else:
+            print(f"Rank {rank_id}: Done!")
+    finally:
+        torch_npu.npu.synchronize()
+        finalize_status = torch.ops.catccos.finalize()
+        if finalize_status != 0:
+            raise RuntimeError(
+                f"Rank {rank_id}: torch.ops.catccos.finalize failed with status {finalize_status}"
+            )
 
 
 if __name__ == "__main__":

@@ -13,6 +13,24 @@
 #include "operator_registry.h"
 #include "padding.h"
 
+inline bool IsAgmmNeedPaddingB(const CocTilingParams& cocTiling)
+{
+    constexpr uint32_t alignByByte = 512;
+    constexpr uint32_t alignByElement = alignByByte / sizeof(int16_t);
+    return IsNeedPadding(cocTiling.k, cocTiling.n, cocTiling.transB, alignByElement);
+}
+
+inline size_t GetAgmmWorkspaceSize(const CocTilingParams& cocTiling)
+{
+    if (!IsAgmmNeedPaddingB(cocTiling)) {
+        return 0;
+    }
+    if (cocTiling.m0 == 128) {
+        return GetWorkspaceLen(cocTiling.k, cocTiling.n, TILE_SHAPE_256, TILE_SHAPE_256) * sizeof(int16_t);
+    }
+    return GetWorkspaceLen(cocTiling.k, cocTiling.n, TILE_SHAPE_256, TILE_SHAPE_128) * sizeof(int16_t);
+}
+
 class AllGatherMatmulOperator : public CatccosOperator {
 public:
     void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
@@ -72,20 +90,7 @@ public:
     }
 
     size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override {
-        constexpr uint32_t alignByByte = 512;
-        constexpr uint32_t alignByElement = alignByByte / sizeof(int16_t);
-
-        bool isNeedPaddingB = IsNeedPadding(cocTiling.k, cocTiling.n, cocTiling.transB, alignByElement);
-        size_t sizeWB = 0;
-        if (isNeedPaddingB) {
-            if (cocTiling.m0 == 128) {
-                sizeWB = GetWorkspaceLen(cocTiling.k, cocTiling.n, TILE_SHAPE_256, TILE_SHAPE_256) * sizeof(int16_t);
-            } else {
-                sizeWB = GetWorkspaceLen(cocTiling.k, cocTiling.n, TILE_SHAPE_256, TILE_SHAPE_128) * sizeof(int16_t);
-            }
-        }
-
-        return sizeWB;
+        return GetAgmmWorkspaceSize(cocTiling);
     }
 
     CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {

@@ -188,6 +188,11 @@ function(catccos_example_add_library TARGET)
         list(APPEND COMPILE_DEFS -D${DEF})
     endforeach()
 
+    set(PROFILING_FLAGS "")
+    if(ENABLE_TIMER)
+        set(PROFILING_FLAGS -DENABLE_TIMER --cce-aicore-block-local-init)
+    endif()
+
     # Create custom target for kernel library
     add_custom_target(${TARGET}_kernel_build)
 
@@ -195,6 +200,7 @@ function(catccos_example_add_library TARGET)
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/lib/lib${TARGET}_kernel.so
         COMMAND ${CCEC} -O2 -shared -fPIC -std=c++17 -xcce --cce-aicore-arch=${CCE_AICORE_ARCH_BASE} ${CATLASS_ARCH_FLAGS}
+                        ${PROFILING_FLAGS}
                         -mllvm -cce-aicore-stack-size=0x8000
                         -mllvm -cce-aicore-function-stack-size=0x8000
                         -mllvm -cce-aicore-record-overflow=true
@@ -207,6 +213,7 @@ function(catccos_example_add_library TARGET)
                         -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
                         -I${CMAKE_SOURCE_DIR}/examples
                         -I${CMAKE_SOURCE_DIR}/utils
+                        -I${CMAKE_SOURCE_DIR}/tools
                         -I${ASCEND_HOME_PATH}/include
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/impl

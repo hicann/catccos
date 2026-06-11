@@ -15,8 +15,18 @@ PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[ERROR] python3 is required but not found in PATH"
+    exit 1
+fi
+
+if ! command -v cmake >/dev/null 2>&1; then
+    echo "[ERROR] cmake is required but not found in PATH"
+    exit 1
+fi
+
 # Get Torch's CMake prefix path
-TORCH_PREFIX_PATH="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')"
+TORCH_PREFIX_PATH="$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')"
 
 echo "Using TORCH_PREFIX_PATH=${TORCH_PREFIX_PATH}"
 mkdir -p $BUILD_DIR

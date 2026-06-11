@@ -13,202 +13,228 @@
 #include <algorithm>
 #include <torch/torch.h>
 #include <torch/extension.h>
-#include <torch/script.h>
-#include <torch/custom_class.h>
+#include <torch/library.h>
 #include <torch_npu/csrc/core/npu/DeviceUtils.h>
 #include <torch_npu/csrc/core/npu/NPUFormat.h>
 #include <torch_npu/csrc/core/npu/NPUFunctions.h>
+#include <torch_npu/csrc/core/npu/NPUGuard.h>
 #include <torch_npu/csrc/core/npu/NPUStream.h>
-#include "torch_npu/csrc/aten/common/from_blob.h"
+#include <torch_npu/csrc/framework/OpCommand.h>
 
 #include "shmem.h"
-#include "torch_register.h"
 #include "catccos_torch_kernel.h"
 #include "utils.h"
 #include "shmem_init.h"
 #include "info.h"
 
+namespace {
 
-using half = __fp16;
-
-namespace CatccosOps {
-
-
-
-class Manager : public torch::jit::CustomClassHolder {
-public:
-    // Default constructor
-    Manager() : name_("Manager") {}
-
-    std::string get_name() const
-    {
-        return name_;
-    }
-
-    int64_t attr_init(int64_t my_pe, int64_t n_ranks, int64_t local_mem_size, const std::string& ip_port)
-    {
-        int64_t status = aclshmemx_set_conf_store_tls(false, nullptr, 0);
-        if (status != ACLSHMEM_SUCCESS) {
-            std::cerr << "[ERROR] aclshmemx_set_conf_store_tls failed: " << status << std::endl;
-            return status;
-        }
-
-        aclshmemx_uniqueid_t default_flag_uid;
-        aclshmemx_init_attr_t attributes;
-        set_attr(my_pe, n_ranks, local_mem_size, ip_port.c_str(), &attributes, &default_flag_uid);
-
-        status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
-        if (status != ACLSHMEM_SUCCESS) {
-            std::cerr << "[ERROR] aclshmemx_init_attr failed: " << status << std::endl;
-        }
-        return status;
-    }
-    int64_t finalize()
-    {
-        return aclshmem_finalize();
-    }
-
-    at::Tensor malloc_tensor(int64_t size)
-    {
-        void *symmPtr = aclshmem_malloc(size);
-        at::Tensor aclshmem_tensor = at_npu::native::from_blob(symmPtr, size, torch::dtype(torch::kUInt8));
-
-        return aclshmem_tensor;
-    }
-
-    at::Tensor malloc_like(const at::Tensor& npu_tensor)
-    {
-        void *npu_tensor_ptr = static_cast<void *>(const_cast<void *>(npu_tensor.storage().data()));
-        int64_t size = npu_tensor.storage().nbytes();
-        void *symmPtr = aclshmem_malloc(size);
-        at::Tensor aclshmem_tensor = at_npu::native::from_blob(symmPtr, npu_tensor.sizes(), npu_tensor.dtype());
-        aclrtMemcpy(symmPtr, size, npu_tensor_ptr, size, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        return aclshmem_tensor;
-    }
-
-    void free_tensor(const at::Tensor& aclshmem_tensor)
-    {
-        void *aclshmem_ptr = static_cast<void *>(const_cast<void *>(aclshmem_tensor.storage().data()));
-        aclshmem_free(aclshmem_ptr);
-        return;
-    }
-
-private:
-    std::string name_;
+struct CatccosTorchOpState {
+    bool initialized = false;
+    void* symmPtr = nullptr;
+    size_t symmBytes = 0;
+    int64_t rankId = -1;
+    int64_t rankSize = 0;
 };
 
+CatccosTorchOpState& get_catccos_state()
+{
+    static CatccosTorchOpState state;
+    return state;
+}
 
+void* get_catccos_symm_ptr(size_t bytes)
+{
+    auto& state = get_catccos_state();
+    TORCH_CHECK(state.initialized,
+                "catccos TORCH_LIBRARY not initialized, "
+                "call torch.ops.catccos.init(...) first");
 
-class AllGatherMatmul : public torch::jit::CustomClassHolder {
-public:
-    AllGatherMatmul() : name_("CatccosAllGatherMatmul"), count_(0), fftsAddr_(shmemx_get_ffts_config()), symmPtr_(nullptr)
-    {
-        // Allocate symmetric memory for inter-rank communication
-        symmPtr_ = static_cast<uint8_t*>(shmem_malloc(SHMEM_BUFF_BYTES));
-        aclrtMemset(symmPtr_, SHMEM_BUFF_BYTES, 0, SHMEM_BUFF_BYTES);
+    if (state.symmPtr == nullptr) {
+        state.symmPtr = shmem_malloc(bytes);
+        TORCH_CHECK(state.symmPtr != nullptr,
+                    "catccos TORCH_LIBRARY shmem_malloc failed, bytes=", bytes);
+        state.symmBytes = bytes;
+
+        auto ret = aclrtMemset(state.symmPtr, bytes, 0, bytes);
+        TORCH_CHECK(ret == ACL_SUCCESS, "aclrtMemset failed, ret=", ret);
+    } else {
+        TORCH_CHECK(state.symmBytes >= bytes,
+                    "existing symm buffer too small, existing=",
+                    state.symmBytes, ", required=", bytes);
     }
 
-    ~AllGatherMatmul()
-    {
-        if (symmPtr_ != nullptr) {
-            shmem_free(symmPtr_);
-            symmPtr_ = nullptr;
-        }
+    return state.symmPtr;
+}
+
+uint64_t get_catccos_ffts()
+{
+    TORCH_CHECK(get_catccos_state().initialized,
+                "catccos TORCH_LIBRARY not initialized, "
+                "call torch.ops.catccos.init(...) first");
+
+    uint64_t addr = shmemx_get_ffts_config();
+    TORCH_CHECK(addr != 0, "shmemx_get_ffts_config returned 0");
+    return addr;
+}
+
+}  // namespace
+
+namespace catccos {
+
+int64_t init(int64_t rank_id, int64_t rank_size,
+             int64_t local_mem_size, const std::string& ip_port)
+{
+    auto& state = get_catccos_state();
+    if (state.initialized) {
+        return 0;
     }
 
-    std::string get_name() const
-    {
-        return name_;
-    }
+    TORCH_CHECK(rank_id >= 0, "invalid rank_id: ", rank_id);
+    TORCH_CHECK(rank_size > 0, "invalid rank_size: ", rank_size);
+    TORCH_CHECK(local_mem_size > 0, "invalid local_mem_size: ", local_mem_size);
+    TORCH_CHECK(!ip_port.empty(), "ip_port is empty");
 
-    void compute(const at::Tensor& c_tensor,
-                 const at::Tensor& a_tensor,
-                 const at::Tensor& b_tensor)
-    {
-        // 1. Parameter validation
-        TORCH_CHECK(a_tensor.dtype() == at::kHalf,
-                    "Compute Error: Only float16 (half) is supported! ",
-                    "Current dtype: ", a_tensor.dtype().name());
+    int64_t status = aclshmemx_set_conf_store_tls(false, nullptr, 0);
+    TORCH_CHECK(status == ACLSHMEM_SUCCESS,
+                "aclshmemx_set_conf_store_tls failed: ", status);
 
-        TORCH_CHECK(b_tensor.dtype() == at::kHalf,
-                    "Compute Error: Only float16 (half) is supported! ",
-                    "Current dtype: ", b_tensor.dtype().name());
+    aclshmemx_uniqueid_t default_flag_uid{};
+    aclshmemx_init_attr_t attributes{};
+    int32_t ret = set_attr(
+        static_cast<int32_t>(rank_id),
+        static_cast<int32_t>(rank_size),
+        static_cast<uint64_t>(local_mem_size),
+        ip_port.c_str(),
+        &attributes,
+        &default_flag_uid);
+    TORCH_CHECK(ret == ACLSHMEM_SUCCESS, "set_attr failed, ret=", ret);
 
-        TORCH_CHECK(c_tensor.dtype() == at::kHalf,
-                    "Compute Error: Only float16 (half) is supported! ",
-                    "Current dtype: ", c_tensor.dtype().name());
+    status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
+    TORCH_CHECK(status == ACLSHMEM_SUCCESS,
+                "aclshmemx_init_attr failed: ", status);
 
-        TORCH_CHECK(a_tensor.device().type() == c10::DeviceType::PrivateUse1,
-                    "Compute Error: Only NPU device is supported! Current device: ", a_tensor.device().type());
+    state.initialized = true;
+    state.rankId = rank_id;
+    state.rankSize = rank_size;
+    return 0;
+}
 
-        TORCH_CHECK(b_tensor.device().type() == c10::DeviceType::PrivateUse1,
-                    "Compute Error: Only NPU device is supported! Current device: ", b_tensor.device().type());
+at::Tensor allgather_matmul(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    int64_t rank_size)
+{
+    c10_npu::OptionalNPUGuard guard(a.device());
 
-        TORCH_CHECK(c_tensor.device().type() == c10::DeviceType::PrivateUse1,
-                    "Compute Error: Only NPU device is supported! Current device: ", c_tensor.device().type());
+    auto& state = get_catccos_state();
+    TORCH_CHECK(state.initialized,
+                "catccos TORCH_LIBRARY not initialized, "
+                "call torch.ops.catccos.init(...) first");
+    TORCH_CHECK(rank_size == state.rankSize,
+                "rank_size mismatch: input=", rank_size,
+                ", initialized=", state.rankSize);
 
-        // 2. Shape validation
-        TORCH_CHECK(a_tensor.dim() == 2, "A tensor must be 2D! Current dim: ", a_tensor.dim());
-        TORCH_CHECK(b_tensor.dim() == 2, "B tensor must be 2D! Current dim: ", b_tensor.dim());
-        TORCH_CHECK(c_tensor.dim() == 2, "C tensor must be 2D! Current dim: ", c_tensor.dim());
+    TORCH_CHECK(a.dtype() == at::kHalf, "Only float16 supported for a, got ", a.dtype());
+    TORCH_CHECK(b.dtype() == at::kHalf, "Only float16 supported for b, got ", b.dtype());
+    TORCH_CHECK(a.device().type() == c10::DeviceType::PrivateUse1,
+                "Only NPU supported for a, got ", a.device());
+    TORCH_CHECK(b.device().type() == c10::DeviceType::PrivateUse1,
+                "Only NPU supported for b, got ", b.device());
+    TORCH_CHECK(a.device() == b.device(), "a and b must be on same device");
+    TORCH_CHECK(a.dim() == 2, "a must be 2D, got dim=", a.dim());
+    TORCH_CHECK(b.dim() == 2, "b must be 2D, got dim=", b.dim());
 
-        uint32_t m = a_tensor.size(0);
-        uint32_t k = a_tensor.size(1);
-        uint32_t n = b_tensor.size(1);
+    int64_t m = a.size(0);
+    int64_t k = a.size(1);
+    int64_t n = b.size(1);
+    TORCH_CHECK(b.size(0) == k,
+                "A/K shape mismatch, a.size(1)=", k,
+                ", b.size(0)=", b.size(0));
 
-        TORCH_CHECK(b_tensor.size(0) == k, "A/K mismatch! A.size(1)=", k, ", B.size(0)=", b_tensor.size(0));
+    int32_t my_pe = shmem_my_pe();
+    int32_t n_pes = shmem_n_pes();
+    TORCH_CHECK(my_pe >= 0, "invalid my_pe: ", my_pe);
+    TORCH_CHECK(n_pes > 0, "invalid n_pes: ", n_pes);
+    TORCH_CHECK(rank_size == n_pes,
+                "rank_size mismatch: input=", rank_size,
+                ", shmem_n_pes=", n_pes);
 
-        int32_t n_pes = shmem_n_pes();
-        int64_t expected_c_rows = n_pes * m;
-        TORCH_CHECK(c_tensor.size(0) == expected_c_rows && c_tensor.size(1) == n,
-                    "Compute Error: C tensor shape mismatch! ",
-                    "Expected shape: (", expected_c_rows, ",", n, "), Current shape: (", c_tensor.size(0), ",", c_tensor.size(1), ")");
+    at::Tensor a_contig = a.contiguous();
+    at::Tensor b_contig = b.contiguous();
+    at::Tensor c = at::empty({m * n_pes, n}, a.options()).contiguous();
 
-        // 3. Make tensors contiguous
-        at::Tensor a_contig = a_tensor.contiguous();
-        at::Tensor b_contig = b_tensor.contiguous();
-        at::Tensor c_contig = c_tensor.contiguous();
+    uint8_t* aPtr = static_cast<uint8_t*>(a_contig.data_ptr());
+    uint8_t* bPtr = static_cast<uint8_t*>(b_contig.data_ptr());
+    uint8_t* cPtr = static_cast<uint8_t*>(c.data_ptr());
+    uint8_t* symmPtr = static_cast<uint8_t*>(get_catccos_symm_ptr(SHMEM_BUFF_BYTES));
+    uint64_t ffts = get_catccos_ffts();
+    aclrtStream stream = c10_npu::getCurrentNPUStream().stream(false);
+    TORCH_CHECK(stream != nullptr, "NPU stream is null");
 
-        // 4. Get device pointers
-        uint8_t* aPtr = static_cast<uint8_t*>(const_cast<void*>(a_contig.storage().data()));
-        uint8_t* bPtr = static_cast<uint8_t*>(const_cast<void*>(b_contig.storage().data()));
-        uint8_t* cPtr = static_cast<uint8_t*>(const_cast<void*>(c_contig.storage().data()));
-
-        // 5. Get NPU stream
-        aclrtStream stream = c10_npu::getCurrentNPUStream().stream(false);
-        count_++;
-
-        // 6. Call Catccos AllGatherMatmul kernel with fixed template parameters (float16, RowMajor)
-        int32_t my_pe = shmem_my_pe();
+    at_npu::native::OpCommand cmd;
+    cmd.Name("catccos_allgather_matmul");
+    cmd.Input(a_contig);
+    cmd.Input(b_contig);
+    cmd.Output(c);
+    cmd.SetCustomHandler([stream, ffts, aPtr, bPtr, cPtr, symmPtr,
+                          m, n, k, my_pe, n_pes]() -> int {
         CatccosKernel::catccos_allgather_matmul_wrapper(
             BLOCK_NUM,
             stream,
-            fftsAddr_,
+            ffts,
             aPtr,
             bPtr,
             cPtr,
-            symmPtr_,
-            m,
-            n,
-            k,
+            symmPtr,
+            static_cast<uint32_t>(m),
+            static_cast<uint32_t>(n),
+            static_cast<uint32_t>(k),
             my_pe,
-            n_pes
-        );
+            n_pes);
+        return 0;
+    });
+    cmd.Run();
+
+    return c;
+}
+
+int64_t finalize()
+{
+    auto& state = get_catccos_state();
+    if (!state.initialized) {
+        return 0;
     }
 
-private:
-    std::string name_;
-    int32_t count_;
-    uint64_t fftsAddr_;
-    uint8_t* symmPtr_;
+    if (state.symmPtr != nullptr) {
+        aclrtStream stream = c10_npu::getCurrentNPUStream().stream(false);
+        if (stream != nullptr) {
+            auto sync_ret = aclrtSynchronizeStream(stream);
+            TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                        "aclrtSynchronizeStream before shmem_free failed, ret=", sync_ret);
+        }
+        shmem_free(state.symmPtr);
+        state.symmPtr = nullptr;
+        state.symmBytes = 0;
+    }
 
-    uint32_t BLOCK_NUM = 20;
-};
+    int64_t status = aclshmem_finalize();
+    state.initialized = false;
+    state.rankId = -1;
+    state.rankSize = 0;
+    TORCH_CHECK(status == ACLSHMEM_SUCCESS,
+                "aclshmem_finalize failed: ", status);
+    return 0;
+}
 
-} // namespace CatccosOps
+}  // namespace catccos
 
+TORCH_LIBRARY(catccos, m) {
+    m.def("init(int rank_id, int rank_size, int local_mem_size, str ip_port) -> int");
+    m.def("allgather_matmul(Tensor a, Tensor b, int rank_size) -> Tensor");
+    m.def("finalize() -> int");
 
-
-// Register the class
-REGISTER_CATCCOS_OPS_CLASS(Manager, attr_init, finalize, malloc_tensor, free_tensor, malloc_like, get_name);
-REGISTER_CATCCOS_OPS_CLASS(AllGatherMatmul, compute, get_name);
+    m.impl("init", &catccos::init);
+    m.impl("allgather_matmul", torch::kPrivateUse1, &catccos::allgather_matmul);
+    m.impl("finalize", &catccos::finalize);
+}

@@ -27,44 +27,89 @@ if [ "$RANK_SIZE" -gt 8 ]; then
 fi
 
 cd ${CURRENT_DIR}
+mkdir -p ./out
 DATA_DIR=$(realpath ./out)
 echo "DATA_DIR: $DATA_DIR"
 PYTHON_SCRIPT=${SCRIPT_DIR}/allgather_matmul.py
 
+TOTAL_CASES=0
+PASSED_CASES=0
+FAILED_CASES=0
+
 # Read MNK from CSV
-tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
-    echo "Processing test case: M=${M}, K=${K}, N=${N}"
+while IFS=',' read -r M K N; do
+    if [ -z "$M" ]; then
+        continue
+    fi
+
+    TOTAL_CASES=$((TOTAL_CASES + 1))
+    CASE_PASSED=1
+    echo "Processing test case #${TOTAL_CASES}: M=${M}, K=${K}, N=${N}"
 
     # Generate golden data
-    rm -rf ./out/*.bin
-    python3 ${UTILS_PATH}/gen_data.py "agmm" 1 ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
+    rm -rf "${DATA_DIR}"/*.bin
+    if ! python3 ${UTILS_PATH}/gen_data.py "agmm" 1 ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}; then
+        echo "[FAIL] Generate data failed for M=${M}, K=${K}, N=${N}"
+        CASE_PASSED=0
+    fi
 
     # Set necessary parameters
     IPPORT="tcp://127.0.0.1:8735"
 
-    # Generate output file (m * rankSize * n * 2 bytes for fp16)
-    FILE_SIZE=$((M * RANK_SIZE * N * 2))
-    dd if=/dev/zero of="${DATA_DIR}/output.bin" bs=${FILE_SIZE} count=1
-    echo "Output File Created!"
+    if [ ${CASE_PASSED} -eq 1 ]; then
+        # Generate output file (m * rankSize * n * 2 bytes for fp16)
+        FILE_SIZE=$((M * RANK_SIZE * N * 2))
+        if ! dd if=/dev/zero of="${DATA_DIR}/output.bin" bs=${FILE_SIZE} count=1; then
+            echo "[FAIL] Create output file failed for M=${M}, K=${K}, N=${N}"
+            CASE_PASSED=0
+        else
+            echo "Output File Created!"
+        fi
+    fi
 
-    # Start Python processes
-    for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1 )); do
-        echo "Rank ${idx} started!"
-        python3 ${PYTHON_SCRIPT} \
-            --rank_size ${RANK_SIZE} \
-            --rank_id ${idx} \
-            --m ${M} \
-            --n ${N} \
-            --k ${K} \
-            --data_dir "${DATA_DIR}" \
-            --ip_port "${IPPORT}" &
-    done
+    if [ ${CASE_PASSED} -eq 1 ]; then
+        # Start Python processes
+        PIDS=()
+        for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1 )); do
+            echo "Rank ${idx} started!"
+            python3 ${PYTHON_SCRIPT} \
+                --rank_size ${RANK_SIZE} \
+                --rank_id ${idx} \
+                --m ${M} \
+                --n ${N} \
+                --k ${K} \
+                --data_dir "${DATA_DIR}" \
+                --ip_port "${IPPORT}" &
+            PIDS+=($!)
+        done
 
-    # Wait until all process exit
-    wait
+        # Wait until all process exit
+        for pid in "${PIDS[@]}"; do
+            if ! wait "${pid}"; then
+                CASE_PASSED=0
+            fi
+        done
+    fi
 
-    # Verify output
-    python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output.bin ${DATA_DIR}/golden.bin 1 $((M * RANK_SIZE)) ${N} ${K}
-done
+    if [ ${CASE_PASSED} -eq 1 ]; then
+        # Verify output
+        if ! python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output.bin ${DATA_DIR}/golden.bin 1 $((M * RANK_SIZE)) ${N} ${K}; then
+            CASE_PASSED=0
+        fi
+    fi
+
+    if [ ${CASE_PASSED} -eq 1 ]; then
+        PASSED_CASES=$((PASSED_CASES + 1))
+        echo "[PASS] M=${M}, K=${K}, N=${N}"
+    else
+        FAILED_CASES=$((FAILED_CASES + 1))
+        echo "[FAIL] M=${M}, K=${K}, N=${N}"
+    fi
+done < <(tail -n +2 "$CSV_FILE")
+
+echo "AGMM Python test summary: total=${TOTAL_CASES}, pass=${PASSED_CASES}, fail=${FAILED_CASES}"
 
 cd ${CURRENT_DIR}
+if [ ${FAILED_CASES} -ne 0 ]; then
+    exit 1
+fi

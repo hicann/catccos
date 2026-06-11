@@ -21,7 +21,7 @@ using ElementA = half;
 using ElementB = half;
 using ElementC = half;
 
-// Use padding config (workSpaceSize > 0 means padding is needed)
+// Use padding config when B needs padding; workspace size only controls allocation.
 using ConfigPadding = AllGatherMatmulPaddingConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 using ConfigNoPadding = AllGatherMatmulConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 
@@ -137,6 +137,7 @@ int main(int argc, char **argv)
     void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
     uint8_t *gmSymmetric = (uint8_t *)symmPtr;
 
+    bool isNeedPaddingB = IsAgmmNeedPaddingB(cocTiling);
     size_t workSpaceSize = op->GetWorkspaceSize(cocTiling);
     uint8_t *workspaceDevice{nullptr};
     if (workSpaceSize > 0) {
@@ -157,7 +158,7 @@ int main(int argc, char **argv)
     std::cout << "Before calling AG_MM kernel " << std::endl;
     uint64_t fftsAddr = shmemx_get_ffts_config();
     
-    if (workSpaceSize > 0) {
+    if (isNeedPaddingB) {
         using DeviceOp = ConfigPadding::Device;
         DeviceOp::Arguments args{
             problemShape,

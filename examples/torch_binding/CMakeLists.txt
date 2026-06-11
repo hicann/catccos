@@ -42,6 +42,7 @@ message("Start processing torch_binding")
 # Compile torch_binding as shared library
 add_library(catccos_torch SHARED
     src/torch_bindings.cpp
+    src/torch_bindings_meta.cpp
 )
 
 set_target_properties(catccos_torch PROPERTIES
