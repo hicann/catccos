@@ -27,7 +27,7 @@ export FUNC_WARM_UP_TIMES=0
 export FUNC_TEST_CYCLE_TIMES=1
 export PERF_WARM_UP_TIMES=10
 export PERF_TEST_CYCLE_TIMES=3
-export SEARCH_PARAMS=0
+export SEARCH_PARAMS=1
 
 CSV_FILE="${SCRIPT_DIR}/test_shapes.csv"
 
@@ -111,6 +111,9 @@ if [ "$TEST_TYPE" = "0" ]; then
             "agmmdq")
                 python3 ${UTILS_PATH}/gen_allgather_fixpipe_quant_data.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_PATH}
                 ;;
+            "a5fp8mxagmm")
+                python3 ${UTILS_PATH}/gen_data_fp8_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
+                ;;
         esac
 
         # Set necessary parameters
@@ -135,7 +138,7 @@ if [ "$TEST_TYPE" = "0" ]; then
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_rank${idx}.bin ./output/golden_rank${idx}.bin 1 ${M} ${N} ${K} &
             done
             wait
-        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" ]; then
+        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5fp8mxagmm" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin ${DATA_TYPE} ${M} ${N} ${K} &
             done

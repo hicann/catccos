@@ -54,7 +54,7 @@ void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t,
     for (const auto &tiling : allTilings) {
         uint32_t idx = 0;
         t.commInterval = tiling[idx++];
-        t.commTileM    = tiling[idx++] * 2;
+        t.commTileM    = tiling[idx++];
         t.commBlockM   = t.commTileM;
         t.m0           = tiling[idx++];
         t.k0           = 256;

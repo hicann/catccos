@@ -249,7 +249,7 @@ int main(int argc, char **argv)
             ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
         }
 
-        void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+        void *symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
         uint8_t *gmSymmetric = (uint8_t *)symmPtr;
 
         uint32_t searchparams = (std::getenv("SEARCH_PARAMS") == nullptr) ? 1U : std::stoul(std::getenv("SEARCH_PARAMS"));

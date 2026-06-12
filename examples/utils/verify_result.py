@@ -144,7 +144,6 @@ def cal_precision_eb_percent(op_type,i, actual_output, golden_output, precision_
     actual_output = torch.where(torch.isinf(actual_output), torch.full_like(actual_output, 0), actual_output)
     golden_output = torch.where(torch.isnan(golden_output), torch.full_like(golden_output, 0), golden_output)
     golden_output = torch.where(torch.isinf(golden_output), torch.full_like(golden_output, 0), golden_output)
-    show_random_samples(actual_output, golden_output)
     if op_type == OpTypes.RAND:
         alpha = 0.01
         t_statistic, p_value = scipy.stats.ks_2samp(actual_output, golden_output)

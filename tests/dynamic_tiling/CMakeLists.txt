@@ -139,6 +139,7 @@ include_directories(
     ${ASCEND_HOME_PATH}/include ${CMAKE_SOURCE_DIR}/include
     ${SHMEM_HOME_PATH}/shmem/include
     ${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/host
+    ${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
     ${CMAKE_SOURCE_DIR}/utils
     ${CMAKE_SOURCE_DIR}/tools
     ${CMAKE_CURRENT_SOURCE_DIR}/include

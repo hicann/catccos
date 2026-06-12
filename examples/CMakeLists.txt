@@ -271,6 +271,7 @@ foreach(EXAMPLE
     dispatch_gmm_dequant_swiglu
     gmm_alltoallv_v2
     dispatch_ffn_combine
+    ascend950_fp8_mx_allgather_matmul
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

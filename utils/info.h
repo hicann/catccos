@@ -58,6 +58,7 @@ enum CocCommType
     ALLGATHER_MATMUL_DEQUANT,
     ALLGATHER_MATMUL_DEQUANT_PADDING,
     DISPATCH_GMM_DEQUANT_SWIGLU,
+    ASCEND950_FP8_MX_ALLGATHER_MATMUL,
     TYPE_NUM,
     UNKNOWN
 };
@@ -174,6 +175,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"agmmdq", CocCommType::ALLGATHER_MATMUL_DEQUANT},
     {"agmmdqbs", CocCommType::ALLGATHER_MATMUL_DEQUANT_BIAS},
     {"dgds", CocCommType::DISPATCH_GMM_DEQUANT_SWIGLU},
+    {"a5fp8mxagmm", CocCommType::ASCEND950_FP8_MX_ALLGATHER_MATMUL},
     // 新增算子继续添加...
 };
 
@@ -203,6 +205,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {ALLGATHER_MATMUL_DEQUANT, "AllGatherMatmulDequant"},
     {ALLGATHER_MATMUL_DEQUANT_BIAS, "AllGatherMatmulDequantBias"},
     {DISPATCH_GMM_DEQUANT_SWIGLU, "DispatchGmmDequantSwiglu"},
+    {ASCEND950_FP8_MX_ALLGATHER_MATMUL, "Ascend950Fp8MxAllGatherMatmul"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)
