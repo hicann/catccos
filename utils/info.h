@@ -57,6 +57,7 @@ enum CocCommType
     ALLGATHER_MATMUL_DEQUANT_BIAS,
     ALLGATHER_MATMUL_DEQUANT,
     ALLGATHER_MATMUL_DEQUANT_PADDING,
+    ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER,
     DISPATCH_GMM_DEQUANT_SWIGLU,
     ASCEND950_FP8_MX_ALLGATHER_MATMUL,
     TYPE_NUM,
@@ -174,6 +175,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"atavgmmv2", CocCommType::ALLTOALLV_GMM_V2},
     {"agmmdq", CocCommType::ALLGATHER_MATMUL_DEQUANT},
     {"agmmdqbs", CocCommType::ALLGATHER_MATMUL_DEQUANT_BIAS},
+    {"a5mxfp8mmrs", CocCommType::ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER},
     {"dgds", CocCommType::DISPATCH_GMM_DEQUANT_SWIGLU},
     {"a5fp8mxagmm", CocCommType::ASCEND950_FP8_MX_ALLGATHER_MATMUL},
     // 新增算子继续添加...
@@ -204,6 +206,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {ALLTOALLV_GMM_V2, "AllToAllVGMMV2"},
     {ALLGATHER_MATMUL_DEQUANT, "AllGatherMatmulDequant"},
     {ALLGATHER_MATMUL_DEQUANT_BIAS, "AllGatherMatmulDequantBias"},
+    {ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER, "Ascend950MxFp8MatmulReduceScatter"},
     {DISPATCH_GMM_DEQUANT_SWIGLU, "DispatchGmmDequantSwiglu"},
     {ASCEND950_FP8_MX_ALLGATHER_MATMUL, "Ascend950Fp8MxAllGatherMatmul"},
 };
