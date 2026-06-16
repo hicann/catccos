@@ -113,6 +113,9 @@ if [ "$TEST_TYPE" = "0" ]; then
                 ;;
             "a5fp8mxagmm")
                 python3 ${UTILS_PATH}/gen_data_fp8_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
+                ;;            
+            "a5fp4mxagmm")
+                python3 ${UTILS_PATH}/gen_data_fp4_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
                 ;;
         esac
 
@@ -138,7 +141,7 @@ if [ "$TEST_TYPE" = "0" ]; then
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_rank${idx}.bin ./output/golden_rank${idx}.bin 1 ${M} ${N} ${K} &
             done
             wait
-        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5fp8mxagmm" ]; then
+        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin ${DATA_TYPE} ${M} ${N} ${K} &
             done

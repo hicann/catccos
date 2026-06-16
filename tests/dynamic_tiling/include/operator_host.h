@@ -22,6 +22,7 @@
 #include "allgather_matmul_dequant/allgather_matmul_dequant_host.h"
 #include "allgather_matmul_dequant_bias/allgather_matmul_dequant_bias_host.h"
 #include "ascend950_fp8_mx_allgather_matmul/ascend950_fp8_mx_allgather_matmul_host.h"
+#include "ascend950_fp4_mx_allgather_matmul/ascend950_fp4_mx_allgather_matmul_host.h"
 
 #ifdef CATCCOS_ENABLE_A5_BUILD
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_host.h"

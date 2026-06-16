@@ -143,6 +143,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/utils
     ${CMAKE_SOURCE_DIR}/tools
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
     ${CMAKE_SOURCE_DIR}/examples
 )
 link_directories(${CMAKE_RUNTIME_OUTPUT_DIRECTORY} ${ASCEND_HOME_PATH}/lib64

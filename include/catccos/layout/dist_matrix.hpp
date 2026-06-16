@@ -59,7 +59,7 @@ public:
     }
  
     CATLASS_HOST_DEVICE constexpr
-    DistRowMajor(MatrixCoord const &shape, Index ranks) :
+    DistRowMajor(Catlass::MatrixCoord const &shape, Index ranks) :
         DistRowMajor(shape.row(), shape.column(), ranks)
     {
     }
@@ -69,7 +69,7 @@ public:
     CATLASS_HOST_DEVICE constexpr
     static DistRowMajor MakeAlignedLayout(Shape const &shape)
     {
-        constexpr auto ELE_NUM_PER_FRACTAL = Catlass::BYTE_PER_FRACTAL / sizeof(Element);
+        constexpr auto ELE_NUM_PER_FRACTAL = Catlass::BytesToBits(Catlass::BYTE_PER_FRACTAL) / Catlass::SizeOfBits<Element>::value;
         LongIndex alignedCols = RoundUp<ELE_NUM_PER_FRACTAL>(shape[1]);
         return {shape, Catlass::MakeCoord<LongIndex>(alignedCols, 1, shape[0] * alignedCols)};
     }
@@ -83,7 +83,7 @@ public:
  
     template <class Element>
     CATLASS_HOST_DEVICE constexpr
-    static DistRowMajor MakeAlignedLayout(MatrixCoord const &shape, Index ranks)
+    static DistRowMajor MakeAlignedLayout(Catlass::MatrixCoord const &shape, Index ranks)
     {
         return MakeAlignedLayout<Element>(shape.row(), shape.column(), ranks);
     }
@@ -101,7 +101,7 @@ public:
     }
  
     CATLASS_HOST_DEVICE
-    Catlass::layout::RowMajor GetTileLayout(MatrixCoord const &shape) const
+    Catlass::layout::RowMajor GetTileLayout(Catlass::MatrixCoord const &shape) const
     {
         return {shape, Catlass::MakeCoord(stride_[0], stride_[1])};
     }

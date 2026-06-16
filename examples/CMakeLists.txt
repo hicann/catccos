@@ -273,6 +273,7 @@ foreach(EXAMPLE
     ascend950_mxfp8_matmul_reduce_scatter
     dispatch_ffn_combine
     ascend950_fp8_mx_allgather_matmul
+    ascend950_fp4_mx_allgather_matmul
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

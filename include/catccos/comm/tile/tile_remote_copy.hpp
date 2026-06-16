@@ -102,7 +102,26 @@ struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detai
         copyParams.length = copyShape.column();
         copyParams.src_ld = srcLayout.stride(0);
         copyParams.dst_ld = dstLayout.stride(0);
-        aclshmemx_mte_get_nbi(dstTensor, srcTensor, tmpUb, copyParams, peerIdx, copyEventId);
+
+        auto ptr = aclshmem_ptr((__gm__ void *)srcTensor.GetPhyAddr(), peerIdx);
+
+        AscendC::GlobalTensor<ElementSrc> remoteBuff;
+        remoteBuff.SetGlobalBuffer(reinterpret_cast<__gm__ ElementSrc *>(ptr));
+
+        uint64_t ELE_NUM_PER_UNIT = Catlass::BytesToBits(Catlass::BYTE_PER_C0) / Catlass::SizeOfBits<ElementSrc>::value;
+        uint64_t ubStride = (copyParams.length + ELE_NUM_PER_UNIT - 1) / ELE_NUM_PER_UNIT * ELE_NUM_PER_UNIT;
+        AscendC::DataCopyExtParams dataCopyParamsGm2ub(copyParams.repeat, copyParams.length * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value,
+                                                        (copyParams.src_ld - copyParams.length) * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value,
+                                                        (ubStride - copyParams.length) / ELE_NUM_PER_UNIT, 0);
+        aclshmemi_copy_gm2ub(tmpUb, remoteBuff, dataCopyParamsGm2ub);
+
+        AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE3>(copyEventId);
+        AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE3>(copyEventId);
+
+        AscendC::DataCopyExtParams dataCopyParamsUb2gm(copyParams.repeat, copyParams.length * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value,
+                                                        (ubStride - copyParams.length) / ELE_NUM_PER_UNIT,
+                                                        (copyParams.dst_ld - copyParams.length) * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value, 0);
+        aclshmemi_copy_ub2gm(dstTensor, tmpUb, dataCopyParamsUb2gm);
     }
 };
 
@@ -170,7 +189,25 @@ struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detai
         copyParams.length = copyShape.column();
         copyParams.src_ld = srcLayout.stride(0);
         copyParams.dst_ld = dstLayout.stride(0);
-        aclshmemx_mte_put_nbi(dstTensor, srcTensor, tmpUb, copyParams, peerIdx, copyEventId);
+        auto ptr = aclshmem_ptr((__gm__ void *)dstTensor.GetPhyAddr(), peerIdx);
+
+        AscendC::GlobalTensor<ElementSrc> remoteBuff;
+        remoteBuff.SetGlobalBuffer(reinterpret_cast<__gm__ ElementSrc *>(ptr));
+
+        uint64_t ELE_NUM_PER_UNIT = Catlass::BytesToBits(Catlass::BYTE_PER_C0) / Catlass::SizeOfBits<ElementSrc>::value;
+        uint64_t ubStride = (copyParams.length + ELE_NUM_PER_UNIT - 1) / ELE_NUM_PER_UNIT * ELE_NUM_PER_UNIT;
+        AscendC::DataCopyExtParams dataCopyParamsGm2ub(copyParams.repeat, copyParams.length * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value,
+                                                        (copyParams.src_ld - copyParams.length) * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value,
+                                                        (ubStride - copyParams.length) / ELE_NUM_PER_UNIT, 0);
+        aclshmemi_copy_gm2ub(tmpUb, srcTensor, dataCopyParamsGm2ub);
+
+        AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE3>(peerIdx);
+        AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE3>(peerIdx);
+
+        AscendC::DataCopyExtParams dataCopyParamsUb2gm(copyParams.repeat, copyParams.length * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value,
+                                                        (ubStride - copyParams.length) / ELE_NUM_PER_UNIT,
+                                                        (copyParams.dst_ld - copyParams.length) * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value, 0);
+        aclshmemi_copy_ub2gm(remoteBuff, tmpUb, dataCopyParamsUb2gm);
     }
 };
 
@@ -244,7 +281,7 @@ struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detai
 
         uint32_t repeat = copyShape.row();
         uint32_t stride = srcLayout.stride(0);
-        uint64_t messageLen = repeat * stride * sizeof(ElementSrc);
+        uint64_t messageLen = repeat * stride * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value;
         auto ptr = shmem_ptr((__gm__ void *)srcTensor.GetPhyAddr(), peerIdx);
         aclshmemi_roce_read((__gm__ uint8_t*)(dstTensor.GetPhyAddr()), (__gm__ uint8_t*)ptr, peerIdx, 0, messageLen, ubLocal64, ubLocal32, 0);
 
@@ -322,7 +359,7 @@ struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detai
 
         uint32_t repeat = copyShape.row();
         uint32_t stride = srcLayout.stride(0);
-        uint64_t messageLen = repeat * stride * sizeof(ElementSrc);
+        uint64_t messageLen = repeat * stride * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value;
         auto ptr = shmem_ptr((__gm__ void *)dstTensor.GetPhyAddr(), peerIdx);
         aclshmemi_roce_write((__gm__ uint8_t*)ptr, (__gm__ uint8_t*)(srcTensor.GetPhyAddr()), peerIdx, 0, messageLen, ubLocal64, ubLocal32, 0);
 

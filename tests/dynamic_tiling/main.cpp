@@ -278,6 +278,8 @@ int main(int argc, char **argv)
             kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, cocTilings[0], transA, transB);
         }
 
+        ACL_CHECK(aclrtSynchronizeStream(stream));
+
         for (CocTilingParams tiling : cocTilings) {
             for (size_t i = 0; i < testCycleTimes; i++) {
                 kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, tiling, transA, transB);
