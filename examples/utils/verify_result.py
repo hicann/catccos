@@ -10,6 +10,7 @@ from utils import DataType, tensor_from_file, get_rtol
 RED = "\033[31m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
+HIF8_DTYPE_NAMES = {"hif8", "hifloat8"}
 
 class OpTypes(Enum):
     NA = 0 # new standard is not available
@@ -22,6 +23,22 @@ class OpTypes(Enum):
     COMPUTE_FLOAT_HIGH_PRECISION = 7
     VECTOR_FUSION = 8
     CV_FUSION = 9
+
+
+def parse_output_dtype(arg: str):
+    normalized = arg.strip().lower()
+    if normalized in HIF8_DTYPE_NAMES:
+        return normalized
+    return DataType.from_str(arg)
+
+def is_hif8_dtype(dtype):
+    return isinstance(dtype, str) and dtype in HIF8_DTYPE_NAMES
+
+def load_tensor_for_verify(file_name: str, dtype):
+    if is_hif8_dtype(dtype):
+        from en_dtypes import hifloat8
+        return torch.from_numpy(np.fromfile(file_name, dtype=hifloat8).astype(np.float32))
+    return tensor_from_file(file_name, dtype=dtype)
 
 def get_precision_and_eb_threshold(op_type, dtype, rtol: float = 2**(-8)):
     precision_threshold = 0
@@ -179,7 +196,7 @@ def cal_precision_eb_percent(op_type,i, actual_output, golden_output, precision_
 
 def cal_double_precision_eb_percent(op_type, i, actual_output, golden_output, golden_low_output, err_threshold, eb_threshold):
     epsilon = 1e-7
-    
+
     actual_output = actual_output.to(torch.float32)
     golden_output = golden_output.to(torch.float32)
     golden_low_output = golden_low_output.to(torch.float32)
@@ -232,26 +249,31 @@ def verify_result():
     parser = argparse.ArgumentParser()
     parser.add_argument('output', type=str)
     parser.add_argument('golden', type=str)
-    parser.add_argument('out_dtype', type=DataType.from_str, choices=[DataType.FLOAT16, DataType.BF16, DataType.INT8])
+    parser.add_argument('out_dtype', type=parse_output_dtype)
     parser.add_argument('m', type=int)
     parser.add_argument('n', type=int)
     parser.add_argument('k', type=int)
     parser.add_argument('--golden_low', default="", type=str, help="low-precision golden bin file")
     args = parser.parse_args()
 
-    golden = tensor_from_file(args.golden, dtype=torch.float32)
-    output = tensor_from_file(args.output, dtype=args.out_dtype.torch_type)[:golden.shape[0]]
+    if is_hif8_dtype(args.out_dtype):
+        golden = load_tensor_for_verify(args.golden, args.out_dtype)
+        output = load_tensor_for_verify(args.output, args.out_dtype)
+        rtol = get_rtol(dtype=torch.float32, compute_times=args.k)
+    else:
+        golden = tensor_from_file(args.golden, dtype=torch.float32)
+        output = tensor_from_file(args.output, dtype=args.out_dtype.torch_type)[:golden.shape[0]]
+        rtol = get_rtol(dtype=args.out_dtype.torch_type, compute_times=args.k)
 
-    rtol = get_rtol(dtype=args.out_dtype.torch_type, compute_times=args.k)
     if args.golden_low != "":
-        golden_low = tensor_from_file(args.golden_low, dtype=args.out_dtype.torch_type)
+        golden_low_dtype = args.out_dtype if is_hif8_dtype(args.out_dtype) else args.out_dtype.torch_type
+        golden_low = load_tensor_for_verify(args.golden_low, golden_low_dtype)
         result = double_precision_performance_analysis(OpTypes.COMPUTE_FLOAT_HIGH_PRECISION, [golden.cpu()], [golden_low.cpu()], [output.cpu()], rtol)
     else:
-        result = precision_performance_analysis(OpTypes.COMPUTE_FLOAT, [golden.cpu()],[output.cpu()], rtol)
+        result = precision_performance_analysis(OpTypes.COMPUTE_FLOAT, [golden.cpu()], [output.cpu()], rtol)
     return result
 
 import traceback
-
 if __name__ == '__main__':
     try:
         res = verify_result()

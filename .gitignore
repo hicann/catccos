@@ -53,3 +53,6 @@ best_result_sorted.csv
 # log文件
 *.log
 .codemate
+
+.claude
+CLAUDE.md

@@ -34,9 +34,12 @@ constexpr uint32_t PERF_TEST_CYCLE_TIMES = 3;
 constexpr uint32_t MAX_BLOCK_COUNT = 2;
 constexpr int32_t SHMEM_BUFF_BYTES = 1004UL * 1024 * 1024;
 constexpr uint32_t IPC_BUFF_MAX_SIZE = 1000UL * 1024 * 1024;
+constexpr uint32_t IPC_DATA_OFFSET = 2 * 1024 * 1024;
+constexpr uint32_t PING_PONG_SIZE = 2;
 constexpr uint32_t SYNC_UNIT_SIZE = 4 * sizeof(int64_t);
 constexpr int32_t FLAG_BUFF_BYTES = 5 * 512 * 1024;
 constexpr int32_t INPUT_DTYPE = 2;
+constexpr int32_t MAX_RANK_SIZE = 128;
 
 using half = __fp16;
 
@@ -57,6 +60,8 @@ enum CocCommType
     ALLGATHER_MATMUL_DEQUANT_BIAS,
     ALLGATHER_MATMUL_DEQUANT,
     ALLGATHER_MATMUL_DEQUANT_PADDING,
+    QUANT_ALLTOALL,
+    QUANT_ALLGATHER,
     ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER,
     DISPATCH_GMM_DEQUANT_SWIGLU,
     ASCEND950_FP8_MX_ALLGATHER_MATMUL,
@@ -223,4 +228,4 @@ inline int32_t CeilDev(int32_t num, int32_t div)
     return (num + div - 1) / div;
 }
 
-#endif  // INFO_H
+#endif // INFO_H

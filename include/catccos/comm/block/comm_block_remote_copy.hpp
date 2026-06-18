@@ -21,11 +21,16 @@
 #include "catlass/matrix_coord.hpp"
 #include "catlass/layout/layout.hpp"
 
+// from shmem
+#include "shmem.h"
+
 namespace Catccos::Comm::Block {
 
 using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
 
+// 多维数据的远端通信实现
+// for matmul fusion kernel 
 template <
     class ArchTag_,
     uint32_t UB_STAGES_,
@@ -177,6 +182,125 @@ private:
     uint32_t copyEventIdList[UB_STAGES];
     uint32_t ubListId{0};
     TileRemoteCopy tileRemoteCopy;
+};
+
+// 一维数据的远端通信实现
+// for comm fusion kernel
+template <
+    class ArchTag_,
+    uint32_t UB_STAGES_,
+    bool IsDynamic_,
+    class SrcType_,
+    class DstType_,
+    class BlockShape_
+>
+// This specialization handles 1D contiguous input and performs cross-rank remote copy
+// without the tile/layout remapping used by the TileRemoteCopy-based specialization above.
+class CommBlock <
+    AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>,
+    SrcType_,
+    DstType_,
+    BlockShape_
+> {
+public:
+    // Type aliases
+    using DispatchPolicy = AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+    static constexpr bool IsDynamic = IsDynamic_;
+    static constexpr uint32_t flagSize = 2 * 1024;   // Reserved bytes at UB start for hardware flags
+    static constexpr uint32_t ubAlignSize = 64;      // UB buffer alignment in elements
+    using ArchTag = typename DispatchPolicy::ArchTag;
+    using ElementSrc = typename SrcType_::Element;
+    using LayoutSrc = typename SrcType_::Layout;
+    using ElementDst = typename DstType_::Element;
+    using LayoutDst = typename DstType_::Layout;
+    static_assert(std::is_same_v<ElementSrc, ElementDst>,
+        "This 1D remote-copy CommBlock expects the same source and destination element type.");
+    using BlockShape = BlockShape_;
+    // Epilogue params definition
+    struct Params {
+        uint32_t blockShape;
+        CATLASS_DEVICE
+        Params() {}
+        CATLASS_DEVICE
+        Params(uint32_t blockShape_) : blockShape(blockShape_) {}
+    };
+
+    CATLASS_DEVICE
+    CommBlock(Catlass::Arch::Resource<ArchTag> &resource, Params const &)
+    {
+        tileElements = (ArchTag::UB_SIZE - flagSize) / UB_STAGES / sizeof(ElementSrc) / ubAlignSize * ubAlignSize;
+        size_t ubOffset = flagSize;
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
+            ubSrcList[i] = resource.ubBuf.template GetBufferByByte<ElementSrc>(ubOffset);
+            ubOffset += tileElements * sizeof(ElementSrc);
+        }
+    }
+
+    CATLASS_DEVICE
+    void InitBlockLoop()
+    {
+        uint32_t copyEventId = 0;
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
+            copyEventIdList[i] = copyEventId++;
+            AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
+        }
+    }
+
+    CATLASS_DEVICE
+    void FinalizeBlockLoop()
+    {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
+            AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
+        }
+        ubListId = 0;
+    }
+
+    CATLASS_DEVICE
+    void operator() (
+        AscendC::GlobalTensor<ElementSrc> & gmSrc,
+        AscendC::GlobalTensor<ElementDst> & gmDst,
+        uint32_t const &actualCommBlockShape,
+        uint32_t rankIdx
+    )
+    {
+        if (actualCommBlockShape == 0) {
+            return;
+        }
+        uint32_t tileLoops = AscendC::CeilDivision(actualCommBlockShape, tileElements);
+        for (uint32_t tileIdx = 0; tileIdx < tileLoops; tileIdx++) {
+            uint32_t offset = tileIdx * tileElements;
+            uint32_t processNum = (tileIdx == (tileLoops - 1)) ? (actualCommBlockShape - tileIdx * tileElements) : tileElements;
+            CopyTile(gmSrc, gmDst, offset, processNum, rankIdx);
+        }
+    }
+
+private:
+    CATLASS_DEVICE
+    void CopyTile(
+        AscendC::GlobalTensor<ElementSrc> &gmSrc,
+        AscendC::GlobalTensor<ElementDst> &gmDst,
+        uint32_t offset,
+        uint32_t processNum,
+        uint32_t rankIdx
+    )
+    {
+        AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
+        non_contiguous_copy_param copyParams;
+        copyParams.repeat = 1;
+        copyParams.length = processNum;
+        copyParams.src_ld = processNum;
+        copyParams.dst_ld = processNum;
+        aclshmemx_mte_get_nbi(
+            gmDst[offset], gmSrc[offset], ubSrcList[ubListId], copyParams, rankIdx, copyEventIdList[ubListId]
+        );
+        AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
+        ubListId = (ubListId + 1 < UB_STAGES) ? (ubListId + 1) : 0;
+    }
+    AscendC::LocalTensor<ElementSrc> ubSrcList[UB_STAGES];
+    uint32_t copyEventIdList[UB_STAGES];
+    uint32_t ubListId{0};
+    uint32_t tileElements{0};
 };
 
 } // namespace Catccos::Comm::Block 

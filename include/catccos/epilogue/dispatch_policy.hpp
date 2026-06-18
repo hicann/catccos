@@ -21,6 +21,13 @@ struct EpilogueAtlasA2PerTokenDequantSwiglu {
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
+template <uint32_t UB_STAGES_, bool IsDynamic_ = false>
+struct EpilogueAtlasA5PerTensorQuant {
+    using ArchTag = Arch::Ascend950;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+    static constexpr bool IsDynamic = IsDynamic_;
+};
+
 }
 
 #endif  // CATCCOS_EPILOGUE_DISPATCH_POLICY_HPP

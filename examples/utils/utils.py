@@ -43,6 +43,43 @@ def tensor_from_file(file_name: str, dtype: torch.dtype) -> torch.Tensor:
         numpy_dtype = torch.empty(0, dtype=dtype).numpy().dtype
         return torch.from_numpy(np.fromfile(file_name, numpy_dtype))
 
+
+
+BF16_NAN = np.uint16(0xFFFF)
+BF16_POS_INF = np.uint16(0x7F80)
+BF16_NEG_INF = np.uint16(0xFF80)
+BF16_ROUND_FACTOR = np.uint32(0x7FFF)
+
+
+def fp32_to_bf16_bits(values: np.ndarray) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float32)
+    bits = values.view(np.uint32).copy()
+    result = np.empty(values.shape, dtype=np.uint16)
+
+    is_zero = values == np.float32(0.0)
+    is_nan = np.isnan(values)
+    is_inf = np.isinf(values)
+    is_finite = ~(is_zero | is_nan | is_inf)
+
+    result[is_zero] = np.uint16(0x0000)
+    result[is_nan] = BF16_NAN
+    result[is_inf] = np.where(values[is_inf] > 0, BF16_POS_INF, BF16_NEG_INF).astype(np.uint16)
+
+    if np.any(is_finite):
+        rounded = bits[is_finite].copy()
+        rounded += BF16_ROUND_FACTOR + ((rounded >> np.uint32(16)) & np.uint32(1))
+        result[is_finite] = (rounded >> np.uint32(16)).astype(np.uint16)
+
+    return result
+
+
+def bf16_bits_to_fp32(values: np.ndarray) -> np.ndarray:
+    values = np.asarray(values, dtype=np.uint16)
+    fp32 = (values.astype(np.uint32) << np.uint32(16)).view(np.float32)
+    fp32[(values >> np.uint16(1)) == 0] = np.float32(0.0)
+    return fp32
+
+
 def get_rtol(dtype: torch.dtype, compute_times: int) -> float:
     if dtype == torch.float16:
         return 2 ** (-8) if compute_times < 2048 else 2 ** (-7)
@@ -52,3 +89,4 @@ def get_rtol(dtype: torch.dtype, compute_times: int) -> float:
         return 2 ** (-11) if compute_times < 2048 else 2 ** (-10)
     else:
         raise ValueError(f"Invalid dtype: {dtype}.")
+

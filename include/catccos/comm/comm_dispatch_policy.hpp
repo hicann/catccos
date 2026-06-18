@@ -64,6 +64,12 @@ struct AtlasA2CommRdmaCopy {
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
+template <uint32_t UB_STAGES_, bool IsDynamic_=false>
+struct AtlasA5CommLocalCast {
+    using ArchTag = Catlass::Arch::Ascend950;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+};
+
 }  // namespace Catccos::Comm
 
 #endif  // CATCCOS_DISPATCH_POLICY_HPP

@@ -229,6 +229,7 @@ function(catccos_example_add_library TARGET)
                         -I${SHMEM_HOME_PATH}/memfabric_hybrid/include/smem/device
                         ${INCLUDE_DIRS}
                         -L${ASCEND_HOME_PATH}/lib64
+                        -L${ASCEND_HOME_PATH}/aarch64-linux/lib64
                         -L${SHMEM_HOME_PATH}/memfabric_hybrid/lib
                         -L${SHMEM_HOME_PATH}/shmem/lib
                         -lruntime -lstdc++ -lm -lascendcl
@@ -274,6 +275,8 @@ foreach(EXAMPLE
     dispatch_ffn_combine
     ascend950_fp8_mx_allgather_matmul
     ascend950_fp4_mx_allgather_matmul
+    ascend950_quant_alltoall
+    ascend950_quant_allgather
 )
     add_subdirectory(${EXAMPLE})
 endforeach()
