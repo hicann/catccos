@@ -43,6 +43,9 @@ const std::map<LutKey, const LUTGroup*> g_allLutGroups = {
   {{ALLGATHER_MATMUL_RDMA, 2}, &AllGather2p},
   {{ALLGATHER_MATMUL_RDMA, 4}, &AllGather4p},
   {{ALLGATHER_MATMUL_RDMA, 8}, &AllGather8p},
+  {{ALLGATHER_MATMUL_REMOTE_READ, 2}, &AllGather2p},
+  {{ALLGATHER_MATMUL_REMOTE_READ, 4}, &AllGather4p},
+  {{ALLGATHER_MATMUL_REMOTE_READ, 8}, &AllGather8p},
 #ifdef CATCCOS_ENABLE_A5_BUILD
   {{ASCEND950_ALLGATHER_MATMUL, 2}, &AllGather2p},
   {{ASCEND950_ALLGATHER_MATMUL, 4}, &AllGather4p},

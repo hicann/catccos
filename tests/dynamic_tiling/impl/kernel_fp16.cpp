@@ -11,6 +11,7 @@
 #include "allgather_matmul/allgather_matmul_device.h"
 #include "matmul_reduce_scatter/matmul_reduce_scatter_device.h"
 #include "allgather_matmul_with_gather_result/allgather_matmul_with_gather_result_device.h"
+#include "allgather_matmul_remote_read/allgather_matmul_remote_read_device.h"
 #include "grouped_matmul_alltoallv/grouped_matmul_alltoallv_device.h"
 #include "alltoallv_grouped_matmul/alltoallv_grouped_matmul_device.h"
 #include "alltoallv_gmm_v2/alltoallv_gmm_v2_device.h"
@@ -129,6 +130,55 @@ void LaunchAllGatherMatmulFP16(
             stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
     } else {
         LaunchAllGatherMatmulWithConfig<AllGatherMatmulConfig_M0_256>(
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
+    }
+}
+
+template <template <class, class, class, class, class, class> class ConfigAlias>
+static void LaunchAllGatherMatmulRemoteReadWithConfig(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    (void)workSpace;
+    auto launch = [&](auto &&deviceOp) {
+        using DeviceOp = std::decay_t<decltype(deviceOp)>;
+        Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
+        Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+        Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
+        Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, symmetricPtr,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp op;
+        op.Initialize(args);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
+    };
+    if (!transA && !transB) {
+        launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
+    } else if (!transA && transB) {
+        launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB1, ElementC, LayoutC>::Device{});
+    }
+}
+
+void LaunchAllGatherMatmulRemoteReadFP16(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    if (cocTiling.m0 == 128) {
+        LaunchAllGatherMatmulRemoteReadWithConfig<AllGatherMatmulRemoteReadConfig_M0_128>(
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
+    } else {
+        LaunchAllGatherMatmulRemoteReadWithConfig<AllGatherMatmulRemoteReadConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling, transA, transB);
     }
 }

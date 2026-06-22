@@ -258,6 +258,7 @@ foreach(EXAMPLE
     allgather_matmul
     ascend950_allgather_matmul
     ascend950_alltoall_matmul
+    allgather_matmul_remote_read
     matmul_reduce_scatter
     ascend950_matmul_reduce_scatter
     allgather_matmul_with_gather_result

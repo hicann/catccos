@@ -62,7 +62,7 @@ def gen_golden_data():
         tensor_to_file(b_gm, b_gm_path)
 
     golden = None
-    if args.kernel_name in ["agmm", "a5agmm", "agmmwg", "agmmrdma"]:
+    if args.kernel_name in ["agmm", "a5agmm", "agmmwg", "agmmrdma", "agmmrr"]:
         golden = torch.cat(matrix_c_list, dim=0)
     else:
         golden = torch.zeros_like(matrix_c_list[0])

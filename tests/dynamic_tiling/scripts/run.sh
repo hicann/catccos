@@ -93,7 +93,7 @@ if [ "$TEST_TYPE" = "0" ]; then
 
         rm -rf output/*.bin
         case "$KERNEL_NAME" in
-            "mmar"|"agmm"|"a5agmm"|"mmrs"|"a5mmrs"|"agmmwg"|"agmmrdma")
+            "mmar"|"agmm"|"a5agmm"|"mmrs"|"a5mmrs"|"agmmwg"|"agmmrdma"|"agmmrr")
                 python3 ${UTILS_PATH}/gen_data.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
                 ;;
             "gmmata")
@@ -131,7 +131,7 @@ if [ "$TEST_TYPE" = "0" ]; then
         # Wait until all process exit
         wait
 
-        if [ "$KERNEL_NAME" = "agmm" -o "$KERNEL_NAME" = "a5agmm" -o "$KERNEL_NAME" = "agmmrdma" ]; then
+        if [ "$KERNEL_NAME" = "agmm" -o "$KERNEL_NAME" = "a5agmm" -o "$KERNEL_NAME" = "agmmrdma" -o "$KERNEL_NAME" = "agmmrr" ]; then
             python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden.bin ${DATA_TYPE} ${M} ${N} ${K}
         elif [ "$KERNEL_NAME" = "agmmwg" ]; then
             python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden.bin ${DATA_TYPE} ${M} ${N} ${K}

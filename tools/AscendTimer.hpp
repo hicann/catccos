@@ -54,6 +54,7 @@ inline constexpr int FIXED_TIMING_COUNT = static_cast<int>(FixedTiming::FIXED_TI
     X(AIV)    \
     X(AIV_RS) \
     X(AIV_AG) \
+    X(AIV_LOCAL_COPY) \
     //继续添加
 
 enum class DynamicTimingType : int

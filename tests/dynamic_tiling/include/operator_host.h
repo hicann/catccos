@@ -15,6 +15,7 @@
 #include "allgather_matmul/allgather_matmul_host.h"
 #include "matmul_reduce_scatter/matmul_reduce_scatter_host.h"
 #include "allgather_matmul_with_gather_result/allgather_matmul_with_gather_result_host.h"
+#include "allgather_matmul_remote_read/allgather_matmul_remote_read_host.h"
 #include "grouped_matmul_alltoallv/grouped_matmul_alltoallv_host.h"
 #include "alltoallv_grouped_matmul/alltoallv_grouped_matmul_host.h"
 #include "allgather_matmul_rdma/allgather_matmul_rdma_host.h"
