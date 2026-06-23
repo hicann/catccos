@@ -70,6 +70,14 @@ struct AtlasA5CommLocalCast {
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
+template <uint32_t UB_STAGES_, uint32_t BLOCK_SIZE_ = 32, int64_t ROUND_MODE_ = 4>
+struct EpilogueAscend950DynamicMxQuant {
+    using ArchTag = Catlass::Arch::Ascend950;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+    static constexpr uint32_t BLOCK_SIZE = BLOCK_SIZE_;
+    static constexpr int64_t ROUND_MODE = ROUND_MODE_;  // 4=rint, 1=floor, 0=round
+};
+
 }  // namespace Catccos::Comm
 
 #endif  // CATCCOS_DISPATCH_POLICY_HPP

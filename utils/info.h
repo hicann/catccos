@@ -67,6 +67,7 @@ enum CocCommType
     DISPATCH_GMM_DEQUANT_SWIGLU,
     ASCEND950_FP8_MX_ALLGATHER_MATMUL,
     ASCEND950_FP4_MX_ALLGATHER_MATMUL,
+    MX_QUANT_ALLGATHER,
     TYPE_NUM,
     UNKNOWN
 };
@@ -75,7 +76,8 @@ enum CocDataType
 {
     FP16 = 1,
     INT8 = 2,
-    BF16 = 27
+    BF16 = 27,
+    FP8E4M3FN = 36
 };
 
 struct CocTilingParams
@@ -187,6 +189,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"dgds", CocCommType::DISPATCH_GMM_DEQUANT_SWIGLU},
     {"a5fp8mxagmm", CocCommType::ASCEND950_FP8_MX_ALLGATHER_MATMUL},
     {"a5fp4mxagmm", CocCommType::ASCEND950_FP4_MX_ALLGATHER_MATMUL},
+    {"mxqtag", CocCommType::MX_QUANT_ALLGATHER},
     // 新增算子继续添加...
 };
 
@@ -220,6 +223,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {DISPATCH_GMM_DEQUANT_SWIGLU, "DispatchGmmDequantSwiglu"},
     {ASCEND950_FP8_MX_ALLGATHER_MATMUL, "Ascend950Fp8MxAllGatherMatmul"},
     {ASCEND950_FP4_MX_ALLGATHER_MATMUL, "Ascend950Fp4MxAllGatherMatmul"},
+    {MX_QUANT_ALLGATHER, "MxQuantAllGather"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)

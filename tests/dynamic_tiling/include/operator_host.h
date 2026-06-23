@@ -28,6 +28,7 @@
 #ifdef CATCCOS_ENABLE_A5_BUILD
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_host.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_host.h"
+#include "ascend950_mx_quant_allgather/mx_quant_allgather_host.h"
 #endif
 
 #endif // OPERATOR_HOST_H

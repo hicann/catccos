@@ -280,6 +280,7 @@ foreach(EXAMPLE
     ascend950_fp4_mx_allgather_matmul
     ascend950_quant_alltoall
     ascend950_quant_allgather
+    ascend950_mx_quant_allgather
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

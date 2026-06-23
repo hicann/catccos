@@ -25,6 +25,7 @@ if(CATCCOS_ENABLE_A5_BUILD)
         kernel_bf16_ascend950
         mxfp8_kernel_fp16_ascend950
         mxfp4_kernel_fp16_ascend950
+        bf16_kernel_mxfp8_ascend950
     )
         add_impl_share_lib(${SHARE_LIB_NAME} ASCEND950 COMPILE_DEFINITIONS "CATLASS_ARCH=3510")
         LIST(APPEND SHARE_LIB_LINK ${SHARE_LIB_NAME})

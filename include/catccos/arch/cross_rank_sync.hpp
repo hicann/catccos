@@ -135,6 +135,29 @@ void CheckRemoteRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, in
 }
 
 CATLASS_DEVICE
+void CheckRankOverFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t flag)
+{
+    AscendC::LocalTensor<int64_t> ubTensor;
+    AscendC::TBuffAddr ubAddr;
+    ubAddr.logicPos = static_cast<uint8_t>(AscendC::TPosition::VECIN);
+    ubAddr.bufferAddr = reinterpret_cast<int64_t>(ctrlFlagsUB);;
+    ubTensor.SetAddr(ubAddr);
+    AscendC::GlobalTensor<int64_t> gmTensor;
+    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t *>(buff));
+    bool isSync = false;
+    do {
+        AscendC::PipeBarrier<PIPE_ALL>();
+        AscendC::DataCopy(ubTensor, gmTensor, FLAG_UNIT_INT_NUM);
+        AscendC::SetFlag<AscendC::HardEvent::MTE2_S>(EVENT_ID3);
+        AscendC::WaitFlag<AscendC::HardEvent::MTE2_S>(EVENT_ID3); // 等待GM->UB
+        int64_t v = ubTensor.GetValue(0);
+        if (v >= flag) {
+            isSync = true;
+        }
+    } while(!isSync);
+}
+
+CATLASS_DEVICE
 void CrossRankSync(int32_t flagIdx, int64_t flagData, int32_t rank, int32_t rankSize,
     __ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff)
 {

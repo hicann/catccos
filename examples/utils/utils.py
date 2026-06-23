@@ -16,9 +16,21 @@ class DataType(IntEnum):
     FLOAT16 = 1
     INT8 = 2
     BF16 = 27
+    FP8_E4M3 = 28
+    FP8_E5M2 = 29
 
     @classmethod
     def from_str(cls, arg: str):
+        name_map = {
+            'fp8_e4m3': cls.FP8_E4M3,
+            'fp8_e5m2': cls.FP8_E5M2,
+            'float16': cls.FLOAT16,
+            'bf16': cls.BF16,
+            'int8': cls.INT8,
+            'float': cls.FLOAT,
+        }
+        if arg.lower() in name_map:
+            return name_map[arg.lower()]
         return cls(int(arg))
 
     @property
@@ -28,6 +40,8 @@ class DataType(IntEnum):
             DataType.FLOAT16: torch.float16,
             DataType.INT8: torch.int8,
             DataType.BF16: torch.bfloat16,
+            DataType.FP8_E4M3: torch.uint8,
+            DataType.FP8_E5M2: torch.uint8,
         }[self]
 
 def tensor_to_file(tensor: torch.Tensor, file_name: str) -> None:

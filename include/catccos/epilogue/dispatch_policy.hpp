@@ -13,17 +13,17 @@
 
 #include "catlass/arch/arch.hpp"
 
-namespace Catlass::Epilogue {
+namespace Catccos::Epilogue {
 
 template <uint32_t UB_STAGES_>
 struct EpilogueAtlasA2PerTokenDequantSwiglu {
-    using ArchTag = Arch::AtlasA2;
+    using ArchTag = Catlass::Arch::AtlasA2;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
 template <uint32_t UB_STAGES_, bool IsDynamic_ = false>
 struct EpilogueAtlasA5PerTensorQuant {
-    using ArchTag = Arch::Ascend950;
+    using ArchTag = Catlass::Arch::Ascend950;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
     static constexpr bool IsDynamic = IsDynamic_;
 };
