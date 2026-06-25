@@ -62,6 +62,7 @@ enum CocCommType
     ALLGATHER_MATMUL_DEQUANT_PADDING,
     QUANT_ALLTOALL,
     QUANT_ALLGATHER,
+    MATMUL_DEQUANT_REDUCE_SCATTER_V2,
     ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER,
     ALLGATHER_MATMUL_REMOTE_READ,
     DISPATCH_GMM_DEQUANT_SWIGLU,
@@ -164,7 +165,9 @@ inline void FreeDeviceSpace(KernelParams &params)
     params.ptrC = nullptr;
     for (uint32_t i = 0; i < params.customCount; i++)
     {
-        ACL_CHECK(aclrtFree(params.customPtrs[i]));
+        if (params.customPtrs[i] != nullptr) {
+            ACL_CHECK(aclrtFree(params.customPtrs[i]));
+        }
     }
 }
 
@@ -184,6 +187,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"atavgmmv2", CocCommType::ALLTOALLV_GMM_V2},
     {"agmmdq", CocCommType::ALLGATHER_MATMUL_DEQUANT},
     {"agmmdqbs", CocCommType::ALLGATHER_MATMUL_DEQUANT_BIAS},
+    {"mmdqrsv2", CocCommType::MATMUL_DEQUANT_REDUCE_SCATTER_V2},
     {"a5mxfp8mmrs", CocCommType::ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER},
     {"agmmrr", CocCommType::ALLGATHER_MATMUL_REMOTE_READ},
     {"dgds", CocCommType::DISPATCH_GMM_DEQUANT_SWIGLU},
@@ -224,6 +228,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {ASCEND950_FP8_MX_ALLGATHER_MATMUL, "Ascend950Fp8MxAllGatherMatmul"},
     {ASCEND950_FP4_MX_ALLGATHER_MATMUL, "Ascend950Fp4MxAllGatherMatmul"},
     {MX_QUANT_ALLGATHER, "MxQuantAllGather"},
+    {MATMUL_DEQUANT_REDUCE_SCATTER_V2, "MatmulDequantReduceScatterV2"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)

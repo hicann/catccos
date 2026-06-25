@@ -28,6 +28,12 @@ struct EpilogueAtlasA5PerTensorQuant {
     static constexpr bool IsDynamic = IsDynamic_;
 };
 
+template <uint32_t UB_STAGES_>
+struct EpilogueAtlasA2PerTokenDequantWithDst {
+    using ArchTag = Catlass::Arch::AtlasA2;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+};
+
 }
 
 #endif  // CATCCOS_EPILOGUE_DISPATCH_POLICY_HPP

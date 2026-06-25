@@ -281,6 +281,7 @@ foreach(EXAMPLE
     ascend950_quant_alltoall
     ascend950_quant_allgather
     ascend950_mx_quant_allgather
+    matmul_dequant_reduce_scatter_v2
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

@@ -13,7 +13,7 @@ export debug=0
 
 out_type=1
 
-gen_data_file="gen_double_golden_data_mmrs.py"
+gen_data_file="gen_double_golden_data_mmdqrs.py"
 
 CURRENT_DIR=$(pwd)
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -31,17 +31,17 @@ if [ $RANK_SIZE -gt 8 ]; then
     exit 1
 fi
 
-cd ${PROJECT_ROOT}/examples/matmul_reduce_scatter/
+cd ${PROJECT_ROOT}/examples/matmul_dequant_reduce_scatter_v2/
 DATA_DIR=`realpath ./output`
 echo "DATA_DIR: $DATA_DIR"
-EXEC_BIN=${PROJECT_ROOT}/build/bin/matmul_reduce_scatter
+EXEC_BIN=${PROJECT_ROOT}/build/bin/matmul_dequant_reduce_scatter_v2
 
 tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     echo "Processing test case: M=${M}, K=${K}, N=${N}"
 
     # Generate golden data
     rm -rf ./output/*.bin
-    python3 ${PUBLIC_UTILS_PATH}/${gen_data_file} "mmrs" ${out_type} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
+    python3 ${PUBLIC_UTILS_PATH}/${gen_data_file} "mmdqrs" ${out_type} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
 
     # Set necessary parameters
     IPPORT="tcp://127.0.0.1:8734"
