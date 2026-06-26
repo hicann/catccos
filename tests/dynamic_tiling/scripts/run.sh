@@ -96,7 +96,7 @@ if [ "$TEST_TYPE" = "0" ]; then
             "mmar"|"agmm"|"a5agmm"|"mmrs"|"a5mmrs"|"agmmwg"|"agmmrdma"|"agmmrr")
                 python3 ${UTILS_PATH}/gen_data.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
                 ;;
-            "gmmata")
+            "gmmata"|"a5gmmata")
                 python3 ${UTILS_PATH}/gen_data_gmm_alltoallv.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
                 ;;
             "atagmm")
@@ -116,6 +116,12 @@ if [ "$TEST_TYPE" = "0" ]; then
                 ;;            
             "a5fp4mxagmm")
                 python3 ${UTILS_PATH}/gen_data_fp4_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
+                ;;
+            "a5fp8gmmata")
+                python3 ${UTILS_PATH}/gen_data_gmm_alltoallv_fp8_mx.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
+                ;;
+            "a5fp4gmmata")
+                python3 ${UTILS_PATH}/gen_data_gmm_alltoallv_fp4_mx.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
                 ;;
         esac
 
@@ -141,7 +147,9 @@ if [ "$TEST_TYPE" = "0" ]; then
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_rank${idx}.bin ./output/golden_rank${idx}.bin 1 ${M} ${N} ${K} &
             done
             wait
-        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" ]; then
+        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" \
+            -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" \
+            -o "$KERNEL_NAME" = "a5gmmata" -o "$KERNEL_NAME" = "a5fp8gmmata" -o "$KERNEL_NAME" = "a5fp4gmmata" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin ${DATA_TYPE} ${M} ${N} ${K} &
             done

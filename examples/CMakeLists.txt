@@ -282,6 +282,8 @@ foreach(EXAMPLE
     ascend950_quant_allgather
     ascend950_mx_quant_allgather
     matmul_dequant_reduce_scatter_v2
+    ascend950_fp8_mx_grouped_matmul_alltoallv
+    ascend950_fp4_mx_grouped_matmul_alltoallv
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

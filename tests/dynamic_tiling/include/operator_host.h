@@ -29,6 +29,9 @@
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_host.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_host.h"
 #include "ascend950_mx_quant_allgather/mx_quant_allgather_host.h"
+#include "ascend950_grouped_matmul_alltoallv/ascend950_grouped_matmul_alltoallv_host.h"
+#include "ascend950_fp8_mx_grouped_matmul_alltoallv/ascend950_fp8_mx_grouped_matmul_alltoallv_host.h"
+#include "ascend950_fp4_mx_grouped_matmul_alltoallv/ascend950_fp4_mx_grouped_matmul_alltoallv_host.h"
 #endif
 
 #endif // OPERATOR_HOST_H

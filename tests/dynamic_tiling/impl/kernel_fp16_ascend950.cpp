@@ -10,6 +10,9 @@
 
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_device.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_device.h"
+#include "ascend950_grouped_matmul_alltoallv/ascend950_grouped_matmul_alltoallv_device.h"
+#include "ascend950_fp8_mx_grouped_matmul_alltoallv/ascend950_fp8_mx_grouped_matmul_alltoallv_device.h"
+#include "ascend950_fp4_mx_grouped_matmul_alltoallv/ascend950_fp4_mx_grouped_matmul_alltoallv_device.h"
 
 using namespace AscendC;
 
@@ -17,9 +20,19 @@ using ElementA = half;
 using ElementB = half;
 using ElementC = half;
 
+using ElementFp8Mx = float8_e4m3_t;
+using ElementFp4Mx = float4_e2m1x2_t;
+using ElementMxScale = float8_e8m0_t;
+
 using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
 using LayoutC = Catlass::layout::RowMajor;
+
+using LayoutA0 = Catlass::layout::RowMajor;
+using LayoutB0 = Catlass::layout::RowMajor;
+
+using LayoutA1 = Catlass::layout::ColumnMajor;
+using LayoutB1 = Catlass::layout::ColumnMajor;
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAscend950AllGatherMatmulWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
@@ -121,5 +134,147 @@ void LaunchAscend950MatmulReduceScatterFP16(void *stream, uint32_t blockNum, uin
     {
         LaunchAscend950MatmulReduceScatterWithConfig<Ascend950MatmulReduceScatterConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    }
+}
+
+///////////////////////////// gmm_alltoallv /////////////////////////////
+
+template <template <class, class, class, class, class, class> class ConfigAlias>
+static void LaunchAscend950GroupedMatmulAllToAllVWithConfig(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    uint8_t *localExpertPtr = kernelParams.customPtrs[0];
+    uint8_t *globalExpertPtr = kernelParams.customPtrs[1];
+    auto launch = [&](auto &&deviceOp) {
+        using DeviceOp = std::decay_t<decltype(deviceOp)>;
+        Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
+        Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+        Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+        Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            cocTiling.epSize, cocTiling.expertNum,
+            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
+            localExpertPtr, globalExpertPtr,
+            symmetricPtr,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp op;
+        op.Initialize(args);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
+    };
+    if (!transA && !transB) {
+        launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
+    } else if (!transA && transB) {
+        launch(typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB1, ElementC, LayoutC>::Device{});
+    } else if (transA && !transB) {
+        launch(typename ConfigAlias<ElementA, LayoutA1, ElementB, LayoutB0, ElementC, LayoutC>::Device{});
+    } else {
+        launch(typename ConfigAlias<ElementA, LayoutA1, ElementB, LayoutB1, ElementC, LayoutC>::Device{});
+    }
+}
+
+void LaunchAscend950GroupedMatmulAllToAllVFP16(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    (void)workSpace;
+    if (cocTiling.m0 == 128) {
+        LaunchAscend950GroupedMatmulAllToAllVWithConfig<Ascend950GroupedMatmulAllToAllVConfig_M0_128>(
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    } else {
+        LaunchAscend950GroupedMatmulAllToAllVWithConfig<Ascend950GroupedMatmulAllToAllVConfig_M0_256>(
+            stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    }
+}
+
+///////////////////////////// fp8/fp4_gmm_alltoallv /////////////////////////////
+
+template <typename ElementMxData_, typename ElementMxScale_,
+    template <class, class, class, class, class, class, class> class ConfigAlias>
+static void LaunchAscend950MxGroupedMatmulAllToAllVWithConfig(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    uint8_t *aMxScalePtr = kernelParams.customPtrs[0];
+    uint8_t *bMxScalePtr = kernelParams.customPtrs[1];
+    uint8_t *localExpertPtr = kernelParams.customPtrs[2];
+    uint8_t *globalExpertPtr = kernelParams.customPtrs[3];
+    auto launch = [&](auto &&deviceOp) {
+        using DeviceOp = std::decay_t<decltype(deviceOp)>;
+        Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
+        Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+        Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+        Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            cocTiling.epSize, cocTiling.expertNum,
+            kernelParams.ptrA, kernelParams.ptrB, aMxScalePtr, bMxScalePtr, kernelParams.ptrC,
+            localExpertPtr, globalExpertPtr,
+            symmetricPtr,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp op;
+        op.Initialize(args);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
+    };
+    if (!transA && !transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA0, ElementMxData_, LayoutB0, ElementC, LayoutC, ElementMxScale_>::Device{});
+    } else if (!transA && transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA0, ElementMxData_, LayoutB1, ElementC, LayoutC, ElementMxScale_>::Device{});
+    } else if (transA && !transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA1, ElementMxData_, LayoutB0, ElementC, LayoutC, ElementMxScale_>::Device{});
+    } else {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA1, ElementMxData_, LayoutB1, ElementC, LayoutC, ElementMxScale_>::Device{});
+    }
+}
+
+void LaunchAscend950Fp8MxGroupedMatmulAllToAllVFP16(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    (void)workSpace;
+    if (cocTiling.m0 == 128) {
+        LaunchAscend950MxGroupedMatmulAllToAllVWithConfig<ElementFp8Mx, ElementMxScale,
+            Ascend950Fp8MxGroupedMatmulAllToAllVConfig_M0_128>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    } else {
+        LaunchAscend950MxGroupedMatmulAllToAllVWithConfig<ElementFp8Mx, ElementMxScale,
+            Ascend950Fp8MxGroupedMatmulAllToAllVConfig_M0_256>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    }
+}
+
+void LaunchAscend950Fp4MxGroupedMatmulAllToAllVFP16(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    (void)workSpace;
+    if (cocTiling.m0 == 128) {
+        LaunchAscend950MxGroupedMatmulAllToAllVWithConfig<ElementFp4Mx, ElementMxScale,
+            Ascend950Fp4MxGroupedMatmulAllToAllVConfig_M0_128>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    } else {
+        LaunchAscend950MxGroupedMatmulAllToAllVWithConfig<ElementFp4Mx, ElementMxScale,
+            Ascend950Fp4MxGroupedMatmulAllToAllVConfig_M0_256>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
