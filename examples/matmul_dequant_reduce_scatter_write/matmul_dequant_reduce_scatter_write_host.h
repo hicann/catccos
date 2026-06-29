@@ -1,9 +1,9 @@
-#ifndef MATMUL_DEQUANT_REDUCE_SCATTER_V2_HOST_H
-#define MATMUL_DEQUANT_REDUCE_SCATTER_V2_HOST_H
+#ifndef MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_HOST_H
+#define MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_HOST_H
 
 #include "operator_registry.h"
 
-class MatmulDequantReduceScatterV2Operator : public CatccosOperator {
+class MatmulDequantReduceScatterWriteOperator : public CatccosOperator {
 public:
     void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
             uint32_t rankId, std::string dataFile) override {
@@ -119,7 +119,7 @@ public:
     }
 
     CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {
-        return CocCommType::MATMUL_DEQUANT_REDUCE_SCATTER_V2;
+        return CocCommType::MATMUL_DEQUANT_REDUCE_SCATTER_WRITE;
     }
 
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override {
@@ -133,6 +133,6 @@ public:
     }
 };
 
-REGISTER_OPERATOR("MatmulDequantReduceScatterV2", MatmulDequantReduceScatterV2Operator);
+REGISTER_OPERATOR("MatmulDequantReduceScatterWrite", MatmulDequantReduceScatterWriteOperator);
 
-#endif // MATMUL_DEQUANT_REDUCE_SCATTER_V2_HOST_H
+#endif // MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_HOST_H

@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 
 catccos_example_add_executable(
-    matmul_dequant_reduce_scatter_v2
+    matmul_dequant_reduce_scatter_write
     SOURCES main.cpp
     COMPILE_DEFINITIONS CATLASS_ARCH=2201
 )

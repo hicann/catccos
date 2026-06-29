@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef CATCCOS_DGEMM_KERNEL_MATMUL_DEQUANT_REDUCE_SCATTER_V2_HPP
-#define CATCCOS_DGEMM_KERNEL_MATMUL_DEQUANT_REDUCE_SCATTER_V2_HPP
+#ifndef CATCCOS_DGEMM_KERNEL_MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_HPP
+#define CATCCOS_DGEMM_KERNEL_MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_HPP
 
 #include "catccos/catccos.hpp"
 #include "catccos/layout/dist_matrix.hpp"
@@ -35,7 +35,7 @@ template <
     class BlockCommScheduler_,
     uint32_t WORKSPACE_STAGES_
 >
-class MatmulDequantReduceScatterV2 {
+class MatmulDequantReduceScatterWrite {
 public:
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
@@ -195,7 +195,7 @@ public:
     }
 
     CATLASS_DEVICE
-    MatmulDequantReduceScatterV2()
+    MatmulDequantReduceScatterWrite()
     {
 #ifdef ENABLE_TIMER
         __gm__ uint8_t* timer_buffer = GetTimerBuffer();
@@ -211,7 +211,7 @@ public:
     }
 
     CATLASS_DEVICE
-    ~MatmulDequantReduceScatterV2()
+    ~MatmulDequantReduceScatterWrite()
     {
 #ifdef ENABLE_TIMER
         timer.Tok<Overwrite>(AscendTimer::KERNEL_TIMING_IDX);
@@ -442,4 +442,4 @@ private:
 
 }  // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_DGEMM_KERNEL_MATMUL_DEQUANT_REDUCE_SCATTER_V2_HPP
+#endif  // CATCCOS_DGEMM_KERNEL_MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_HPP

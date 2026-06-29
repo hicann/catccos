@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef MATMUL_DEQUANT_REDUCE_SCATTER_V2_KERNEL_H
-#define MATMUL_DEQUANT_REDUCE_SCATTER_V2_KERNEL_H
+#ifndef MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_KERNEL_H
+#define MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_KERNEL_H
 
 #include "info.h"
 
@@ -37,7 +37,7 @@
 #include "catccos/dgemm/block/block_mmad_pingpong_optional_bias.hpp"
 #include "catccos/epilogue/dispatch_policy.hpp"
 #include "catccos/epilogue/block/block_epilogue_per_token_dequant.hpp"
-#include "catccos/dgemm/kernel/matmul_dequant_reduce_scatter_v2.hpp"
+#include "catccos/dgemm/kernel/matmul_dequant_reduce_scatter_write.hpp"
 #include "catccos/dgemm/device/device_dgemm.hpp"
 
 using namespace AscendC;
@@ -50,7 +50,7 @@ template <
     class ElementD, class LayoutD,
     uint32_t M0_, uint32_t N0_, uint32_t K0_
 >
-struct MatmulDequantReduceScatterV2Config {
+struct MatmulDequantReduceScatterWriteConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     static constexpr bool ENABLE_UNIT_FLAG = false;
@@ -128,7 +128,7 @@ struct MatmulDequantReduceScatterV2Config {
         TileCopy,
         EpilogueTileSwizzle>;
 
-    using Kernel = DGemm::Kernel::MatmulDequantReduceScatterV2<
+    using Kernel = DGemm::Kernel::MatmulDequantReduceScatterWrite<
         BlockMmad,
         BlockComm,
         LocalCopyBlock,
@@ -144,14 +144,14 @@ struct MatmulDequantReduceScatterV2Config {
 // Pre-defined tiling configurations
 template <class ElementA, class LayoutA, class ElementB, class LayoutB,
           class ElementC, class LayoutC, class ElementD, class LayoutD>
-using MatmulDequantReduceScatterV2Config_M0_128 =
-    MatmulDequantReduceScatterV2Config<ElementA, LayoutA, ElementB, LayoutB,
+using MatmulDequantReduceScatterWriteConfig_M0_128 =
+    MatmulDequantReduceScatterWriteConfig<ElementA, LayoutA, ElementB, LayoutB,
         ElementC, LayoutC, ElementD, LayoutD, 128, 256, 256>;
 
 template <class ElementA, class LayoutA, class ElementB, class LayoutB,
           class ElementC, class LayoutC, class ElementD, class LayoutD>
-using MatmulDequantReduceScatterV2Config_M0_256 =
-    MatmulDequantReduceScatterV2Config<ElementA, LayoutA, ElementB, LayoutB,
+using MatmulDequantReduceScatterWriteConfig_M0_256 =
+    MatmulDequantReduceScatterWriteConfig<ElementA, LayoutA, ElementB, LayoutB,
         ElementC, LayoutC, ElementD, LayoutD, 256, 128, 256>;
 
-#endif // MATMUL_DEQUANT_REDUCE_SCATTER_V2_KERNEL_H
+#endif // MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_KERNEL_H

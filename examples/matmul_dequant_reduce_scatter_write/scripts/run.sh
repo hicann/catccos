@@ -26,10 +26,10 @@ if [ $RANK_SIZE -gt 8 ]; then
     exit 1
 fi
 
-cd ${PROJECT_ROOT}/examples/matmul_dequant_reduce_scatter_v2/
+cd ${PROJECT_ROOT}/examples/matmul_dequant_reduce_scatter_write/
 DATA_DIR=`realpath ./output`
 echo "DATA_DIR: $DATA_DIR"
-EXEC_BIN=${PROJECT_ROOT}/build/bin/matmul_dequant_reduce_scatter_v2
+EXEC_BIN=${PROJECT_ROOT}/build/bin/matmul_dequant_reduce_scatter_write
 
 # out_dtype: 1 = FP16, matching ElementD in main.cpp
 OUT_DTYPE=1
@@ -39,7 +39,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
 
     # Generate golden data
     rm -rf ./output/*.bin
-    python3 ${UTILS_PATH}/gen_quant_data_mmdqrs.py "mmdqrsv2" ${OUT_DTYPE} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
+    python3 ${UTILS_PATH}/gen_quant_data_mmdqrs.py "mmdqrs" ${OUT_DTYPE} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
 
     # Set necessary parameters
     IPPORT="tcp://127.0.0.1:8734"

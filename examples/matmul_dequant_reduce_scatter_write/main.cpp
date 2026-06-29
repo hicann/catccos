@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "matmul_dequant_reduce_scatter_v2_device.h"
-#include "matmul_dequant_reduce_scatter_v2_host.h"
+#include "matmul_dequant_reduce_scatter_write_device.h"
+#include "matmul_dequant_reduce_scatter_write_host.h"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -23,13 +23,13 @@ using LayoutB = Catlass::layout::RowMajor;
 using LayoutC = Catlass::layout::RowMajor;
 using LayoutD = Catlass::layout::RowMajor;
 
-using Config = MatmulDequantReduceScatterV2Config_M0_128<
+using Config = MatmulDequantReduceScatterWriteConfig_M0_128<
     ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD>;
 using DeviceOp = Config::Device;
 
 struct Options {
     static constexpr auto HELPER =
-       "Usage: matmul_dequant_reduce_scatter_v2 rank_size rank_id ip_port m n k [device_id_list]\n";
+       "Usage: matmul_dequant_reduce_scatter_write rank_size rank_id ip_port m n k data_path [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -127,9 +127,9 @@ int main(int argc, char **argv)
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
-    auto op = OperatorRegistry::Instance().CreateOperator("MatmulDequantReduceScatterV2");
+    auto op = OperatorRegistry::Instance().CreateOperator("MatmulDequantReduceScatterWrite");
     if (!op) {
-        std::cout << "Operator MatmulDequantReduceScatterV2 not found!" << std::endl;
+        std::cout << "Operator MatmulDequantReduceScatterWrite not found!" << std::endl;
         return -1;
     }
 

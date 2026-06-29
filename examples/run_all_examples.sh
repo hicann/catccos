@@ -21,7 +21,7 @@ EXAMPLES=(
     "grouped_matmul_alltoallv"
     "matmul_allreduce"
     "matmul_reduce_scatter"
-    "matmul_dequant_reduce_scatter_v2"
+    "matmul_dequant_reduce_scatter_write"
 )
 
 RANK="${1:-0,1}"

@@ -31,10 +31,10 @@ if [ $RANK_SIZE -gt 8 ]; then
     exit 1
 fi
 
-cd ${PROJECT_ROOT}/examples/matmul_dequant_reduce_scatter_v2/
+cd ${PROJECT_ROOT}/examples/matmul_dequant_reduce_scatter_write/
 DATA_DIR=`realpath ./output`
 echo "DATA_DIR: $DATA_DIR"
-EXEC_BIN=${PROJECT_ROOT}/build/bin/matmul_dequant_reduce_scatter_v2
+EXEC_BIN=${PROJECT_ROOT}/build/bin/matmul_dequant_reduce_scatter_write
 
 tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     echo "Processing test case: M=${M}, K=${K}, N=${N}"

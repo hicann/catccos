@@ -21,6 +21,6 @@ SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR
 cmake -B $BUILD_DIR -S $SOURCE_DIR
-cmake --build $BUILD_DIR --target matmul_dequant_reduce_scatter_v2 -j
+cmake --build $BUILD_DIR --target matmul_dequant_reduce_scatter_write -j
 
 cd ${CURRENT_DIR}
