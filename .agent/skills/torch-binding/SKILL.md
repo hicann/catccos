@@ -166,9 +166,12 @@ finalize_status = torch.ops.catccos.finalize()
 常见形式：
 
 ```bash
-python3 ${UTILS_PATH}/gen_data.py "agmm" 1 ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
-python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output.bin ${DATA_DIR}/golden.bin 1 $((M * RANK_SIZE)) ${N} ${K}
+OUT_DTYPE=<OUT_DTYPE>  # 1=FP16, 27=BF16, 2=INT8
+python3 ${UTILS_PATH}/gen_data.py "agmm" ${OUT_DTYPE} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR}
+python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output.bin ${DATA_DIR}/golden.bin ${OUT_DTYPE} $((M * RANK_SIZE)) ${N} ${K}
 ```
+
+> `gen_data.py` 和 `verify_result.py` 的 `out_dtype` 参数必须一致。BF16 算子使用 `27`，FP16 使用 `1`。
 
 如果算子已有正式 Python 脚本，优先复用，只把 lifecycle 和核心 op 调用切到 `torch.ops.catccos.*`。
 
