@@ -9,8 +9,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 #
 CURRENT_DIR=$(pwd)
-SCRIPT_DIR=$(cd "$(dirname "${BASE_SOURCE[0]}")" &>/dev/null && pwd)
-PROJECT_ROOT=$( dirname $(dirname "$SCRIPT_DIR"))
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+PROJECT_ROOT=$( dirname $( dirname $(dirname "$SCRIPT_DIR")))
 
 source $PROJECT_ROOT/examples/utils/setup.sh -soc_type Ascend950 || {
     echo "[ERROR] Running setup.sh in $PROJECT_ROOT/examples/utils failed."
