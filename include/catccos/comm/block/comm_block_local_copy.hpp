@@ -29,6 +29,7 @@ using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
 
 template <
+    class ArchTag_,
     uint32_t UB_STAGES_,
     bool IsDynamic_,
     class SrcType_,
@@ -38,7 +39,7 @@ template <
     class TileSwizzle_
 >
 class CommBlock <
-    AtlasA2CommLocalCopy<UB_STAGES_, IsDynamic_>,
+    AtlasCommLocalCopy<ArchTag_, UB_STAGES_, IsDynamic_>,
     SrcType_,
     DstType_,
     BlockShape_,
@@ -47,7 +48,7 @@ class CommBlock <
 > {
 public:
     // Type aliases
-    using DispatchPolicy = AtlasA2CommLocalCopy<UB_STAGES_, IsDynamic_>;
+    using DispatchPolicy = AtlasCommLocalCopy<ArchTag_, UB_STAGES_, IsDynamic_>;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
     static constexpr bool IsDynamic = IsDynamic_;
     using ArchTag = typename DispatchPolicy::ArchTag;

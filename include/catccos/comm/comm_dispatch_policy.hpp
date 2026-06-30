@@ -44,11 +44,15 @@ struct AtlasCommRemoteChunkCopy {
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
-template <uint32_t UB_STAGES_, bool IsDynamic_=false>
-struct AtlasA2CommLocalCopy {
-    using ArchTag = Catlass::Arch::AtlasA2;
-    static constexpr uint32_t UB_STAGES = UB_STAGES;
+template <class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_=false>
+struct AtlasCommLocalCopy {
+    using ArchTag = ArchTag_;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+    static constexpr bool IsDynamic = IsDynamic_;
 };
+
+template <uint32_t UB_STAGES_, bool IsDynamic_=false>
+using AtlasA2CommLocalCopy = AtlasCommLocalCopy<Catlass::Arch::AtlasA2, UB_STAGES_, IsDynamic_>;
 
 // For AtlasA2, per tensor dequant
 template <uint32_t UB_STAGES_, bool IsDynamic_=false>
