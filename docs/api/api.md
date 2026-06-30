@@ -178,3 +178,112 @@ struct TileRemoteCopy;
 ## Basic API
 
 Basic层级API封装了实际的硬件指令调用，这些指令加速了MMAD或数据拷贝操作，实现了对硬件能力的抽象，开放了芯片能力，保证了完备性和兼容性，其中ISASI类API，不保证跨硬件版本兼容。
+
+## Host API
+
+Host 侧负责算子 I/O 与参数校验，通过 `CatccosOperator` 基类和算子注册机制与 Device 侧解耦。
+
+### CatccosOperator
+
+定义于 `utils/catccos_operator.h`，各算子在 `*_host.h` 中继承并实现以下虚函数：
+
+| 虚函数 | 说明 |
+|--------|------|
+| `CheckCocTilingParams` | 校验 tiling 参数合法性 |
+| `AllocateDeviceSpace` | 申请 Device 内存并加载输入数据 |
+| `WriteResultFile` | 将计算结果 D2H 并保存 |
+| `GetWorkspaceSize` | 返回 workspace / padding 字节数 |
+| `GetActualKernelType` | 返回 `CocCommType` 枚举值 |
+
+### 算子注册
+
+```cpp
+// utils/operator_registry.h
+REGISTER_OPERATOR("AllGatherMatmul", AllGatherMatmulOperator);
+
+// main.cpp 中使用
+auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmul");
+```
+
+`REGISTER_OPERATOR` 宏在静态初始化阶段将算子名与工厂函数注册到 `OperatorRegistry` 单例。
+
+### 公共参数结构
+
+- `CocTilingParams`（`utils/info.h`）：问题规模（m/k/n）、tile 大小（m0/k0/n0）、通信 tiling 参数
+- `KernelParams`（`utils/info.h`）：Device 侧指针（ptrA/ptrB/ptrC）及 custom 指针数组
+
+## Device API
+
+Device 侧通过 `DeviceDGemm` 模板类启动 Kernel，定义于 `include/catccos/dgemm/device/device_dgemm.hpp`。
+
+```cpp
+namespace Catccos::DGemm::Device {
+template <class DGemmKernel>
+class DeviceDGemm {
+public:
+    using Arguments = typename DGemmKernel::Arguments;
+    using Params = typename DGemmKernel::Params;
+
+    static size_t GetWorkspaceSize(Arguments const &args);
+    Catlass::Status Initialize(Arguments const &args, uint8_t *workspace = nullptr);
+    void Run(aclrtStream stream, uint32_t blockDim, uint64_t fftsAddr);
+};
+}
+```
+
+典型调用流程：`GetWorkspaceSize` → `Initialize` → `Run`。Kernel 入口由 `KernelAdapter`（`kernel_adapter.hpp`）通过 `<<<>>>` 直调。
+
+## Comm API 索引
+
+通信相关枚举定义于 `include/catccos/detail/remote_copy_type.hpp`：
+
+| 枚举 | 取值 | 说明 |
+|------|------|------|
+| `CopyDirect` | `Put`, `Get` | 数据搬运方向：主动写入远端 / 从远端读取 |
+| `CopyTransport` | `Mte`, `Rdma` | 搬运通道：MTE 本地引擎 / RDMA 远端直写 |
+
+`TileRemoteCopy` 通过模板参数指定 `CopyDirect` 和 `CopyTransport`；`CommBlock` 封装 block 级通信逻辑，详见上文 Tile API 与 Block API 章节。
+
+通信 block 实现位于 `include/catccos/comm/block/`，tile 实现位于 `include/catccos/comm/tile/`。
+
+## Kernel 目录索引
+
+完整算子语义与分类见 [operators.md](../operators.md)。以下为 Kernel 头文件清单。
+
+### DGemm Kernel（`include/catccos/dgemm/kernel/`）
+
+| 头文件 | 融合模式 |
+|--------|---------|
+| `allgather_matmul.hpp` | AllGather + MatMul |
+| `allgather_matmul_with_local_mm_opt.hpp` | AllGather + MatMul（本地 MM 优化） |
+| `allgather_matmul_with_gather_result.hpp` | AllGather + MatMul（输出 Gather 结果） |
+| `allgather_matmul_with_gather_result_and_local_mm.hpp` | 上述 + 本地 MM 优化 |
+| `allgather_matmul_with_remote_read.hpp` | AllGather + MatMul（Remote Read） |
+| `allgather_matmul_with_remote_read_local_mm_opt.hpp` | Remote Read + 本地 MM 优化 |
+| `allgather_matmul_with_rdma_write.hpp` | AllGather + MatMul（RDMA Write） |
+| `allgather_matmul_dequant.hpp` | AllGather + MatMul + Dequant |
+| `allgather_matmul_dequant_bias.hpp` | AllGather + MatMul + Dequant + Bias |
+| `matmul_allreduce.hpp` | MatMul + AllReduce |
+| `matmul_reduce_scatter.hpp` | MatMul + ReduceScatter |
+| `matmul_reduce_scatter_tla.hpp` | MatMul + ReduceScatter（TLA） |
+| `matmul_reduce_scatter_mx_tla.hpp` | MX-FP8 MatMul + ReduceScatter |
+| `matmul_dequant_reduce_scatter_v2.hpp` | Dequant + MatMul + ReduceScatter |
+| `grouped_matmul_alltoallv.hpp` | GroupedMatMul + AllToAllV |
+| `grouped_matmul_alltoallv_tla.hpp` | GroupedMatMul + AllToAllV（TLA） |
+| `grouped_matmul_alltoallv_mx.hpp` | MX GroupedMatMul + AllToAllV |
+| `alltoallv_grouped_matmul.hpp` | AllToAllV + GroupedMatMul |
+| `alltoallv_gmm_v2.hpp` | AllToAllV + GMM v2 |
+| `alltoallv_gmm_dequant_v2.hpp` | AllToAllV + Dequant GMM v2 |
+| `gmm_alltoallv_v2.hpp` | GMM + AllToAllV v2 |
+| `ascend950_allgather_matmul.hpp` | Atlas 350 AllGather + MatMul |
+| `ascend950_alltoall_matmul.hpp` | Atlas 350 AllToAll + MatMul |
+| `ascend950_matmul_alltoall.hpp` | Atlas 350 MatMul + AllToAll |
+| `mx_allgather_matmul.hpp` | MX AllGather + MatMul |
+
+### Comm Kernel（`include/catccos/comm/kernel/`）
+
+| 头文件 | 融合模式 |
+|--------|---------|
+| `quant_allgather.hpp` | Quant AllGather（BF16 → HiF8） |
+| `quant_alltoall.hpp` | Quant AllToAll（BF16 → HiF8） |
+| `mx_quant_allgather.hpp` | MX Quant + AllGather |

@@ -12,14 +12,14 @@ CATCCOS(**CA**NN **T**emplates for **C**ompute-**C**ommunication **O**verlap **S
 
 ![api_level](docs/images/api_level.png)
 
-分层详细介绍和各层级api，见[api](docs/api.md)文档。
+分层详细介绍和各层级 API，见 [文档索引](docs/README.md)；API 分层说明见 [api/api.md](docs/api/api.md)；当前支持算子见 [operators.md](docs/operators.md)。
 
 ## 📁 目录结构说明
 
 ```bash
 catccos
 ├── 3rdparty    # 依赖的catlass工程文件
-├── docs        # 文档
+├── docs        # 文档（索引见 docs/README.md，算子见 docs/operators.md）
 ├── examples    # kernel使用样例
 └── include     # 模板头文件
 ```
