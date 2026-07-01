@@ -71,6 +71,7 @@ enum CocCommType
     MX_QUANT_ALLGATHER,
     ASCEND950_FP8_MX_GROUPED_MATMUL_ALLTOALLV,
     ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV,
+    ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL,
     TYPE_NUM,
     UNKNOWN
 };
@@ -198,6 +199,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"mxqtag", CocCommType::MX_QUANT_ALLGATHER},
     {"a5fp8gmmata", CocCommType::ASCEND950_FP8_MX_GROUPED_MATMUL_ALLTOALLV},
     {"a5fp4gmmata", CocCommType::ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV},
+    {"a5fp8mxatavgmm", CocCommType::ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL},
     // 新增算子继续添加...
 };
 
@@ -235,6 +237,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {MATMUL_DEQUANT_REDUCE_SCATTER_WRITE, "MatmulDequantReduceScatterWrite"},
     {ASCEND950_FP8_MX_GROUPED_MATMUL_ALLTOALLV, "Ascend950Fp8MxGroupedMatmulAllToAllV"},
     {ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV, "Ascend950Fp4MxGroupedMatmulAllToAllV"},
+    {ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL, "Ascend950Fp8MxAllToAllVGroupedMatmul"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)

@@ -31,7 +31,7 @@ export SEARCH_PARAMS=1
 
 CSV_FILE="${SCRIPT_DIR}/test_shapes.csv"
 
-source $PROJECT_ROOT/3rdparty/shmem/install/set_env.sh || {
+source $PROJECT_ROOT/3rdparty/shmem/install/set_env.sh -soc_type Ascend950 || {
     echo "[ERROR] Running set_env.sh in $PROJECT_ROOT/3rdparty/shmem/install failed."
     exit 1
 }
@@ -123,6 +123,9 @@ if [ "$TEST_TYPE" = "0" ]; then
             "a5fp4gmmata")
                 python3 ${UTILS_PATH}/gen_data_gmm_alltoallv_fp4_mx.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
                 ;;
+            "a5fp8mxatavgmm")
+ 	            python3 ${UTILS_PATH}/gen_data_fp8_mx_alltoallv_gmm.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH} --ep ${RANK_SIZE} --expert 8
+                ;;
         esac
 
         # Set necessary parameters
@@ -148,7 +151,7 @@ if [ "$TEST_TYPE" = "0" ]; then
             done
             wait
         elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" \
-            -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" \
+            -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" -o "$KERNEL_NAME" = "a5fp8mxatavgmm" \
             -o "$KERNEL_NAME" = "a5gmmata" -o "$KERNEL_NAME" = "a5fp8gmmata" -o "$KERNEL_NAME" = "a5fp4gmmata" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin ${DATA_TYPE} ${M} ${N} ${K} &

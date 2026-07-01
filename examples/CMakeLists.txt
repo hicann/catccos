@@ -284,6 +284,7 @@ foreach(EXAMPLE
     matmul_dequant_reduce_scatter_write
     ascend950_fp8_mx_grouped_matmul_alltoallv
     ascend950_fp4_mx_grouped_matmul_alltoallv
+    ascend950_fp8_mx_alltoallv_grouped_matmul
 )
     add_subdirectory(${EXAMPLE})
 endforeach()
