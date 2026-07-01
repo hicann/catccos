@@ -23,6 +23,7 @@ source $PROJECT_ROOT/3rdparty/shmem/install/set_env.sh || {
     exit 1
 }
 
+DATA_DIR=`realpath ./output`
 IFS=',' read -ra DEVICE_ID_LIST <<< "$1"
 RANK_SIZE=${#DEVICE_ID_LIST[@]}
 if [ $RANK_SIZE -gt 8 ]; then
@@ -43,7 +44,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
 
     # Generate golden data
     rm -rf output/*.bin
-    python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py 6 1 ${RANK_SIZE} ${M} ${N} ${K} 0 0 --expert $EXPERT_NUM --ep $EP_SIZE
+    python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py 6 1 ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR} --expert $EXPERT_NUM --ep $EP_SIZE
 
     # Set necessary parameters
     IPPORT="tcp://127.0.0.1:27008"

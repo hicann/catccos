@@ -255,7 +255,7 @@ class Ascend950AllGatherMatmul
             timer.Tok<Overwrite>(AscendTimer::AIC);
 #endif
 
-            if (commIdx < commLoops - WORKSPACE_STAGES)
+            if (commIdx < commLoops - WORKSPACE_STAGES && commLoops >= WORKSPACE_STAGES)
             {
                 Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
             }

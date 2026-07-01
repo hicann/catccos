@@ -286,6 +286,7 @@ foreach(EXAMPLE
     ascend950_fp4_mx_grouped_matmul_alltoallv
     ascend950_fp8_mx_alltoallv_grouped_matmul
     ascend950_fp4_mx_alltoallv_grouped_matmul
+    ascend950_alltoallv_grouped_matmul
 )
     add_subdirectory(${EXAMPLE})
 endforeach()

@@ -99,11 +99,11 @@ if [ "$TEST_TYPE" = "0" ]; then
             "gmmata"|"a5gmmata")
                 python3 ${UTILS_PATH}/gen_data_gmm_alltoallv.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
                 ;;
-            "atagmm")
-                python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
+            "atavgmm"|"a5atavgmm")
+                python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH} --ep ${RANK_SIZE} --expert 8
                 ;;
             "atavgmmv2")
-                python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} --ep ${RANK_SIZE} --expert 8
+                python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH} --ep ${RANK_SIZE} --expert 8
                 ;;
             "agmmdqbs")
                 python3 ${UTILS_PATH}/gen_allgather_quant_data.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_PATH}
@@ -153,7 +153,7 @@ if [ "$TEST_TYPE" = "0" ]; then
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_rank${idx}.bin ./output/golden_rank${idx}.bin 1 ${M} ${N} ${K} &
             done
             wait
-        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" \
+        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5atavgmm" \
             -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" -o "$KERNEL_NAME" = "a5fp8mxatavgmm" -o "$KERNEL_NAME" = "a5fp4mxatavgmm" \
             -o "$KERNEL_NAME" = "a5gmmata" -o "$KERNEL_NAME" = "a5fp8gmmata" -o "$KERNEL_NAME" = "a5fp4gmmata" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
@@ -184,7 +184,7 @@ else
         # Start Process
         rm -rf output/*.bin
         case "$KERNEL_NAME" in
-            "atagmm")
+            "atavgmm")
                 python3 ${UTILS_PATH}/gen_uniform_tokens_table.py ${RANK_SIZE} ${M} ${N} ${K} --expert 8 --ep ${RANK_SIZE}
                 ;;
         esac

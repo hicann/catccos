@@ -34,6 +34,7 @@
 #include "ascend950_fp4_mx_allgather_matmul/ascend950_fp4_mx_allgather_matmul_host.h"
 #include "ascend950_fp8_mx_alltoallv_grouped_matmul/ascend950_fp8_mx_alltoallv_grouped_matmul_host.h"
 #include "ascend950_fp4_mx_alltoallv_grouped_matmul/ascend950_fp4_mx_alltoallv_grouped_matmul_host.h"
+#include "ascend950_alltoallv_grouped_matmul/ascend950_alltoallv_grouped_matmul_host.h"
 #endif
 
 #endif // OPERATOR_HOST_H

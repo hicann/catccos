@@ -73,6 +73,7 @@ enum CocCommType
     ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV,
     ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL,
     ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL,
+    ASCEND950_ALLTOALLV_GROUPED_MATMUL,
     TYPE_NUM,
     UNKNOWN
 };
@@ -186,7 +187,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"gmmata", CocCommType::GROUPED_MATMUL_ALLTOALLV},
     {"gmmatatla", CocCommType::GROUPED_MATMUL_ALLTOALLV_TLA},
     {"a5gmmata", CocCommType::ASCEND950_GROUPED_MATMUL_ALLTOALLV},
-    {"atagmm", CocCommType::ALLTOALLV_GROUPED_MATMUL},
+    {"atavgmm", CocCommType::ALLTOALLV_GROUPED_MATMUL},
     {"agmmrdma", CocCommType::ALLGATHER_MATMUL_RDMA},
     {"atavgmmv2", CocCommType::ALLTOALLV_GMM_V2},
     {"agmmdq", CocCommType::ALLGATHER_MATMUL_DEQUANT},
@@ -202,6 +203,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"a5fp4gmmata", CocCommType::ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV},
     {"a5fp8mxatavgmm", CocCommType::ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL},
     {"a5fp4mxatavgmm", CocCommType::ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL},
+    {"a5atavgmm", CocCommType::ASCEND950_ALLTOALLV_GROUPED_MATMUL},
     // 新增算子继续添加...
 };
 
@@ -241,6 +243,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV, "Ascend950Fp4MxGroupedMatmulAllToAllV"},
     {ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL, "Ascend950Fp8MxAllToAllVGroupedMatmul"},
     {ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL, "Ascend950Fp4MxAllToAllVGroupedMatmul"},
+    {ASCEND950_ALLTOALLV_GROUPED_MATMUL, "Ascend950AllToAllVGroupedMatmul"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)

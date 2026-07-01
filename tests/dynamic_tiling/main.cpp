@@ -233,7 +233,7 @@ int main(int argc, char **argv)
                 continue;
             }
         } else {
-            std::cout << "Operator AllGatherMatmul not found!" << std::endl;
+            std::cout << "Operator " << opName << " not found!" << std::endl;
             return -1;
         }
 

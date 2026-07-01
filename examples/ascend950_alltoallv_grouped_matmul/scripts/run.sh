@@ -21,7 +21,7 @@ source $PROJECT_ROOT/3rdparty/shmem/install/set_env.sh || {
     exit 1
 }
 
-DATA_DIR=`realpath ./output`
+DATA_DIR=`realpath ./out`
 IFS=',' read -ra DEVICE_ID_LIST <<< "$1"
 RANK_SIZE=${#DEVICE_ID_LIST[@]}
 if [ $RANK_SIZE -gt 8 ]; then
@@ -32,15 +32,14 @@ fi
 EP_SIZE=${2:-2}
 EXPERT_NUM=${3:-4}
 
-cd ${PROJECT_ROOT}/examples/alltoallv_grouped_matmul/
-EXEC_BIN=${PROJECT_ROOT}/build/bin/alltoallv_grouped_matmul
+cd ${PROJECT_ROOT}/examples/ascend950_alltoallv_grouped_matmul/
+EXEC_BIN=${PROJECT_ROOT}/build/bin/ascend950_alltoallv_grouped_matmul
 
-mkdir -p output
 tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     echo "Processing test case: M=${M}, K=${K}, N=${N}"
 
     # Generate golden data
-    rm -rf output/*.bin
+    rm -rf ${DATA_DIR}/*.bin
     python3 ${UTILS_PATH}/gen_data_alltoallv_gmm.py 6 1 ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_DIR} --expert $EXPERT_NUM --ep $EP_SIZE
 
     # Set necessary parameters
@@ -48,7 +47,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
 
     # Start Process
     for (( idx =0; idx < ${RANK_SIZE}; idx = idx + 1 )); do
-        ${EXEC_BIN} "$RANK_SIZE" "$idx" "$IPPORT" "$M" "$N" "$K" $EP_SIZE $EXPERT_NUM "$1" &
+        ${EXEC_BIN} "$RANK_SIZE" "$idx" "$IPPORT" "$M" "$N" "$K" $EP_SIZE $EXPERT_NUM $DATA_DIR "$1" &
     done
 
     # Wait until all process exit
@@ -56,7 +55,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
 
     # Verify output
     for (( idx =0; idx < ${RANK_SIZE}; idx = idx + 1 )); do
-        python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin 1 ${M} ${N} ${K} &
+        python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output_${idx}.bin ${DATA_DIR}/golden_${idx}.bin 1 ${M} ${N} ${K} &
     done
 
     wait
