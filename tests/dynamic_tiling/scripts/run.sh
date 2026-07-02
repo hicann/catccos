@@ -129,6 +129,9 @@ if [ "$TEST_TYPE" = "0" ]; then
             "a5fp4mxatavgmm")
  	            python3 ${UTILS_PATH}/gen_data_fp4_mx_alltoallv_gmm.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH} --ep ${RANK_SIZE} --expert 8
                 ;;
+            "a5fp4mmrs")
+                python3 ${UTILS_PATH}/gen_data_fp4_mx.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
+                ;;
         esac
 
         # Set necessary parameters

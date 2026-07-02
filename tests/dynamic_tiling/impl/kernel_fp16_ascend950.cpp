@@ -10,6 +10,7 @@
 
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_device.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_device.h"
+#include "ascend950_fp4_mx_matmul_reduce_scatter/ascend950_fp4_mx_matmul_reduce_scatter_device.h"
 #include "ascend950_grouped_matmul_alltoallv/ascend950_grouped_matmul_alltoallv_device.h"
 #include "ascend950_fp8_mx_grouped_matmul_alltoallv/ascend950_fp8_mx_grouped_matmul_alltoallv_device.h"
 #include "ascend950_fp4_mx_grouped_matmul_alltoallv/ascend950_fp4_mx_grouped_matmul_alltoallv_device.h"
@@ -145,6 +146,65 @@ void LaunchAscend950MatmulReduceScatterFP16(void *stream, uint32_t blockNum, uin
     {
         LaunchAscend950MatmulReduceScatterWithConfig<Ascend950MatmulReduceScatterConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    }
+}
+
+///////////////////////////// fp4_mm_rs /////////////////////////////
+
+template <typename ElementMxData_, typename ElementMxScale_,
+    template <class, class, class, class, class, class, class> class ConfigAlias>
+static void LaunchAscend950MxMatmulReduceScatterWithConfig(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    uint8_t *aMxScalePtr = kernelParams.customPtrs[0];
+    uint8_t *bMxScalePtr = kernelParams.customPtrs[1];
+    auto launch = [&](auto &&deviceOp) {
+        using DeviceOp = std::decay_t<decltype(deviceOp)>;
+        Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
+        Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+        Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+        Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            kernelParams.ptrA, kernelParams.ptrB, aMxScalePtr, bMxScalePtr, kernelParams.ptrC, symmetricPtr,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp op;
+        op.Initialize(args);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
+    };
+    if (!transA && !transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA0, ElementMxData_, LayoutB0, ElementC, LayoutC, ElementMxScale_>::Device{});
+    } else if (!transA && transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA0, ElementMxData_, LayoutB1, ElementC, LayoutC, ElementMxScale_>::Device{});
+    } else if (transA && !transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA1, ElementMxData_, LayoutB0, ElementC, LayoutC, ElementMxScale_>::Device{});
+    } else {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA1, ElementMxData_, LayoutB1, ElementC, LayoutC, ElementMxScale_>::Device{});
+    }
+}
+
+void LaunchAscend950Fp4MxMatmulReduceScatterFP16(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    (void)workSpace;
+    if (cocTiling.m0 == 128) {
+        LaunchAscend950MxMatmulReduceScatterWithConfig<ElementFp4Mx, ElementMxScale,
+            Ascend950Fp4MxMatmulReduceScatterConfig_M0_128>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    } else {
+        LaunchAscend950MxMatmulReduceScatterWithConfig<ElementFp4Mx, ElementMxScale,
+            Ascend950Fp4MxMatmulReduceScatterConfig_M0_256>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }
 

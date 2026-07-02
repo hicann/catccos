@@ -74,6 +74,7 @@ enum CocCommType
     ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL,
     ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL,
     ASCEND950_ALLTOALLV_GROUPED_MATMUL,
+    ASCEND950_FP4_MX_MATMUL_REDUCE_SCATTER,
     TYPE_NUM,
     UNKNOWN
 };
@@ -204,6 +205,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"a5fp8mxatavgmm", CocCommType::ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL},
     {"a5fp4mxatavgmm", CocCommType::ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL},
     {"a5atavgmm", CocCommType::ASCEND950_ALLTOALLV_GROUPED_MATMUL},
+    {"a5fp4mmrs", CocCommType::ASCEND950_FP4_MX_MATMUL_REDUCE_SCATTER},
     // 新增算子继续添加...
 };
 
@@ -244,6 +246,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {ASCEND950_FP8_MX_ALLTOALLV_GROUPED_MATMUL, "Ascend950Fp8MxAllToAllVGroupedMatmul"},
     {ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL, "Ascend950Fp4MxAllToAllVGroupedMatmul"},
     {ASCEND950_ALLTOALLV_GROUPED_MATMUL, "Ascend950AllToAllVGroupedMatmul"},
+    {ASCEND950_FP4_MX_MATMUL_REDUCE_SCATTER, "Ascend950Fp4MxMatmulReduceScatter"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)
