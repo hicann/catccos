@@ -13,7 +13,8 @@ using LayoutInput = Catlass::layout::RowMajor;
 using LayoutOutput = Catlass::layout::RowMajor;
 
 using ElementInput = bfloat16_t;
-using ElementOutput = float8_e4m3_t;
+using ElementFp8Mx = float8_e4m3_t;
+using ElementFp4Mx = float4_e2m1x2_t;
 
 void LaunchAscend950BF16QuantAllGatherFP8E4M3FN(
     void *stream, uint32_t blockNum, uint64_t fftsAddr,
@@ -23,7 +24,7 @@ void LaunchAscend950BF16QuantAllGatherFP8E4M3FN(
     uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
-    MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput>
+    MxQuantAllGather<ElementInput, LayoutInput, ElementFp8Mx, LayoutOutput>
         <<<blockNum, nullptr, stream>>>(
             fftsAddr, kernelParams.ptrA, kernelParams.ptrC, kernelParams.ptrB, symmetricPtr, cocTiling, 10);
 }
