@@ -15,6 +15,8 @@ PROJECT_ROOT=$(cd "${SCRIPT_DIR}/../../.." &>/dev/null && pwd)
 UTILS_PATH=${PROJECT_ROOT}/examples/utils
 CSV_FILE="${SCRIPT_DIR}/test_shapes.csv"
 
+export LD_LIBRARY_PATH="${PROJECT_ROOT}/build/lib:${LD_LIBRARY_PATH}"
+
 IFS=',' read -ra DEVICE_ID_LIST <<< "$1"
 RANK_SIZE=${#DEVICE_ID_LIST[@]}
 if [ $RANK_SIZE -eq 0 ]; then
