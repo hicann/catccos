@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "op.h"
+#include "cost_model.h"
 
 struct Options {
     std::string kernelName{};
@@ -262,9 +263,37 @@ int main(int argc, char **argv)
                 // 搜索 tiling
                 GetTilings(cocTilings, cocTiling, opName, rankSize);
             } else {
-                bool ok = ApplyLookupTable(info, actualKernelType, rankSize, cocTiling);
+                CostModelConfig costModelConfig;
+                costModelConfig.hardwareType = CostModelHardwareType::A2;
+                costModelConfig.dataType = dataType;
+                if (transA == 0 && (transB == 0 || transB == 1)) {
+                    costModelConfig.m0List = {128};
+                }
+                auto baseTiling = cocTiling;
+                costModelConfig.tilingValidator =
+                    [opPtr = op.get(), rankSize, baseTiling](
+                        CostModelTiling const &candidate) {
+                        auto candidateTiling = baseTiling;
+                        candidateTiling.m0 = candidate.m0;
+                        candidateTiling.k0 = candidate.k0;
+                        candidateTiling.n0 = candidate.n0;
+                        candidateTiling.commTileM = candidate.commTileM;
+                        candidateTiling.commInterval = candidate.commInterval;
+                        candidateTiling.commNpuSplit = candidate.commNpuSplit;
+                        candidateTiling.commDataSplit = candidate.commDataSplit;
+                        candidateTiling.commBlockM = candidate.commBlockM;
+                        return opPtr->CheckCocTilingParams(
+                            rankSize, candidateTiling);
+                    };
+                bool ok = ApplyCostModel(
+                    info, actualKernelType, rankSize,
+                    cocTiling, costModelConfig);
                 if (!ok) {
-                    std::cerr << "[LUT] no table for (" << opName << "," << rankSize << "), using defaults\n";
+                    ok = ApplyLookupTable(info, actualKernelType, rankSize, cocTiling);
+                }
+                if (!ok) {
+                    std::cerr << "[Tiling] no cost model or LUT for ("
+                              << opName << "," << rankSize << "), using defaults\n";
                 }
                 cocTilings.push_back(cocTiling);
             }

@@ -151,8 +151,12 @@ link_directories(${CMAKE_RUNTIME_OUTPUT_DIRECTORY} ${ASCEND_HOME_PATH}/lib64
 
 set(TILING_SOURCES
     tiling/coc_tiling_lut.cpp
-    tiling/reducescatter_tiling.cpp
-    tiling/allreduce_tiling.cpp
+    tiling/cost_model.cpp
+    tiling/cost_model_hardware.cpp
+    tiling/mte_cost_model.cpp
+    tiling/reducescatter_cost_model.cpp
+    tiling/allreduce_cost_model.cpp
+    tiling/allgather_cost_model.cpp
     tiling/allgather_tiling.cpp
 )
 add_library(tiling_lib SHARED ${TILING_SOURCES})

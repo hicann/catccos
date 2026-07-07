@@ -28,12 +28,6 @@ static int GetValueFromMap(int64_t m, int64_t k, int64_t n,
 }
 
 const std::map<LutKey, const LUTGroup*> g_allLutGroups = {
-  {{MATMUL_ALLREDUCE, 2}, &AllReduce2p},
-  {{MATMUL_ALLREDUCE, 4}, &AllReduce4p},
-  {{MATMUL_ALLREDUCE, 8}, &AllReduce8p},
-  {{MATMUL_REDUCE_SCATTER, 2}, &ReduceScatter2p},
-  {{MATMUL_REDUCE_SCATTER, 4}, &ReduceScatter4p},
-  {{MATMUL_REDUCE_SCATTER, 8}, &ReduceScatter8p},
   {{ALLGATHER_MATMUL, 2}, &AllGather2p},
   {{ALLGATHER_MATMUL, 4}, &AllGather4p},
   {{ALLGATHER_MATMUL, 8}, &AllGather8p},
@@ -50,9 +44,6 @@ const std::map<LutKey, const LUTGroup*> g_allLutGroups = {
   {{ASCEND950_ALLGATHER_MATMUL, 2}, &AllGather2p},
   {{ASCEND950_ALLGATHER_MATMUL, 4}, &AllGather4p},
   {{ASCEND950_ALLGATHER_MATMUL, 8}, &AllGather8p},
-  {{ASCEND950_MATMUL_REDUCE_SCATTER, 2}, &ReduceScatter2p},
-  {{ASCEND950_MATMUL_REDUCE_SCATTER, 4}, &ReduceScatter4p},
-  {{ASCEND950_MATMUL_REDUCE_SCATTER, 8}, &ReduceScatter8p},
 #endif
   // 继续添加...
 };

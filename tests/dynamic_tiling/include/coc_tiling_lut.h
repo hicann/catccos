@@ -37,12 +37,6 @@ bool ApplyLookupTable(const COCMatMulInfo& info,
                      CocTilingParams& t);
 
 /* ---------- 全局 LUT 声明 ---------- */
-extern const LUTGroup AllReduce2p;
-extern const LUTGroup AllReduce4p;
-extern const LUTGroup AllReduce8p;
-extern const LUTGroup ReduceScatter2p;
-extern const LUTGroup ReduceScatter4p;
-extern const LUTGroup ReduceScatter8p;
 extern const LUTGroup AllGather2p;
 extern const LUTGroup AllGather4p;
 extern const LUTGroup AllGather8p;
