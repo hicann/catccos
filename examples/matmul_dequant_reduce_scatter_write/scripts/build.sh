@@ -20,7 +20,7 @@ source $PROJECT_ROOT/examples/utils/setup.sh || {
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF
 cmake --build $BUILD_DIR --target matmul_dequant_reduce_scatter_write -j
 
 cd ${CURRENT_DIR}

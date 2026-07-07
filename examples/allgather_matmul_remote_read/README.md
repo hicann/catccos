@@ -53,11 +53,10 @@ bash scripts/build.sh -DALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT=1
 
 ## 执行算子样例
 
-进入样例目录并执行：
+在样例目录下执行：
 
 ```bash
-cd examples/allgather_matmul_remote_read
-bash scripts/run.sh [device_list]
+bash scripts/run.sh <device_list>
 ```
 
 示例：

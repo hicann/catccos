@@ -60,13 +60,21 @@ chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
 1. 配置环境变量(可选)
 
   ```bash
-  # 用于统一配置CANN、SHMEM、CATLASS相关环境变量
+  # 用于统一配置 CANN、SHMEM、CATLASS 相关环境变量（A2 默认）
   source ./examples/utils/setup.sh
+
+  # Ascend950 算子需指定 soc 类型（首次编译 SHMEM 时生效）
+  source ./examples/utils/setup.sh -soc_type Ascend950
   ```
 
 注意：
-- 配置环境变量时，若CANN未安装到默认路径，需先配置ASCEND_HOME_PATH环境变量。
-- 若使用 `examples` 下的编译脚本，可跳过此步骤。
+- 配置环境变量时，若 CANN 未安装到默认路径，需先配置 `ASCEND_HOME_PATH` 环境变量。
+- 若使用 `examples` 下的编译脚本，可跳过此步骤（各算子 `build.sh` 会自动 source 并传入所需参数）。
+- `setup.sh` 的编译选项仅在 **首次** 构建 SHMEM（`3rdparty/shmem/install` 不存在）时生效；切换设备型号需删除该目录后重新执行，例如：
+  ```bash
+  rm -rf 3rdparty/shmem/install
+  source ./examples/utils/setup.sh -soc_type Ascend950
+  ```
 
 2. 编译算子样例
 进入examples下对应的算子目录并执行编译脚本，即可编译examples中的kernel代码。
@@ -77,11 +85,10 @@ bash scripts/build.sh
 ```
 
 3. 执行算子样例
-进入examples下对应的算子目录并执行运行脚本，执行算子样例程序。
+在示例目录下执行运行脚本，执行算子样例程序。
 
 ```bash
-cd examples/matmul_allreduce
-bash scripts/run.sh [device_list]
+bash scripts/run.sh <device_list>
 ```
 
 出现如下执行结果，说明算子运行成功，精度比较通过。

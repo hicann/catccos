@@ -8,10 +8,9 @@
    ```
 
 2. **运行AllToAllV-GMM示例程序**  
-   进入示例目录并执行运行脚本：
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/alltoallv_gmm_v2
-   bash scripts/run.sh $device_list $expert_num
+   bash scripts/run.sh <device_list> [expert_num]
    ```
 
    - **参数说明**：

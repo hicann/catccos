@@ -257,7 +257,7 @@ source $PROJECT_ROOT/examples/utils/setup.sh <SOC_TYPE_FLAG> || {
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR <CMAKE_ARCH_FLAG>
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF <CMAKE_ARCH_FLAG>
 cmake --build $BUILD_DIR --target <op_name> -j
 ```
 
@@ -424,9 +424,9 @@ M,K,N
    ```
 
 2. **运行示例程序**  
+   在示例目录下执行：
    ```bash
-   cd examples/<op_name>
-   bash scripts/run.sh [device_list]
+   bash scripts/run.sh <device_list>
    ```
 
    - **参数说明**：

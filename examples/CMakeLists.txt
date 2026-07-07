@@ -9,6 +9,12 @@
 # Torch extension support
 option(CATCCOS_TORCH_EXTENSION "Build PyTorch extension" OFF)
 
+if(CATLASS_BISHENG_ARCH STREQUAL "a5")
+    message(STATUS "examples: Ascend950 kernel arch (dav-c310)")
+else()
+    message(STATUS "examples: A2 kernel arch (dav-c220)")
+endif()
+
 # List of operators that support PyTorch binding
 set(CATCCOS_TORCH_SUPPORTED
     allgather_matmul

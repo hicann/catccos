@@ -11,7 +11,9 @@
 
 ## 1. 编译项目
 
-进入测试目录并执行编译脚本。默认编译 A2（dav-c220）算子；通过 `-soc_type Ascend950` 可**额外**编译 Ascend950（a5agmm / a5mmrs）算子：
+进入测试目录并执行编译脚本。默认编译 A2（dav-c220）算子；通过 `-soc_type Ascend950` 可**额外**编译 Ascend950（a5agmm / a5mmrs）算子。
+
+> 说明：`tests/dynamic_tiling` 与 `examples/` 算子独立配置。编译 example 时不会加载本测试目录；仅运行本目录下 `scripts/build.sh` 时才会出现 `tests/dynamic_tiling:` 相关日志。
 
 ```bash
 cd tests/dynamic_tiling
@@ -25,11 +27,10 @@ bash scripts/build.sh -soc_type Ascend950
 
 ## 2. 运行 Dynamic-Tiling 示例程序
 
-进入测试目录并执行运行脚本：
+在测试目录下执行运行脚本：
 
 ```bash
-cd tests/dynamic_tiling
-bash scripts/run.sh [kernel_name] [data_type] [test_start_line] [test_collect_rows] [device_list]
+bash scripts/run.sh <kernel_name> <data_type> [test_start_line] [test_collect_rows] <device_list>
 ```
 
 ### 参数说明

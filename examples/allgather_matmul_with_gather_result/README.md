@@ -8,10 +8,9 @@
    ```
 
 2. **运行AllGather-MatMul-With-Gather-Result示例程序**  
-   进入示例目录并执行运行脚本：
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/allgather_matmul_with_gather_result
-   bash scripts/run.sh [device_list]
+   bash scripts/run.sh <device_list>
    ```
 
    - **参数说明**：

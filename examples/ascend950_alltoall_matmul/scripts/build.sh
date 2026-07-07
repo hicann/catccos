@@ -21,5 +21,5 @@ source $PROJECT_ROOT/examples/utils/setup.sh -soc_type Ascend950 || {
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATLASS_BISHENG_ARCH=a5
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF -DCATLASS_BISHENG_ARCH=a5
 cmake --build $BUILD_DIR --target ascend950_alltoall_matmul -j

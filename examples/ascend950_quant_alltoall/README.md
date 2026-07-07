@@ -8,10 +8,9 @@
    ```
 
 2. **运行Quant-Alltoall示例程序**  
-   进入示例目录并执行运行脚本：
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/ascend950_quant_alltoall
-   bash scripts/run.sh [device_list]
+   bash scripts/run.sh <device_list>
    ```
 
    - **参数说明**：

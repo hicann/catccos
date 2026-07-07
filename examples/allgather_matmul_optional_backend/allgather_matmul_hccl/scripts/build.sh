@@ -19,7 +19,7 @@ SOURCE_DIR=$EXAMPLE_ROOT
 BUILD_DIR=$EXAMPLE_ROOT/build
 CUSTOM_OPP_DIR=$BUILD_DIR/custom_opp
 rm -rf $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF
 cmake --build $BUILD_DIR --target allgather_matmul_hccl -j
 
 rm -rf "$CUSTOM_OPP_DIR"

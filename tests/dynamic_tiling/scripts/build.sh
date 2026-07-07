@@ -44,5 +44,5 @@ SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 rm -rf $BUILD_DIR
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR "${CMAKE_EXTRA[@]}" "${REMAINING_ARGS[@]}"
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=ON "${CMAKE_EXTRA[@]}" "${REMAINING_ARGS[@]}"
 cmake --build $BUILD_DIR --target dynamic_tiling -j

@@ -20,5 +20,5 @@ source $PROJECT_ROOT/examples/utils/setup.sh || {
 SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR -DRDMA_TRANSPORT=1
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF -DRDMA_TRANSPORT=1
 cmake --build $BUILD_DIR --target allgather_matmul_rdma -j

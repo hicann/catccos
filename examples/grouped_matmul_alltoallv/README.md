@@ -8,10 +8,9 @@
    ```
 
 2. **运行GroupedMatMul-AllToAllV示例程序**  
-   进入示例目录并执行运行脚本：
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/grouped_matmul_alltoallv
-   bash scripts/run.sh $device_list $ep_size $expert_num
+   bash scripts/run.sh <device_list> [ep_size] [expert_num]
    ```
 
    - **参数说明**：

@@ -33,4 +33,8 @@ endif()
 set(CCEC ${ASCEND_HOME_PATH}/tools/bisheng_compiler/bin/bisheng)
 
 add_subdirectory(examples)
-add_subdirectory(tests)
+
+option(CATCCOS_BUILD_TESTS "Build tests/dynamic_tiling targets" OFF)
+if(CATCCOS_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

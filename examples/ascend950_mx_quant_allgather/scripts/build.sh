@@ -21,7 +21,7 @@ SOURCE_DIR=$PROJECT_ROOT
 BUILD_DIR=$PROJECT_ROOT/build
 rm -rf $BUILD_DIR
 mkdir -p $BUILD_DIR
-cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATLASS_BISHENG_ARCH=a5
+cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF -DCATLASS_BISHENG_ARCH=a5
 cmake --build $BUILD_DIR --target \
     ascend950_mx_quant_allgather \
     ascend950_mx_quant_allgather_e5m2 \

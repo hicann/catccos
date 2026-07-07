@@ -47,11 +47,10 @@ source /usr/local/Ascend/ascend-toolkit/latest/set_env.sh
 
 ## 2. 运行 Dispatch-FFN-Combine 示例程序
 
-进入示例目录并执行运行脚本：
+在示例目录下执行运行脚本：
 
 ```bash
-cd examples/dispatch_ffn_combine
-bash scripts/run.sh $device_list
+bash scripts/run.sh <device_list>
 ```
 
 ### 参数说明
@@ -95,7 +94,7 @@ scripts/test_shapes.csv
 修改 `scripts/test_shapes.csv` 后，重新运行：
 
 ```bash
-bash scripts/run.sh $device_list
+bash scripts/run.sh <device_list>
 ```
 
 如果 shape、专家数、topK 或 EP 配置发生变化，建议同步清理旧的测试数据，避免读取到上一轮生成的输入文件。

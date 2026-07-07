@@ -9,9 +9,9 @@
 # Default A2 (dav-c220). Set ON or pass build.sh -soc_type Ascend950 to additionally build a5agmm/a5mmrs.
 option(CATCCOS_ENABLE_A5_BUILD "dynamic_tiling: additionally build a5agmm/a5mmrs kernels and hosts" OFF)
 
-message(STATUS "dynamic_tiling: building A2 kernels (dav-c220)")
+message(STATUS "tests/dynamic_tiling: A2 kernel libs (dav-c220)")
 if(CATCCOS_ENABLE_A5_BUILD)
-    message(STATUS "dynamic_tiling: additionally building Ascend950 kernels (dav-c310)")
+    message(STATUS "tests/dynamic_tiling: additionally building Ascend950 kernel libs (dav-c310)")
 endif()
 
 option(RDMA_TRANSPORT "Enable Rdma transport" OFF)

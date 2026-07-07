@@ -15,16 +15,17 @@
 ## 快速使用
 以matmul_reduce_scatter为例，快速使用catccos通算融合算子：
 
-1. **编译Shmem项目与例子**  
-   在 `shmem/` 根目录下执行编译脚本：
+1. **编译项目**  
+   进入示例目录并执行编译脚本：
    ```bash
+   cd examples/matmul_reduce_scatter
    bash scripts/build.sh
    ```
 
-2. **进入示例目录并执行运行脚本**
+2. **运行示例程序**  
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/matmul_reduce_scatter
-   bash scripts/run.sh [device_list]
+   bash scripts/run.sh <device_list>
    ```
 
    - **参数说明**：
