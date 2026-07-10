@@ -85,6 +85,7 @@ function(catccos_example_add_executable TARGET)
                         -mllvm -cce-aicore-dcci-insert-for-scalar=false
                         -DL2_CACHE_HINT
                         ${COMPILE_DEFS}
+                        -MD -MF ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_LIB_NAME}.d
                         -I${CMAKE_SOURCE_DIR}/include
                         -I${CMAKE_SOURCE_DIR}/3rdparty/catlass/include
                         -I${CMAKE_SOURCE_DIR}/examples
@@ -115,6 +116,7 @@ function(catccos_example_add_executable TARGET)
                         -Wl,--no-as-needed -ldl -Wl,--as-needed
                         -o ${KERNEL_LIB_PATH}
         DEPENDS ${KERNEL_SOURCES}
+        DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_LIB_NAME}.d
         VERBATIM
         COMMENT "Generating shared kernel library ${KERNEL_LIB_NAME}"
     )
