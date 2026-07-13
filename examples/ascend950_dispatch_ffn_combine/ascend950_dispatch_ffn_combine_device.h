@@ -7,16 +7,23 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef DISPATCH_FFN_COMBINE_H
-#define DISPATCH_FFN_COMBINE_H
+#ifndef ASCEND950_DISPATCH_FFN_COMBINE_H
+#define ASCEND950_DISPATCH_FFN_COMBINE_H
  
 #include "info.h"
  
 // from catlass
 #include "catlass/catlass.hpp"
+
+namespace Catlass::Epilogue::Block {
+template <class DispatchPolicy, class... Args>
+class BlockEpilogue {
+    static_assert(DEPENDENT_FALSE<DispatchPolicy>, "Could not find an epilogue specialization");
+};
+} // namespace Catlass::Epilogue::Block
+
 #include "catlass/arch/arch.hpp"
 #include "catlass/epilogue/dispatch_policy.hpp"
-#include "catlass/epilogue/block/block_epilogue.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
 #include "catlass/epilogue/tile/tile_swizzle.hpp"
 #include "catlass/epilogue/tile/tile_elemwise_add.hpp"
@@ -47,15 +54,20 @@
 #include "catccos/comm/block/comm_block.hpp"
 #include "catccos/comm/block/comm_block_local_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
+#define CATCCOS_COMM_SCHEDULER_ARCH Catlass::Arch::Ascend950
 #include "catccos/comm/block/comm_block_scheduler_alltoallv_gmm.hpp"
-#include "catccos/dgemm/kernel/alltoallv_gmm_v2.hpp"
+#include "catccos/dgemm/kernel/ascend950_alltoallv_gmm_tla.hpp"
+#define CATCCOS_EPILOGUE_PER_TOKEN_DEQUANT_SWIGLU_ARCH Catlass::Arch::Ascend950
 #include "catccos/epilogue/block/block_epilogue_per_token_dequant_swiglu.hpp"
+#undef CATCCOS_EPILOGUE_PER_TOKEN_DEQUANT_SWIGLU_ARCH
 #include "catccos/dgemm/alltoallv_allgather_problem_shape.hpp"
 #include "catccos/comm/block/comm_block_scheduler_gmm_alltoallv.hpp"
-#include "catccos/dgemm/kernel/gmm_alltoallv_v2.hpp"
- 
+#undef CATCCOS_COMM_SCHEDULER_ARCH
+#include "catccos/dgemm/kernel/ascend950_gmm_alltoallv_tla.hpp"
+
 using namespace AscendC;
 using namespace Catccos;
+
 inline __gm__ struct OpSystemRunCfg g_opSystemRunCfg{Catlass::L2_OFFSET};
 
 template <
@@ -78,38 +90,49 @@ struct FfnPipelineTypes {
     static constexpr bool kEnableShuffleK = true;
     static constexpr bool kIsDynamic = true;
 
-    static constexpr uint32_t kPreloadStages = 1;
-    static constexpr uint32_t kL1Stages = 2;
-    static constexpr uint32_t kL0AStages = 2;
-    static constexpr uint32_t kL0BStages = 2;
-    static constexpr uint32_t kL0CStages = 1;
+    static constexpr bool enableUnitFlag = true;
+    static constexpr bool useHF32 = false;
+    static constexpr bool enableL1Resident = false;
+    static constexpr uint32_t l0CStages = 1;
+    static constexpr uint32_t l1AStages = 2;
+    static constexpr uint32_t l1BStages = 2;
+    static constexpr uint32_t l0AStages = 2;
+    static constexpr uint32_t l0BStages = 2;
     static constexpr uint32_t kCommUbStages = 2;
+    using MmadDispatchPolicy = Catlass::Gemm::MmadPingpong<
+        ArchTag,
+        enableUnitFlag,
+        useHF32,
+        l0CStages,
+        enableL1Resident,
+        l1AStages,
+        l1BStages,
+        l0AStages,
+        l0BStages>;
 
-    using DispatchPolicy = Catlass::Gemm::MmadAtlasA2PreloadAsync<
-        kPreloadStages,
-        kL1Stages,
-        kL0AStages,
-        kL0BStages,
-        kL0CStages,
-        kEnableUnitFlag,
-        kEnableShuffleK
-    >;
-
-    using L1TileShape = Catlass::GemmShape<M0, N0, K0>;
-    using L0TileShape = Catlass::GemmShape<M0, N0, 64>;
+    using L1TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<K0>>;
+    using L0TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<64>>;
 
     using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
 
-    using BlockMmad = Gemm::Block::BlockMmad<
-        DispatchPolicy,
+    using TileCopy = Gemm::Tile::PackedTileCopyTla<
+        ArchTag,
+        ElementA, LayoutA,
+        ElementB, LayoutB,
+        ElementC, LayoutC>;
+
+    using BlockMmadTla = Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy,
         L1TileShape,
         L0TileShape,
-        AType,
-        BType,
-        CType
-    >;
+        ElementA,
+        ElementB,
+        ElementC,
+        void,
+        TileCopy
+        >;
 
     using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<9, 1>;
     using ElementGroupList = int64_t;
@@ -118,7 +141,7 @@ struct FfnPipelineTypes {
 
     using LocalCopyBlockShape = Catlass::MatrixShape<48, UINT_MAX / 2>;
     using LocalCopyTileShape = Catlass::MatrixShape<48, 1024>;
-    using LocalCopyDispatch = Catccos::Comm::AtlasA2CommLocalCopy<kCommUbStages>;
+    using LocalCopyDispatch = Catccos::Comm::AtlasCommLocalCopy<ArchTag, kCommUbStages>;
 
     // ===================== Up: AllToAllV -> GMM =====================
     static constexpr Catccos::detail::CopyDirect kUpRemoteDirect =
@@ -170,8 +193,8 @@ struct FfnPipelineTypes {
 
     using UpCommScheduler = typename Catlass::Gemm::Block::BlockCommSchedulerAllToAllVGmm;
 
-    using UpKernel = Catccos::DGemm::Kernel::AlltoallvGMMKernel<
-        BlockMmad,
+    using UpKernel = Catccos::DGemm::Kernel::Ascend950AlltoallvGMMKernel<
+        BlockMmadTla,
         BlockScheduler,
         ElementGroupList,
         UpLocalCopyBlock,
@@ -266,8 +289,8 @@ struct FfnPipelineTypes {
     using DownCommScheduler =
         typename Catlass::Gemm::Block::BlockCommSchedulerGmmAllToAllV;
 
-    using DownKernel = Catccos::DGemm::Kernel::GMMAlltoallvKernel<
-        BlockMmad,
+    using DownKernel = Catccos::DGemm::Kernel::Ascend950GMMAlltoallvKernel<
+        BlockMmadTla,
         BlockScheduler,
         ElementGroupList,
         DownLocalCopyBlock,
@@ -298,19 +321,23 @@ void RunUpAllToAllVGmm(
     Catlass::Arch::Resource<typename Types::ArchTag> resource
 )
 {
-    using LayoutA = typename Types::LayoutA;
-    using LayoutB = typename Types::LayoutB;
-    using LayoutC = typename Types::LayoutC;
+    using LayoutTagA = typename Types::UpKernel::LayoutTagA;
+    using LayoutTagB = typename Types::UpKernel::LayoutTagB;
+    using LayoutTagC = typename Types::UpKernel::LayoutTagC;
 
-    LayoutA layoutA{problemShape.m(), problemShape.k()};
-    LayoutB layoutB{problemShape.k(), problemShape.n()};
-    LayoutC layoutC{problemShape.m(), problemShape.n()};
+    LayoutTagA layoutTagA{problemShape.m(), problemShape.k()};
+    LayoutTagB layoutTagB{problemShape.k(), problemShape.n()};
+    LayoutTagC layoutTagC{problemShape.m(), problemShape.n()};
+
+    auto layoutA = tla::MakeLayoutFromTag(layoutTagA);
+    auto layoutB = tla::MakeLayoutFromTag(layoutTagB);
+    auto layoutC = tla::MakeLayoutFromTag(layoutTagC);
 
     typename Types::UpRemoteTileCopy::Params tileParams{commTileShape};
     typename Types::UpRemoteCommBlock::Params remoteCommParams{commBlockShape, tileParams};
     typename Types::UpLocalCopyBlock::Params localCopyParams{};
 
-    typename Types::UpKernel::Params params {
+    typename Types::UpKernel::Params params{
         problemShape,
         rankSize,
         expertPerRank,
@@ -322,10 +349,15 @@ void RunUpAllToAllVGmm(
         tokenPerExpert,
 
         gmA,
+        layoutTagA,
         layoutA,
+
         gmB,
+        layoutTagB,
         layoutB,
+
         gmm1Output,
+        layoutTagC,
         layoutC,
 
         upWorkspace,
@@ -335,8 +367,7 @@ void RunUpAllToAllVGmm(
         remoteCommParams,
 
         MakeCallback(&aicFinishSync),
-        syncInterval
-    };
+        syncInterval};
 
     upKernel(params, resource);
 }
@@ -401,9 +432,9 @@ void RunDownGmmAllToAllV(
     Catlass::Arch::Resource<typename Types::ArchTag> resource
 )
 {
-    using LayoutA = typename Types::LayoutA;
-    using LayoutB = typename Types::LayoutB;
-    using LayoutC = typename Types::LayoutC;
+    using LayoutTagA = typename Types::DownKernel::LayoutTagA;
+    using LayoutTagB = typename Types::DownKernel::LayoutTagB;
+    using LayoutTagC = typename Types::DownKernel::LayoutTagC;
 
     uint32_t k2 = upProblemShape.n() / 2;
     uint32_t n2 = upProblemShape.k();
@@ -414,9 +445,13 @@ void RunDownGmmAllToAllV(
         k2                    // K = n / 2
     };
 
-    LayoutA layoutA{downProblemShape.m(), downProblemShape.k()};
-    LayoutB layoutB{downProblemShape.k(), downProblemShape.n()};
-    LayoutC layoutC{downProblemShape.m(), downProblemShape.n()};
+    LayoutTagA layoutTagA{downProblemShape.m(), downProblemShape.k()};
+    LayoutTagB layoutTagB{downProblemShape.k(), downProblemShape.n()};
+    LayoutTagC layoutTagC{downProblemShape.m(), downProblemShape.n()};
+
+    auto layoutA = tla::MakeLayoutFromTag(layoutTagA);
+    auto layoutB = tla::MakeLayoutFromTag(layoutTagB);
+    auto layoutC = tla::MakeLayoutFromTag(layoutTagC);
 
     typename Types::DownRemoteTileCopy::Params tileParams{commTileShape};
     typename Types::DownRemoteCommBlock::Params remoteCommParams{commBlockShape, tileParams};
@@ -433,10 +468,13 @@ void RunDownGmmAllToAllV(
         rankSize,
         tokenPerExpert,
         swigluOutput,
+        layoutTagA,
         layoutA,
         gmB2,
+        layoutTagB,
         layoutB,
         gmD,
+        layoutTagC,
         layoutC,
         downWorkspace,
         gmSymmetric,
@@ -504,8 +542,10 @@ void DispatchFFNCombineImpl(
     GM_ADDR groupListPtr =
         upCumsumBase + (rankSize - 1) * expertPerRank * sizeof(int32_t);
 
+    int64_t swigluOutputSize = (static_cast<int64_t>(maxOutputSize) * (problemShape.n() / 2) *
+        sizeof(ElementC) + 511) / 512 * 512;
     GM_ADDR swigluOutput =
-        gmm1Output + maxOutputSize * problemShape.k() * sizeof(ElementC);
+        gmmAllToAllWorkspace - swigluOutputSize;
 
     // ===================== Up: AllToAllV -> GMM =====================
     typename Types::UpKernel upKernel;
@@ -719,12 +759,13 @@ struct WorkspaceInfo
             static_cast<int64_t>(epSize) * epSize * expertPerRank * sizeof(int32_t)
         );
 
-        // GMM1 output: [maxOutputSize, N]. Swiglu output reuses the second half of
-        // this buffer in the current implementation, so no extra local workspace is
-        // required for swigluOutput.
+        // GMM1 output: [maxOutputSize, N]
         allToAllVGmmOut = ptrLocalWorkspace + workspaceOffsetLocal;
         workspaceOffsetLocal += AlignBytes(maxOutputSize * cocTiling.n * sizeof(ElementC));
-        swigluOutput = allToAllVGmmOut + maxOutputSize * cocTiling.k * sizeof(ElementC);
+
+        // Swiglu output: [maxOutputSize, N / 2]
+        swigluOutput = ptrLocalWorkspace + workspaceOffsetLocal;
+        workspaceOffsetLocal += AlignBytes(maxOutputSize * (cocTiling.n / 2) * sizeof(ElementC));
 
         // GMM2 + AllToAllV workspace:
         // temp output: [maxOutputSize, K]
@@ -793,7 +834,7 @@ void DispatchFFNCombine(
 #endif
     AscendC::SetSyncBaseAddr(fftsAddr);
  
-    using ArchTag = Catlass::Arch::AtlasA2;
+    using ArchTag = Catlass::Arch::Ascend950;
     using WorkspaceInfo = WorkspaceInfo<ElementA, ElementC>;
     using AllGather = AllGather<ArchTag, int32_t>;
 

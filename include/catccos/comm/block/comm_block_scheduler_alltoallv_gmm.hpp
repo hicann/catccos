@@ -24,7 +24,11 @@ using namespace AscendC;
 
 namespace Catlass::Gemm::Block {
 struct BlockCommSchedulerAllToAllVGmm {
+#ifdef CATCCOS_COMM_SCHEDULER_ARCH
+    using ArchTag = CATCCOS_COMM_SCHEDULER_ARCH;
+#else
     using ArchTag = Arch::AtlasA2;
+#endif
 
     uint32_t rank;
     uint32_t rankSize;

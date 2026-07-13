@@ -73,7 +73,7 @@ void DequantSwigluImpl(
 )
 {
     constexpr uint32_t ubStages = 1;
-    using EpilogueDispatchPolicy = Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<ubStages>;
+    using EpilogueDispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<ubStages>;
     using PerTokenScaleType = Catlass::Gemm::GemmType<float, Catlass::layout::VectorLayout>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
     using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;

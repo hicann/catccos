@@ -48,7 +48,7 @@ struct AicWaitSync {
     void operator()() const
     {
         Catlass::Arch::CrossCoreWaitFlag(ptr->flagAivFinishStore);
-        Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
+        Catlass::Arch::CrossCoreBarrier<0x0, PIPE_FIX>();
     }
 
     SwigluKernel *ptr;

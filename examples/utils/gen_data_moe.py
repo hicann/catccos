@@ -1,10 +1,15 @@
 import os
 import torch
-import torch_npu
 import numpy as np
 import collections
 import argparse
 from utils import DataType, tensor_from_file
+
+try:
+    import torch_npu
+except ImportError as err:
+    torch_npu = None
+    print(f"[WARN] torch_npu is unavailable, using CPU golden fallback: {err}")
 
 matrix_a_block_list = None
 expert_tokens_global_list = None
@@ -35,6 +40,29 @@ def generate_random_tensor(size, dtype):
         return torch.randint(-1024, 1024, size=size, dtype=dtype)
     raise ValueError(f"Invalid dtype: {dtype}")
 
+def moe_init_routing_cpu(matrix_a, expert_idx, expert_num, drop_pad_mode):
+    if drop_pad_mode != 0:
+        raise ValueError("CPU fallback only supports drop_pad_mode=0")
+
+    flat_expert_idx = expert_idx.reshape(-1).to(torch.int64)
+    expanded_row_idx = torch.argsort(flat_expert_idx, stable=True).to(torch.int32)
+    source_row_idx = (expanded_row_idx.to(torch.int64) // expert_idx.shape[1])
+    routed_matrix_a = matrix_a.index_select(0, source_row_idx)
+    expert_tokens = torch.bincount(flat_expert_idx, minlength=expert_num).to(torch.int32)
+    return routed_matrix_a, expanded_row_idx, expert_tokens
+
+def unpermute_cpu(permuted_tokens, sorted_indices, probs):
+    tokens = permuted_tokens.squeeze(0)
+    indices = sorted_indices.to(torch.int64)
+    top_k = probs.shape[1]
+    output = torch.zeros((probs.shape[0], tokens.shape[-1]), dtype=tokens.dtype)
+
+    token_idx = indices // top_k
+    prob_idx = indices % top_k
+    weights = probs[token_idx, prob_idx].to(tokens.dtype).unsqueeze(-1)
+    output.index_add_(0, token_idx, tokens * weights)
+    return output
+
 #####################################################################
 # Independent Operators
 #####################################################################
@@ -47,17 +75,21 @@ def moe_init_routing(matrix_a, expert_idx, active_num, expert_capacity, expert_n
     if expert_idx_path:
         write_to_bin(expert_idx, expert_idx_path)
 
-    (routed_matrix_a, expanded_row_idx,
-     expert_tokens, pertoken_scale) = torch_npu.npu_moe_init_routing_v2(
-        matrix_a.to('npu'), expert_idx.to('npu'), scale=None, offset=None,
-        active_num=active_num, expert_capacity=expert_capacity, expert_num=expert_num,
-        drop_pad_mode=drop_pad_mode,
-        expert_tokens_num_type=1, expert_tokens_num_flag=True,
-        active_expert_range=[0, expert_num], quant_mode=-1, row_idx_type=0)
+    if torch_npu is None:
+        routed_matrix_a, expanded_row_idx, expert_tokens = moe_init_routing_cpu(
+            matrix_a, expert_idx, expert_num, drop_pad_mode)
+    else:
+        (routed_matrix_a, expanded_row_idx,
+         expert_tokens, pertoken_scale) = torch_npu.npu_moe_init_routing_v2(
+            matrix_a.to('npu'), expert_idx.to('npu'), scale=None, offset=None,
+            active_num=active_num, expert_capacity=expert_capacity, expert_num=expert_num,
+            drop_pad_mode=drop_pad_mode,
+            expert_tokens_num_type=1, expert_tokens_num_flag=True,
+            active_expert_range=[0, expert_num], quant_mode=-1, row_idx_type=0)
 
-    routed_matrix_a = routed_matrix_a.cpu()
-    expanded_row_idx = expanded_row_idx.cpu()
-    expert_tokens = expert_tokens.cpu()
+        routed_matrix_a = routed_matrix_a.cpu()
+        expanded_row_idx = expanded_row_idx.cpu()
+        expert_tokens = expert_tokens.cpu()
     
     print(f"expert_num = {expert_num}")
     print(f"matrix_a shape{matrix_a.shape}")
@@ -209,10 +241,13 @@ def unpermute(permuted_tokens, sorted_indices, probs,
     if probs is not None and probs_path:
         write_to_bin(probs, probs_path)
 
-    unpermuted_tokens = torch_npu.npu_moe_token_unpermute(
-        permuted_tokens.squeeze(0).to('npu'),
-        sorted_indices.to('npu'),
-        probs.to('npu') if probs is not None else None).cpu()
+    if torch_npu is None:
+        unpermuted_tokens = unpermute_cpu(permuted_tokens, sorted_indices, probs)
+    else:
+        unpermuted_tokens = torch_npu.npu_moe_token_unpermute(
+            permuted_tokens.squeeze(0).to('npu'),
+            sorted_indices.to('npu'),
+            probs.to('npu') if probs is not None else None).cpu()
 
     if out_unpermuted_path:
         write_to_bin(unpermuted_tokens, out_unpermuted_path)

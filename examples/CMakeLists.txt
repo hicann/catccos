@@ -284,6 +284,7 @@ foreach(EXAMPLE
     gmm_alltoallv_v2
     ascend950_mxfp8_matmul_reduce_scatter
     dispatch_ffn_combine
+    ascend950_dispatch_ffn_combine
     ascend950_fp8_mx_allgather_matmul
     ascend950_fp4_mx_allgather_matmul
     ascend950_quant_alltoall

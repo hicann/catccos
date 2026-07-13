@@ -29,14 +29,14 @@ template <
     class EpilogueTileSwizzle_
 >
 class BlockEpilogue <
-    EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>,
+    Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>,
     CType_,
     DType_,
     TileCopy_,
     EpilogueTileSwizzle_
 > {
 public:
-    using DispatchPolicy = EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>;
+    using DispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 
@@ -213,7 +213,7 @@ template <
     class EpilogueTileSwizzle_
 >
 class BlockEpilogue <
-    EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>,
+    Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>,
     CType_,
     Gemm::GemmType<float, LayoutPerTokenScale_>,
     DType_,
@@ -221,7 +221,7 @@ class BlockEpilogue <
     EpilogueTileSwizzle_
 > {
 public:
-    using DispatchPolicy = EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>;
+    using DispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 

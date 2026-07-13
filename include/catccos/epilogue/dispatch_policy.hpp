@@ -17,7 +17,11 @@ namespace Catccos::Epilogue {
 
 template <uint32_t UB_STAGES_>
 struct EpilogueAtlasA2PerTokenDequantSwiglu {
+#ifdef CATCCOS_EPILOGUE_PER_TOKEN_DEQUANT_SWIGLU_ARCH
+    using ArchTag = CATCCOS_EPILOGUE_PER_TOKEN_DEQUANT_SWIGLU_ARCH;
+#else
     using ArchTag = Catlass::Arch::AtlasA2;
+#endif
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 

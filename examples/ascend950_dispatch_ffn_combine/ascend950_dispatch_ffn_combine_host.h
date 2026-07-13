@@ -7,12 +7,12 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef DISPATCH_FFN_COMBINE_H_HOST_H
-#define DISPATCH_FFN_COMBINE_H_HOST_H
+#ifndef ASCEND950_DISPATCH_FFN_COMBINE_HOST_H
+#define ASCEND950_DISPATCH_FFN_COMBINE_HOST_H
 
 #include "operator_registry.h"
 
-class DispatchFFNCombineOperator : public CatccosOperator {
+class Ascend950DispatchFFNCombineOperator: public CatccosOperator {
 public:
     void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
         uint32_t rankId, std::string dataFile) override {
@@ -95,8 +95,9 @@ public:
             ACL_CHECK(aclrtFreeHost(aHost));
             ACL_CHECK(aclrtFreeHost(bHost));
             ACL_CHECK(aclrtFreeHost(b2Host));
-            ACL_CHECK(aclrtFreeHost(expertIdxHost));
         }
+        ACL_CHECK(aclrtFreeHost(expertIdxHost));
+        ACL_CHECK(aclrtFreeHost(probsHost));
 
         return;
     }
@@ -111,33 +112,26 @@ public:
         WriteFile(dataFile + "/output_" + std::to_string(rankId) + ".bin", cHost, cSize);
 
         ACL_CHECK(aclrtFreeHost(cHost));
-
-        // size_t outputSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
-        // uint8_t *outputDevice = params.customPtrs[3];
-        // uint8_t *outputHost;
-        // ACL_CHECK(aclrtMallocHost((void **)(&outputHost), outputSize));
-        // ACL_CHECK(aclrtMemcpy(outputHost, outputSize, outputDevice, outputSize, ACL_MEMCPY_DEVICE_TO_HOST));
-        // WriteFile(dataFile + "/output_" + std::to_string(rankId) + ".bin", outputHost, outputSize);
-
-        // ACL_CHECK(aclrtFreeHost(outputHost));
     }
 
     size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override {
         uint32_t expertPerRank = cocTiling.expertNum / cocTiling.epSize;
         uint32_t EP = cocTiling.rankSize;
-        uint32_t maxOutputSize = cocTiling.m * cocTiling.rankSize * cocTiling.topK;
-        size_t workspaceSize = RoundUp<size_t>(cocTiling.m * sizeof(int32_t), 512) +                      // expandedRowIdx
+        size_t maxOutputSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.topK;
+        size_t workspaceSize =
+            RoundUp<size_t>(
+                RoundUp<size_t>(cocTiling.m, 256) * cocTiling.topK * sizeof(int32_t), 512) + // expandedRowIdx
                                RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) +         // AllToAllV_GMM workspace
                                EP * EP * expertPerRank * sizeof(int32_t) +                                // metaInfo
                                RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(half), 512) +         // allToAllVGmmOut
-                               RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(half), 512) +         // swigluOutput
+                               RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2) * sizeof(half), 512) + // swigluOutput
                                RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) +         // gmmAllToAllWorkspace
                                EP * EP * expertPerRank * sizeof(int32_t);                                 // metaInfo
         return workspaceSize;
     }
 
     CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {
-        return CocCommType::DISPATCH_FFN_COMBINE;
+        return CocCommType::ASCEND950_DISPATCH_FFN_COMBINE;
     }
 
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override {
@@ -151,6 +145,6 @@ public:
     }
 };
 
-REGISTER_OPERATOR("DispatchFFNCombine", DispatchFFNCombineOperator);
+REGISTER_OPERATOR("Ascend950DispatchFFNCombine", Ascend950DispatchFFNCombineOperator);
 
-#endif // DISPATCH_FFN_COMBINE_H_HOST_H
+#endif // ASCEND950_DISPATCH_FFN_COMBINE_HOST_H

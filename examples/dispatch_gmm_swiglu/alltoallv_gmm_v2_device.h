@@ -71,7 +71,7 @@ void SwigluImpl(
 {
     // swiglu
     constexpr uint32_t ubStages = 1;
-    using EpilogueDispatchPolicy = Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<ubStages>;
+    using EpilogueDispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<ubStages>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
     using DType = Catlass::Gemm::GemmType<ElementC, Catlass::layout::RowMajor>;
 

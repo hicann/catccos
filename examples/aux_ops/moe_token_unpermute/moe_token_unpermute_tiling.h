@@ -37,7 +37,9 @@ MoeTokenUnpermuteTiling(int32_t m, int32_t n, int32_t topK, MoeTokenUnpermuteTil
     uint32_t outTokens = m / topK;
     tilingData.tokens_core_length = static_cast<int64_t>(outTokens / coreNum);
     tilingData.tokens_core_remain = static_cast<int64_t>(outTokens % coreNum);
-    tilingData.tokens_splited_length = static_cast<int64_t>(min(tilingData.tokens_core_length, 600));
+    tilingData.tokens_splited_length = tilingData.tokens_core_length < static_cast<int64_t>(600)
+                                           ? tilingData.tokens_core_length
+                                           : static_cast<int64_t>(600);
     tilingData.tokens_splited_num = static_cast<int64_t>(
                                     tilingData.tokens_core_length / tilingData.tokens_splited_length);
     tilingData.tokens_splited_remain = static_cast<int64_t>(
