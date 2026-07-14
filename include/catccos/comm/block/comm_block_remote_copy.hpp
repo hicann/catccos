@@ -303,6 +303,86 @@ private:
     uint32_t tileElements{0};
 };
 
+template <
+    class ArchTag_,
+    uint32_t UB_STAGES_,
+    class SrcType_,
+    class DstType_,
+    class TileRemoteCopy_
+>
+class CommBlock <
+    AtlasCommRemoteCopy<ArchTag_, UB_STAGES_>,
+    SrcType_,
+    DstType_,
+    TileRemoteCopy_
+> {
+public:
+    // Type aliases
+    using DispatchPolicy = AtlasCommRemoteCopy<ArchTag_, UB_STAGES_>;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+    using ArchTag = typename DispatchPolicy::ArchTag;
+    using ElementSrc = typename SrcType_::Element;
+    using LayoutSrc = typename SrcType_::Layout;
+    using ElementDst = typename DstType_::Element;
+    using LayoutDst = typename DstType_::Layout;
+
+    using TileRemoteCopy = TileRemoteCopy_;
+    
+    CATLASS_DEVICE
+    CommBlock() = default;
+
+    CATLASS_DEVICE
+    ~CommBlock()
+    {
+    }
+
+    CATLASS_DEVICE
+    void InitBlockLoop()
+    {
+        uint32_t copyEventId = 0;
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
+            copyEventIdList[i] = copyEventId++;
+            AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
+        }
+    }
+
+    CATLASS_DEVICE
+    void FinalizeBlockLoop()
+    {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
+            AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
+        }
+        ubListId = 0;
+    }
+
+    CATLASS_DEVICE
+    void operator() (
+        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const &layoutSrc,
+        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const &layoutDst,
+        MatrixCoord const &actualCommBlockShape, uint32_t rankIdx
+    )
+    {
+        if (actualCommBlockShape.row() == 0) {
+            return;
+        }
+        
+        tileRemoteCopy(
+            gmDst, layoutDst,
+            gmSrc, layoutSrc,
+            actualCommBlockShape,
+            ubSList[ubListId],
+            copyEventIdList[ubListId],
+            rankIdx
+        );
+    }
+
+private:
+    AscendC::LocalTensor<ElementDst> ubSList[UB_STAGES];
+    uint32_t copyEventIdList[UB_STAGES];
+    uint32_t ubListId{0};
+    TileRemoteCopy tileRemoteCopy;
+};
+
 } // namespace Catccos::Comm::Block 
 
 #endif // CATCCOS_COMM_BLOCK_REMOTE_COPY_HPP

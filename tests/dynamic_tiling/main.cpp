@@ -190,6 +190,8 @@ int main(int argc, char **argv)
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
     if (commType == ALLGATHER_MATMUL_RDMA) {
         attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_ROCE;
+    } else if (commType == ASCEND950_ALLGATHER_MATMUL_UDMA) {
+        attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_UDMA;
     }
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 

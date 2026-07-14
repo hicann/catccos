@@ -367,6 +367,156 @@ struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detai
     }
 };
 
+template <
+    class ArchTag,
+    bool IsDynamic_,
+    class SrcType_,
+    class DstType_,
+    class TileShape_
+>
+struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detail::CopyDirect::Get, detail::CopyTransport::Udma> {
+    using ElementDst = typename DstType_::Element;
+    using LayoutDst = typename DstType_::Layout;
+    using ElementSrc = typename SrcType_::Element;
+    using LayoutSrc = typename SrcType_::Layout;
+    using TileShape = TileShape_;
+    static constexpr detail::CopyDirect RemoteCopyDirect = detail::CopyDirect::Get;
+    static constexpr bool IsDynamic = IsDynamic_;
+    static constexpr uint32_t UDMA_WQE_SCRATCH_BYTES = 256;
+
+    CATLASS_DEVICE
+    TileRemoteCopy() {}
+
+    template <bool IsDynamicParams_>
+    struct ParamsBase {};
+
+    template <>
+    struct ParamsBase<false> {
+        CATLASS_HOST_DEVICE
+        ParamsBase() {}
+        
+        CATLASS_DEVICE
+        static MatrixCoord TileShape() { return TileShape::ToCoord(); }
+    };
+
+    template <>
+    struct ParamsBase<true> {
+        MatrixCoord tileShape;
+
+        CATLASS_HOST_DEVICE
+        ParamsBase() {}
+
+        CATLASS_HOST_DEVICE
+        ParamsBase(MatrixCoord tileShape_) : tileShape(tileShape_) {}
+
+        CATLASS_DEVICE
+        MatrixCoord TileShape() const { return tileShape; }
+    };
+
+    using Params = ParamsBase<IsDynamic>;
+
+    Params params;
+
+    CATLASS_DEVICE
+    void operator() (
+        AscendC::GlobalTensor<ElementDst> const &dstTensor, LayoutDst const &dstLayout,
+        AscendC::GlobalTensor<ElementSrc> const &srcTensor, LayoutDst const &srcLayout,
+        MatrixCoord const &copyShape,
+        AscendC::LocalTensor<ElementSrc> const &tmpUb,
+        uint32_t copyEventId,
+        uint32_t peerIdx
+    )
+    {   
+        AscendC::TPipe pipe;
+        AscendC::TBuf<AscendC::TPosition::VECOUT> buf;
+        pipe.InitBuffer(buf, UDMA_WQE_SCRATCH_BYTES);
+        AscendC::LocalTensor<uint8_t> ubLocal = buf.GetWithOffset<uint8_t>(UDMA_WQE_SCRATCH_BYTES, 0);
+        constexpr uint32_t SYNC_ID = 0;
+
+        uint32_t repeat = copyShape.row();
+        uint32_t stride = srcLayout.stride(0);
+        uint64_t messageLen = repeat * stride * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value;
+        aclshmemx_udma_get_nbi((__gm__ uint8_t*)dstTensor.GetPhyAddr(), (__gm__ uint8_t*)srcTensor.GetPhyAddr(), (__ubuf__ uint8_t*)ubLocal.GetPhyAddr(), messageLen, peerIdx, SYNC_ID);
+
+        aclshmemx_udma_quiet(peerIdx);
+    }
+};
+
+template <
+    class ArchTag,
+    bool IsDynamic_,
+    class SrcType_,
+    class DstType_,
+    class TileShape_
+>
+struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detail::CopyDirect::Put, detail::CopyTransport::Udma> {
+    using ElementDst = typename DstType_::Element;
+    using LayoutDst = typename DstType_::Layout;
+    using ElementSrc = typename SrcType_::Element;
+    using LayoutSrc = typename SrcType_::Layout;
+    using TileShape = TileShape_;
+    static constexpr detail::CopyDirect RemoteCopyDirect = detail::CopyDirect::Put;
+    static constexpr bool IsDynamic = IsDynamic_;
+    static constexpr uint32_t UDMA_WQE_SCRATCH_BYTES = 256;
+
+    CATLASS_DEVICE
+    TileRemoteCopy() {}
+
+    template <bool IsDynamicParams_>
+    struct ParamsBase {};
+
+    template <>
+    struct ParamsBase<false> {
+        CATLASS_HOST_DEVICE
+        ParamsBase() {}
+        
+        CATLASS_DEVICE
+        static MatrixCoord TileShape() { return TileShape::ToCoord(); }
+    };
+
+    template <>
+    struct ParamsBase<true> {
+        MatrixCoord tileShape;
+
+        CATLASS_HOST_DEVICE
+        ParamsBase() {}
+
+        CATLASS_HOST_DEVICE
+        ParamsBase(MatrixCoord tileShape_) : tileShape(tileShape_) {}
+
+        CATLASS_DEVICE
+        MatrixCoord TileShape() const { return tileShape; }
+    };
+
+    using Params = ParamsBase<IsDynamic>;
+
+    Params params;
+
+    CATLASS_DEVICE
+    void operator() (
+        AscendC::GlobalTensor<ElementDst> const &dstTensor, LayoutDst const &dstLayout,
+        AscendC::GlobalTensor<ElementSrc> const &srcTensor, LayoutDst const &srcLayout,
+        MatrixCoord const &copyShape,
+        AscendC::LocalTensor<ElementSrc> const &tmpUb,
+        uint32_t copyEventId,
+        uint32_t peerIdx
+    )
+    {   
+        AscendC::TPipe pipe;
+        AscendC::TBuf<AscendC::TPosition::VECOUT> buf;
+        pipe.InitBuffer(buf, UDMA_WQE_SCRATCH_BYTES);
+        AscendC::LocalTensor<uint8_t> ubLocal = buf.GetWithOffset<uint8_t>(UDMA_WQE_SCRATCH_BYTES, 0);
+        constexpr uint32_t SYNC_ID = 0;
+
+        uint32_t repeat = copyShape.row();
+        uint32_t stride = srcLayout.stride(0);
+        uint64_t messageLen = repeat * stride * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value;
+        aclshmemx_udma_put_nbi((__gm__ uint8_t*)dstTensor.GetPhyAddr(), (__gm__ uint8_t*)srcTensor.GetPhyAddr(), (__ubuf__ uint8_t*)ubLocal.GetPhyAddr(), messageLen, peerIdx, SYNC_ID);
+
+        aclshmemx_udma_quiet(peerIdx);
+    }
+};
+
 } // namespace Catccos::Comm::Tile
 
 #endif // CATCCOS_TILE_REMOTE_COPY_HPP
