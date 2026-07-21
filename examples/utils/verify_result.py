@@ -1,4 +1,5 @@
 import sys
+import os
 from enum import Enum
 import numpy as np
 import scipy
@@ -115,21 +116,21 @@ def double_precision_performance_analysis(op_type, golden_output_tensor_list, go
         print(f"max_relative_error: {max_relative_error}, mean_relative_error: {mean_relative_error}, rmse: {rmse}, eb: {eb}")
         return False
 
-def show_random_samples(t_fp16, t_fp32, num_samples=100):
-    if t_fp16.shape != t_fp32.shape:
+def show_random_samples(actual, golden, num_samples=100):
+    if actual.shape != golden.shape:
         raise ValueError("Shape mismatch")
-    total = t_fp16.numel()
+    total = actual.numel()
     indices = random.sample(range(total), min(num_samples, total))
 
     print(f"\n🎲 随机抽取 {len(indices)} 个位置的数据对比：")
-    print(f"{'Index':>6} | {'FP16':>12} | {'FP32':>12} | {'AbsErr':>12} | {'RelErr':>12}")
+    print(f"{'Index':>6} | {'Actual':>12} | {'Golden':>12} | {'AbsErr':>12} | {'RelErr':>12}")
     print("-" * 60)
     for i in indices:
-        val_fp16 = t_fp16[i].item()
-        val_fp32 = t_fp32[i].item()
-        abs_err = abs(val_fp16 - val_fp32)
-        rel_err = abs_err / (abs(val_fp32) + 1e-8)
-        print(f"{i:>6} | {val_fp16:>12.6f} | {val_fp32:>12.6f} | {abs_err:>12.6f} | {rel_err:>12.6f}")
+        actual_value = actual[i].item()
+        golden_value = golden[i].item()
+        abs_err = abs(actual_value - golden_value)
+        rel_err = abs_err / (abs(golden_value) + 1e-8)
+        print(f"{i:>6} | {actual_value:>12.6f} | {golden_value:>12.6f} | {abs_err:>12.6f} | {rel_err:>12.6f}")
 
 def show_random_samples_double_fp16(t_fp16_0, t_fp16_1, t_fp32, num_samples=100):
     if t_fp16_0.shape != t_fp32.shape:
@@ -177,8 +178,8 @@ def cal_precision_eb_percent(op_type,i, actual_output, golden_output, precision_
     different_element_indexes = torch.where(tolerance > 0)[0]
     for index in range(len(different_element_indexes)):
         real_index = different_element_indexes[index]
-        golden_data = golden_output[real_index]
-        output_data = actual_output[real_index]
+        golden_data = golden_output[real_index].item()
+        output_data = actual_output[real_index].item()
         print(f"data index: {real_index:6d}, expected: {golden_data:-.9f}, actual: {output_data:-.9f}, "
             f"rdiff: {abs(output_data - golden_data) / golden_data:-.6f}")
         if index == 10:
@@ -261,9 +262,16 @@ def verify_result():
         output = load_tensor_for_verify(args.output, args.out_dtype)
         rtol = get_rtol(dtype=torch.float32, compute_times=args.k)
     else:
-        golden = tensor_from_file(args.golden, dtype=torch.float32)
-        output = tensor_from_file(args.output, dtype=args.out_dtype.torch_type)[:golden.shape[0]]
+        output = tensor_from_file(args.output, dtype=args.out_dtype.torch_type).reshape(-1, args.n).flatten()
+        output_elem_size = torch.empty((), dtype=args.out_dtype.torch_type).element_size()
+        if os.path.getsize(args.golden) == output.numel() * output_elem_size:
+            golden = tensor_from_file(args.golden, dtype=args.out_dtype.torch_type)
+        else:
+            golden = tensor_from_file(args.golden, dtype=torch.float32)
+        output = output[:golden.shape[0]]
         rtol = get_rtol(dtype=args.out_dtype.torch_type, compute_times=args.k)
+
+    show_random_samples(output.cpu().to(torch.float32), golden.cpu().to(torch.float32))
 
     if args.golden_low != "":
         golden_low_dtype = args.out_dtype if is_hif8_dtype(args.out_dtype) else args.out_dtype.torch_type

@@ -277,6 +277,7 @@ foreach(EXAMPLE
     alltoallv_grouped_matmul
     allgather_matmul_dequant
     allgather_matmul_dequant_bias
+    allgather_matmul_w4a4
     alltoallv_gmm_v2
     dispatch_gmm
     dispatch_gmm_swiglu

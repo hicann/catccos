@@ -166,9 +166,15 @@ struct KernelParams
 
 inline void FreeDeviceSpace(KernelParams &params)
 {
-    ACL_CHECK(aclrtFree(params.ptrA));
-    ACL_CHECK(aclrtFree(params.ptrB));
-    ACL_CHECK(aclrtFree(params.ptrC));
+    if (params.ptrA != nullptr) {
+        ACL_CHECK(aclrtFree(params.ptrA));
+    }
+    if (params.ptrB != nullptr) {
+        ACL_CHECK(aclrtFree(params.ptrB));
+    }
+    if (params.ptrC != nullptr) {
+        ACL_CHECK(aclrtFree(params.ptrC));
+    }
     params.ptrA = nullptr;
     params.ptrB = nullptr;
     params.ptrC = nullptr;

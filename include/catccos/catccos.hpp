@@ -304,11 +304,11 @@ template <class Type, bool PADDING> struct PaddingHelper {
 
  __BLOCK_LOCAL__ __inline__ __gm__ uint8_t* g_timerBufferAddr;
  	  	 
-CATLASS_DEVICE inline void SetTimerBuffer(__gm__ uint8_t* timerBuffer) {
+CATLASS_DEVICE void SetTimerBuffer(__gm__ uint8_t* timerBuffer) {
     g_timerBufferAddr = timerBuffer;
 }
     
-CATLASS_DEVICE inline __gm__ uint8_t* GetTimerBuffer() {
+CATLASS_DEVICE __gm__ uint8_t* GetTimerBuffer() {
     return g_timerBufferAddr;
 }
 

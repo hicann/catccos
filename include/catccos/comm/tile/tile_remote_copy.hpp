@@ -13,6 +13,7 @@
 
 #include "catccos/catccos.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/comm/tile/copy_int4_rowmajor.hpp"
 
 // from catlass
 #include "catlass/catlass.hpp"
@@ -97,6 +98,29 @@ struct TileRemoteCopy<ArchTag, IsDynamic_, SrcType_, DstType_, TileShape_, detai
         uint32_t peerIdx
     )
     {
+        if constexpr (std::is_same_v<ElementSrc, AscendC::int4b_t>) {
+            using Catlass::layout::RowMajor;
+            RowMajor layoutUb{
+                copyShape, Catlass::MakeCoord<int64_t>(copyShape.column(), 1)};
+
+            auto remotePtr = shmem_ptr(Int4GmVoidAddr(srcTensor), peerIdx);
+            AscendC::GlobalTensor<ElementSrc> gmRemoteSrc;
+            gmRemoteSrc.SetGlobalBuffer(reinterpret_cast<__gm__ ElementSrc *>(remotePtr));
+
+            CopyInt4GmToUbRowMajor(
+                tmpUb, gmRemoteSrc,
+                static_cast<RowMajor const &>(layoutUb),
+                static_cast<RowMajor const &>(srcLayout));
+            AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE3>(copyEventId);
+            AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE3>(copyEventId);
+
+            CopyInt4UbToGmRowMajor(
+                dstTensor, tmpUb,
+                static_cast<RowMajor const &>(dstLayout),
+                static_cast<RowMajor const &>(layoutUb));
+            return;
+        }
+
         non_contiguous_copy_param copyParams;
         copyParams.repeat = copyShape.row();
         copyParams.length = copyShape.column();
