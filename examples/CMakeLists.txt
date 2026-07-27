@@ -284,6 +284,7 @@ foreach(EXAMPLE
     dispatch_gmm_dequant_swiglu
     gmm_alltoallv_v2
     ascend950_mxfp8_matmul_reduce_scatter
+    ascend950_mxfp8_matmul_alltoall
     dispatch_ffn_combine
     ascend950_dispatch_ffn_combine
     ascend950_fp8_mx_allgather_matmul

@@ -22,4 +22,4 @@ BUILD_DIR=$PROJECT_ROOT/build
 rm -rf $BUILD_DIR
 mkdir -p $BUILD_DIR
 cmake -B $BUILD_DIR -S $SOURCE_DIR -DCATCCOS_BUILD_TESTS=OFF -DCATLASS_BISHENG_ARCH=a5
-cmake --build $BUILD_DIR --target ascend950_matmul_alltoall -j
+cmake --build $BUILD_DIR --target ascend950_mxfp8_matmul_alltoall -j

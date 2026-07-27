@@ -66,6 +66,7 @@ bash scripts/run.sh <kernel_name> <data_type> [test_start_line] [test_collect_ro
   ```bash
   bash scripts/run.sh "a5agmm" 1 0,1          # AllGather-MatMul 精度
   bash scripts/run.sh "a5mmrs" 1 0,1         # MatMul-ReduceScatter 精度
+  bash scripts/run.sh "a5mxfp8mmata" 1 0,1    # MxFP8-MatMul-AllToAll 精度
   bash scripts/run.sh "a5mmrs" 1 0 10 0,1   # MatMul-ReduceScatter 性能（LUT）
   ```
 
@@ -106,6 +107,7 @@ scripts/test_shapes.csv
 | agmmrr | ALLGATHER_MATMUL_REMOTE_READ |
 | a5agmm | ASCEND950_ALLGATHER_MATMUL |
 | a5mmrs | ASCEND950_MATMUL_REDUCE_SCATTER |
+| a5mxfp8mmata | ASCEND950_MXFP8_MATMUL_ALLTOALL |
 | atavgmmv2 | ALLTOALLV_GMM_V2 |
 | agmmdq | ALLGATHER_MATMUL_DEQUANT |
 | agmmdqbs | ALLGATHER_MATMUL_DEQUANT_BIAS |

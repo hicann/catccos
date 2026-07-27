@@ -20,6 +20,7 @@
 #include "ascend950_fp8_mx_alltoallv_grouped_matmul/ascend950_fp8_mx_alltoallv_grouped_matmul_device.h"
 #include "ascend950_fp4_mx_alltoallv_grouped_matmul/ascend950_fp4_mx_alltoallv_grouped_matmul_device.h"
 #include "ascend950_allgather_matmul_udma/ascend950_allgather_matmul_udma_device.h"
+#include "ascend950_mxfp8_matmul_alltoall/ascend950_mxfp8_matmul_alltoall_device.h"
 
 using namespace AscendC;
 
@@ -599,5 +600,72 @@ void LaunchAscend950AllGatherMatmulUdmaFP16(void *stream, uint32_t blockNum, uin
     {
         LaunchAscend950AllGatherMatmulUdmaWithConfig<Ascend950AllGatherMatmulUdmaConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    }
+}
+
+///////////////////////////// mxfp8_matmul_alltoall /////////////////////////////
+
+template <typename ElementMxData_, typename ElementMxScale_,
+    template <class, class, class, class, class, class, class, class, class, class> class ConfigAlias>
+static void LaunchAscend950MxFp8MatmulAllToAllWithConfig(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    uint8_t *aMxScalePtr = kernelParams.customPtrs[0];
+    uint8_t *bMxScalePtr = kernelParams.customPtrs[1];
+    auto launch = [&](auto &&deviceOp) {
+        using DeviceOp = std::decay_t<decltype(deviceOp)>;
+        Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
+        Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+        Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+        Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            kernelParams.ptrA, kernelParams.ptrB, aMxScalePtr, bMxScalePtr, kernelParams.ptrC, symmetricPtr,
+            commCoreSplit, commBlockShape, commTileShape
+        };
+        DeviceOp op;
+        op.Initialize(args);
+        op.Run((aclrtStream)stream, blockNum, fftsAddr);
+    };
+    if (!transA && !transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA0, ElementMxData_, LayoutB0,
+            ElementMxScale_, LayoutMxScaleA0, ElementMxScale_, LayoutMxScaleB0,
+            ElementC, LayoutC>::Device{});
+    } else if (!transA && transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA0, ElementMxData_, LayoutB1,
+            ElementMxScale_, LayoutMxScaleA0, ElementMxScale_, LayoutMxScaleB1,
+            ElementC, LayoutC>::Device{});
+    } else if (transA && !transB) {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA1, ElementMxData_, LayoutB0,
+            ElementMxScale_, LayoutMxScaleA1, ElementMxScale_, LayoutMxScaleB0,
+            ElementC, LayoutC>::Device{});
+    } else {
+        launch(typename ConfigAlias<ElementMxData_, LayoutA1, ElementMxData_, LayoutB1,
+            ElementMxScale_, LayoutMxScaleA1, ElementMxScale_, LayoutMxScaleB1,
+            ElementC, LayoutC>::Device{});
+    }
+}
+
+void LaunchAscend950MxFp8MatmulAllToAllFP16(
+    void *stream, uint32_t blockNum, uint64_t fftsAddr,
+    KernelParams& kernelParams,
+    uint8_t *workSpace,
+    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
+    uint32_t transA, uint32_t transB)
+{
+    (void)workSpace;
+    if (cocTiling.m0 == 128 || (cocTiling.n / cocTiling.rankSize) % TILE_SHAPE_256 != 0) {
+        LaunchAscend950MxFp8MatmulAllToAllWithConfig<ElementFp8Mx, ElementMxScale,
+            Ascend950MxFp8MatmulAllToAllConfig_M0_256>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
+    } else {
+        LaunchAscend950MxFp8MatmulAllToAllWithConfig<ElementFp8Mx, ElementMxScale,
+            Ascend950MxFp8MatmulAllToAllConfig_M0_128>(
+                stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
 }

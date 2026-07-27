@@ -322,9 +322,8 @@ public:
             }
             allGather.FinalizeBlockLoop();
 
-            // --- Subcore 1: UDMA put (local symmetric → remote symmetric) ---
+            // --- Subcore 1: UDMA put (A matrix GM → remote symmetric) ---
             // Each AIV core handles data to one remote PE (distributed by aicoreIdx)
-            udmaAllGather.InitBlockLoop();
             if (subcoreIdx == 1 && aicoreIdx < params.rankSize) {
                 uint32_t udmaCoreLoops = params.rankSize;
                 uint32_t udmaAicoreNum = params.rankSize;
@@ -353,7 +352,6 @@ public:
 
                 }
             }
-            udmaAllGather.FinalizeBlockLoop();
 
             aclshmemx_barrier_all_vec();
 

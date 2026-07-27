@@ -337,25 +337,6 @@ public:
     }
 
     CATLASS_DEVICE
-    void InitBlockLoop()
-    {
-        uint32_t copyEventId = 0;
-        for (uint32_t i = 0; i < UB_STAGES; ++i) {
-            copyEventIdList[i] = copyEventId++;
-            AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
-        }
-    }
-
-    CATLASS_DEVICE
-    void FinalizeBlockLoop()
-    {
-        for (uint32_t i = 0; i < UB_STAGES; ++i) {
-            AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
-        }
-        ubListId = 0;
-    }
-
-    CATLASS_DEVICE
     void operator() (
         AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const &layoutSrc,
         AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const &layoutDst,
