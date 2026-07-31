@@ -20,14 +20,14 @@
 #include "catlass/layout/layout.hpp"
 
 #include "catccos/catccos.hpp"
-#include "catccos/arch/hccl_comm.hpp"
+#include "catccos/arch/ascend950_hcomm_comm.hpp"
 #include "catccos/comm/comm_dispatch_policy.hpp"
 #include "catccos/comm/block/comm_block.hpp"
 #include "catccos/comm/block/comm_block_swizzle.hpp"
 #include "catccos/comm/tile/tile_remote_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
 #include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/kernel/allgather_matmul_with_local_optional_backend.hpp"
+#include "catccos/dgemm/kernel/ascend950_allgather_matmul_with_local_optional_backend.hpp"
 
 #include "lib/matmul_intf.h"
 #include "all_gather_matmul_hccl_tiling.h"
@@ -53,23 +53,22 @@ void AllGatherMatmulHcclImpl(
     Catlass::MatrixCoord& commCoreSplit,
     Catlass::MatrixCoord& commBlockShape,
     Catlass::MatrixCoord& commTileShape,
-    GM_ADDR mc2InitTiling,
-    GM_ADDR mc2CcTiling,
-    uint64_t segmentSize
+    AllGatherMatmulHcclTiling *tilingData,
+    GM_ADDR workspace,
+    uint32_t rankSize
 )
 {
     constexpr bool ENABLE_UNIT_FLAG = true;
-    using MmadDispatchPolicy = Catlass::Gemm::MmadAtlasA2Pingpong<ENABLE_UNIT_FLAG>;
+    using MmadDispatchPolicy = Catlass::Gemm::MmadPingpong<ArchTag, ENABLE_UNIT_FLAG>;
 
-    using L1TileShape = Catlass::GemmShape<M0, N0, K0>;
-    using L0TileShape = Catlass::GemmShape<M0, N0, 64>;
+    using L1TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<K0>>;
+    using L0TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<64>>;
 
     using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
-    using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
-    using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
-        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType
-    >;
+    using TileCopy =
+        Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
+                                                         ElementB, ElementC, void, TileCopy>;
 
     constexpr bool IS_DYNAMIC = true;
 
@@ -83,7 +82,7 @@ void AllGatherMatmulHcclImpl(
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
-    using AllGatherDispatch = Comm::AtlasA2CommLocalCopy<2, IS_DYNAMIC>;
+    using AllGatherDispatch = Comm::AtlasCommLocalCopy<ArchTag, 2, IS_DYNAMIC>;
     using BlockAllGather = Comm::Block::CommBlock<
         AllGatherDispatch,
         RemoteSrcType, RemoteDstType,
@@ -91,17 +90,10 @@ void AllGatherMatmulHcclImpl(
         TileRemoteCopy, TileScheduler
     >;
 
-    using CommBackend = Arch::HcclComm<16>;
+    using CommBackend = Arch::Ascend950HcommComm<AllGatherMatmulHcclTiling>;
 
-    using AllGatherMatmulKernel = DGemm::Kernel::AllGatherMatmul<
-        void,
-        BlockMmad,
-        BlockAllGather,
-        BlockMmadScheduler,
-        BlockScheduler,
-        CommBackend,
-        2
-    >;
+    using AllGatherMatmulKernel = DGemm::Kernel::Ascend950AllGatherMatmulWithLocalOptionalBackend<
+        BlockMmad, BlockAllGather, BlockMmadScheduler, BlockScheduler, 2, CommBackend>;
 
     typename TileRemoteCopy::Params tileParams{
         commTileShape
@@ -116,17 +108,26 @@ void AllGatherMatmulHcclImpl(
         commCoreSplit
     };
 
-    // Prepare params
+    Catlass::layout::RowMajor layoutGatherSrc{problemShape.m(), problemShape.k(), problemShape.k()};
+    auto layoutTlaA = tla::MakeLayoutFromTag(layoutA);
+    auto layoutTlaB = tla::MakeLayoutFromTag(layoutB);
+    auto layoutTlaC = tla::MakeLayoutFromTag(layoutC);
+
+    // Ascend950 does not provide GetRankDim/GetRankId for the CCU backend, so
+    // rankSize comes from host tiling and is also used to describe the output.
     typename AllGatherMatmulKernel::Params params {
         problemShape,
+        0,
+        static_cast<uint32_t>(layoutC.shape(0) / problemShape.m()),
         commInterval,
-        gmA, layoutA,
-        gmB, layoutB,
-        gmC, layoutC,
-        gmB, layoutB,
+        layoutGatherSrc,
+        gmA, layoutTlaA,
+        gmB, layoutTlaB,
+        gmC, layoutTlaC,
         blockParams,
         swizzleParams,
-        typename CommBackend::Params{mc2InitTiling, mc2CcTiling, segmentSize}
+        typename CommBackend::Params{
+            tilingData, offsetof(AllGatherMatmulHcclTiling, mc2CcTiling), workspace, rankSize}
     };
 
     // Call kernel
@@ -151,14 +152,14 @@ void AllGatherMatmulHcclImpl_M0_256(
     Catlass::MatrixCoord& commCoreSplit,
     Catlass::MatrixCoord& commBlockShape,
     Catlass::MatrixCoord& commTileShape,
-    GM_ADDR mc2InitTiling,
-    GM_ADDR mc2CcTiling,
-    uint64_t segmentSize
+    AllGatherMatmulHcclTiling *tilingData,
+    GM_ADDR workspace,
+    uint32_t rankSize
 )
 {
     AllGatherMatmulHcclImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmC, layoutC,
-        commInterval, commCoreSplit, commBlockShape, commTileShape, mc2InitTiling, mc2CcTiling, segmentSize
+        commInterval, commCoreSplit, commBlockShape, commTileShape, tilingData, workspace, rankSize
     );
 }
 
@@ -179,14 +180,14 @@ void AllGatherMatmulHcclImpl_M0_128(
     Catlass::MatrixCoord& commCoreSplit,
     Catlass::MatrixCoord& commBlockShape,
     Catlass::MatrixCoord& commTileShape,
-    GM_ADDR mc2InitTiling,
-    GM_ADDR mc2CcTiling,
-    uint64_t segmentSize
+    AllGatherMatmulHcclTiling *tilingData,
+    GM_ADDR workspace,
+    uint32_t rankSize
 )
 {
     AllGatherMatmulHcclImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 128, 256, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmC, layoutC,
-        commInterval, commCoreSplit, commBlockShape, commTileShape, mc2InitTiling, mc2CcTiling, segmentSize
+        commInterval, commCoreSplit, commBlockShape, commTileShape, tilingData, workspace, rankSize
     );
 }
 
@@ -197,7 +198,7 @@ void all_gather_matmul_hccl(GM_ADDR a, GM_ADDR b, GM_ADDR c, GM_ADDR workspace, 
     REGISTER_TILING_DEFAULT(AllGatherMatmulHcclTiling);
     GET_TILING_DATA_WITH_STRUCT(AllGatherMatmulHcclTiling, tilingData, tiling);
 
-    using ArchTag = Catlass::Arch::AtlasA2;
+    using ArchTag = Catlass::Arch::Ascend950;
 
     using ElementA = half;
     using ElementB = half;
@@ -219,7 +220,8 @@ void all_gather_matmul_hccl(GM_ADDR a, GM_ADDR b, GM_ADDR c, GM_ADDR workspace, 
     uint32_t commDataSplit = tilingData.params.commDataSplit;
     uint32_t commBlockM = tilingData.params.commBlockM;
     uint32_t rankSize = tilingData.params.rankSize;
-    uint64_t segmentSize = tilingData.params.segmentSize;
+    uint64_t systemWorkspaceSize = tilingData.params.segmentSize;
+    GM_ADDR gatherWorkspace = workspace + systemWorkspaceSize;
 
     Catlass::GemmCoord problemShape{m, n, k};
     Catlass::GemmCoord l1TileShape{m0, n0, k0};
@@ -227,9 +229,6 @@ void all_gather_matmul_hccl(GM_ADDR a, GM_ADDR b, GM_ADDR c, GM_ADDR workspace, 
     Catlass::MatrixCoord commCoreSplit{commDataSplit, commNpuSplit};
     Catlass::MatrixCoord commBlockShape{commBlockM, UINT_MAX / 2};
     Catlass::MatrixCoord commTileShape{commTileM / 2, n0};
-    auto tilingGM = reinterpret_cast<__gm__ AllGatherMatmulHcclTiling *>(tiling);
-    GM_ADDR mc2InitTiling = reinterpret_cast<GM_ADDR>(&tilingGM->mc2InitTiling);
-    GM_ADDR mc2CcTiling = reinterpret_cast<GM_ADDR>(&tilingGM->mc2CcTiling);
 
     LayoutA layoutA{m, k};
     LayoutB layoutB{k, n};
@@ -238,12 +237,12 @@ void all_gather_matmul_hccl(GM_ADDR a, GM_ADDR b, GM_ADDR c, GM_ADDR workspace, 
     if(m0 == 128){
         AllGatherMatmulHcclImpl_M0_128<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>(
             problemShape, l1TileShape, a, layoutA, b, layoutB, c, layoutC,
-            commInterval, commCoreSplit, commBlockShape, commTileShape, mc2InitTiling, mc2CcTiling, segmentSize
+            commInterval, commCoreSplit, commBlockShape, commTileShape, &tilingData, gatherWorkspace, rankSize
         );
     } else {
         AllGatherMatmulHcclImpl_M0_256<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>(
             problemShape, l1TileShape, a, layoutA, b, layoutB, c, layoutC,
-            commInterval, commCoreSplit, commBlockShape, commTileShape, mc2InitTiling, mc2CcTiling, segmentSize
+            commInterval, commCoreSplit, commBlockShape, commTileShape, &tilingData, gatherWorkspace, rankSize
         );
     }
 }

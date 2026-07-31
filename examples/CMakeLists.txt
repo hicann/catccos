@@ -304,6 +304,12 @@ foreach(EXAMPLE
     add_subdirectory(${EXAMPLE})
 endforeach()
 
+add_subdirectory(allgather_matmul_optional_backend/allgather_matmul_shmem)
+
+if(CATLASS_BISHENG_ARCH STREQUAL "a5")
+    add_subdirectory(allgather_matmul_optional_backend/ascend950_allgather_matmul_shmem)
+endif()
+
 if(RDMA_TRANSPORT)
     add_subdirectory(allgather_matmul_rdma)
 endif()

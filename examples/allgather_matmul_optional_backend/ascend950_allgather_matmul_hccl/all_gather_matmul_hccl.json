@@ -1,0 +1,39 @@
+[
+    {
+        "op": "AllGatherMatmulHccl",
+        "input_desc": [
+            {
+                "name": "a",
+                "param_type": "required",
+                "format": ["ND"],
+                "type": ["float16"]
+            },
+            {
+                "name": "b",
+                "param_type": "required",
+                "format": ["ND"],
+                "type": ["float16"]
+            }
+        ],
+        "output_desc": [
+            {
+                "name": "c",
+                "param_type": "required",
+                "format": ["ND"],
+                "type": ["float16"]
+            }
+        ],
+        "attr": [
+            {
+                "name": "group",
+                "param_type": "required",
+                "type": "string"
+            },
+            {
+                "name": "rankSize",
+                "param_type": "required",
+                "type": "int"
+            }
+        ]
+    }
+]
