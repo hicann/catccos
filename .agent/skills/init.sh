@@ -29,7 +29,7 @@ BRAND="catccos-agent"
 VERSION="1.0.0"
 
 # All skills to install (directory basenames under skills/)
-INCLUDED_SKILLS="orchestrator requirement-analyzer architecture-designer kernel-generator example-scaffolder torch-binding verifier test-integrator"
+INCLUDED_SKILLS="orchestrator requirement-analyzer architecture-designer kernel-generator example-scaffolder torch-binding verifier test-integrator udma-backend-converter"
 
 # Knowledge base (always installed alongside skills)
 KNOWLEDGE_BASE="knowledge-base"
@@ -241,6 +241,7 @@ The following skills are available under \`$SKILLS_REL_PATH/\`:
 | torch-binding | Integrates operators into PyTorch via TORCH_LIBRARY |
 | verifier | Static code verification (21-point checklist) |
 | test-integrator | Integrates operators into dynamic_tiling test framework |
+| udma-backend-converter | Converts operator communication backend from MTE to UDMA |
 
 ## Knowledge Base
 

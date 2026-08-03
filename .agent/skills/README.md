@@ -30,7 +30,7 @@ catccos/
 ```mermaid
 graph TD
     User[用户需求] --> Orchestrator[🎯 Orchestrator<br>需求分析与任务编排]
-    
+
     Orchestrator --> Analyzer[📊 Requirement Analyzer<br>需求分析与模板匹配]
     Analyzer --> Architect[🏗️ Architecture Designer<br>模板组合与配置设计]
     Analyzer -->|需要新Kernel| KernelGen[⚡ Kernel Generator<br>Kernel层代码生成]
@@ -39,7 +39,7 @@ graph TD
     ExampleGen --> Verifier[✅ Verifier<br>静态检查与验证]
     ExampleGen -->|接入测试| TestInteg[🧪 Test Integrator<br>dynamic_tiling 接入]
     ExampleGen -->|PyTorch绑定| TorchBind[🔗 Torch Binding<br>PyTorch集成]
-    
+
     Analyzer --> KB[(知识库<br>operator_index<br>hardware_specs)]
     Architect --> KB
     KernelGen --> KB
@@ -58,10 +58,11 @@ graph TD
 ├── requirement-analyzer/SKILL.md      # 需求解析 → 模板匹配 → 结构化报告
 ├── architecture-designer/SKILL.md     # Config struct 设计（TLA-first 决策树）
 ├── kernel-generator/SKILL.md          # 新 Kernel 模板生成（Legacy→TLA / 全新）
-├── example-scaffolder/SKILL.md        # 完整 Example 目录生成（含脚本 + gen_data）
+├── example-scaffolder/SKILL.md         # 完整 Example 目录生成（含脚本 + gen_data）
 ├── verifier/SKILL.md                  # 静态检查（7类21项）
 ├── test-integrator/SKILL.md           # dynamic_tiling 7步接入
-└── torch-binding/SKILL.md             # PyTorch 绑定生成
+├── torch-binding/SKILL.md             # PyTorch 绑定生成
+└── udma-backend-converter/SKILL.md    # 通信后端 MTE→UDMA 替换（Put/Get 双模式）
 ```
 
 ### SubAgent 职责与执行顺序
@@ -75,6 +76,7 @@ graph TD
 | 5 | Verifier | `verifier/` | 所有生成文件 | 验证报告 |
 | 6 | Test Integrator | `test-integrator/` | Example | dynamic_tiling 接入代码 |
 | 7 | Torch Binding | `torch-binding/` | Example | PyTorch wrapper |
+| - | UDMA Backend Converter | `udma-backend-converter/` | 已有算子 | UDMA 版 Kernel + Example |
 
 ---
 
@@ -121,13 +123,13 @@ using MmadDispatchPolicy = Catlass::Gemm::MmadPingpong<
 ```mermaid
 graph TD
     Start[新算子需求] --> TLA{"TLA Kernel已存在?"}
-    
+
     TLA -->|是| REUSE["复用已有TLA Kernel<br>仅切换ArchTag"]
     TLA -->|否| LEGACY{"Legacy Kernel已存在?"}
-    
+
     LEGACY -->|是| NEWREF["参考Legacy实现<br>新建TLA Kernel<br>（Legacy保持不变）"]
     LEGACY -->|否| NEW["新建 TLA Kernel"]
-    
+
     REUSE --> CONFIG[生成 Config + Example]
     NEWREF --> CONFIG
     NEW --> CONFIG
@@ -184,7 +186,7 @@ examples/<op_name>/
 ## 架构参数速查
 
 | 参数 | AtlasA2 | Ascend950 |
-|------|---------|-----------| 
+|------|---------|-----------|
 | ArchTag | `Catlass::Arch::AtlasA2` | `Catlass::Arch::Ascend950` |
 | CATLASS_ARCH | `2201` | `3510` |
 | 模板库支持 | Legacy + TLA | TLA only |
@@ -222,6 +224,14 @@ examples/<op_name>/
 ```
 
 执行链：`Requirement Analyzer → Kernel Generator → Architecture Designer → Example Scaffolder → Verifier → Test Integrator → Torch Binding`
+
+### 场景 4: 通信后端 UDMA 替换
+
+```
+用户: "把 ascend950_matmul_reduce_scatter 的通信后端换成 UDMA"
+```
+
+执行链：`UDMA Backend Converter`（独立链路，参考 `udma-backend-converter/SKILL.md`，按 Put/Get 模式生成新 Kernel + Example）
 
 ---
 
