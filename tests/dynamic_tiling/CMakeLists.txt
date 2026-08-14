@@ -154,6 +154,7 @@ set(TILING_SOURCES
     tiling/cost_model.cpp
     tiling/cost_model_hardware.cpp
     tiling/mte_cost_model.cpp
+    tiling/remote_copy_cost_model.cpp
     tiling/reducescatter_cost_model.cpp
     tiling/allreduce_cost_model.cpp
     tiling/allgather_cost_model.cpp

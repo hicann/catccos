@@ -7,10 +7,11 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "op.h"
 #include "cost_model.h"
+#include "op.h"
 
-struct Options {
+struct Options
+{
     std::string kernelName{};
     CocDataType dataType;
     int rankSize;
@@ -30,7 +31,8 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum class ArgsIndex {
+        enum class ArgsIndex
+        {
             KERNEL_NAME_INDEX = 1,
             DATA_TYPE_INDEX,
             RANK_SIZE_INDEX,
@@ -52,11 +54,13 @@ struct Options {
 
         constexpr int MINIMUM_ARGS = static_cast<int>(ArgsIndex::TEST_CYCLE_TIMES_INDEX) + 1;
 
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX))
+        {
             return -1;
         }
 
-        if (argc < MINIMUM_ARGS) {
+        if (argc < MINIMUM_ARGS)
+        {
             return -1;
         }
 
@@ -74,17 +78,23 @@ struct Options {
         csv_file = argv[static_cast<int>(ArgsIndex::CSV_FILE_INDEX)];
         warmUpTimes = std::atoi(argv[static_cast<int>(ArgsIndex::WARM_UP_TIMES_INDEX)]);
         testCycleTimes = std::atoi(argv[static_cast<int>(ArgsIndex::TEST_CYCLE_TIMES_INDEX)]);
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
+            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
+            {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        } else {
-            for (size_t i = 0; i < rankSize; ++i) {
+        }
+        else
+        {
+            for (size_t i = 0; i < rankSize; ++i)
+            {
                 deviceIdList.push_back(i);
             }
         }
-        if (argc > static_cast<int>(ArgsIndex::DATA_FILE_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DATA_FILE_INDEX))
+        {
             dataFile = argv[static_cast<int>(ArgsIndex::DATA_FILE_INDEX)];
         }
         return 0;
@@ -99,20 +109,25 @@ std::vector<std::vector<uint32_t>> InitTestShapes(const Options &options)
     std::vector<std::string> headers = {};
     std::vector<std::vector<uint32_t>> shapes = {};
     std::ifstream file(shapeFileName);
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         std::cerr << "Unable to open file: " << shapeFileName << std::endl;
         return shapes;
     }
 
     std::string line;
 
-    if (getline(file, line)) {
+    if (getline(file, line))
+    {
         std::stringstream ss(line);
         std::string header;
-        while (getline(ss, header, ',')) {
+        while (getline(ss, header, ','))
+        {
             headers.push_back(header);
         }
-    } else {
+    }
+    else
+    {
         std::cerr << "The file is empty or the header line fails to be read." << std::endl;
         return shapes;
     }
@@ -120,26 +135,34 @@ std::vector<std::vector<uint32_t>> InitTestShapes(const Options &options)
     int rowIndex = 0;
     int added = 0;
 
-    while (getline(file, line)) {
+    while (getline(file, line))
+    {
         if (line.empty()) continue;
-        if (rowIndex < startLine) {
+        if (rowIndex < startLine)
+        {
             ++rowIndex;
             continue;
         }
-        if (added >= collectRows) {
+        if (added >= collectRows)
+        {
             break;
         }
 
         std::stringstream ss(line);
         std::vector<uint32_t> shape;
         std::string cell;
-        while (getline(ss, cell, ',')) {
+        while (getline(ss, cell, ','))
+        {
             shape.push_back(std::stoi(cell));
         }
 
-        if (shape.size() != headers.size()) {
-            std::cerr << "The number of data columns in row " << rowIndex << " does not match the number of header columns: " << line << std::endl;
-        } else {
+        if (shape.size() != headers.size())
+        {
+            std::cerr << "The number of data columns in row " << rowIndex
+                      << " does not match the number of header columns: " << line << std::endl;
+        }
+        else
+        {
             shapes.push_back(shape);
             ++added;
         }
@@ -177,20 +200,23 @@ int main(int argc, char **argv)
     int32_t deviceId = options.deviceIdList[rankId];
     std::string dataFile = options.dataFile;
     const std::vector<std::vector<uint32_t>> shapes = InitTestShapes(options);
-    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
 
     std::cout << "[TEST] input rank_size: " << rankSize << " rank_id: " << rankId << " input_ip: " << ipPort << "\n";
 
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
+    auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
-    if (commType == ALLGATHER_MATMUL_RDMA) {
+    if (commType == ALLGATHER_MATMUL_RDMA)
+    {
         attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_ROCE;
-    } else if (commType == ASCEND950_ALLGATHER_MATMUL_UDMA || commType == ASCEND950_MXFP8_MATMUL_ALLTOALL) {
+    }
+    else if (commType == ASCEND950_ALLGATHER_MATMUL_UDMA || commType == ASCEND950_MXFP8_MATMUL_ALLTOALL)
+    {
         attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_UDMA;
     }
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
@@ -201,11 +227,13 @@ int main(int argc, char **argv)
     std::string opName = CommTypeOpNameMap.at(commType);
     std::string currentDir = options.parentPath;
     std::string tilingFileName = currentDir + "/output/tiling/tilingData_" + currentTime + ".csv";
-    if (rankId == 0) {
+    if (rankId == 0)
+    {
         CreateTilingFile(tilingFileName);
     }
 
-    for (size_t i = 0; i < shapes.size(); i++) {
+    for (size_t i = 0; i < shapes.size(); i++)
+    {
         uint32_t m = shapes[i][0];
         uint32_t k = shapes[i][1];
         uint32_t n = shapes[i][2];
@@ -216,7 +244,9 @@ int main(int argc, char **argv)
         cocTiling.m = m;
         cocTiling.n = n;
         cocTiling.k = k;
-        COCMatMulInfo info{ int64_t(m), int64_t(k), int64_t(n) };
+        cocTiling.transA = transA;
+        cocTiling.transB = transB;
+        COCMatMulInfo info{int64_t(m), int64_t(k), int64_t(n)};
         cocTiling.m0 = M0;
         cocTiling.n0 = N0;
         cocTiling.k0 = K0;
@@ -230,12 +260,16 @@ int main(int argc, char **argv)
         cocTiling.expertNum = expertNum;
 
         auto op = OperatorRegistry::Instance().CreateOperator(opName);
-        if (op) {
-            if (warmUpTimes == 0 && !op->CheckCocTilingParams(rankSize, cocTiling)) {
+        if (op)
+        {
+            if (warmUpTimes == 0 && !op->CheckCocTilingParams(rankSize, cocTiling))
+            {
                 std::printf("M: %d, K: %d, N: %d coc params check failed!\n", cocTiling.m, cocTiling.k, cocTiling.n);
                 continue;
             }
-        } else {
+        }
+        else
+        {
             std::cout << "Operator " << opName << " not found!" << std::endl;
             return -1;
         }
@@ -248,54 +282,64 @@ int main(int argc, char **argv)
 
         size_t workSpaceSize = op->GetWorkspaceSize(cocTiling);
         uint8_t *workspaceDevice{nullptr};
-        if (workSpaceSize > 0) {
+        if (workSpaceSize > 0)
+        {
             ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
         }
 
         void *symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
         uint8_t *gmSymmetric = (uint8_t *)symmPtr;
 
-        uint32_t searchparams = (std::getenv("SEARCH_PARAMS") == nullptr) ? 1U : std::stoul(std::getenv("SEARCH_PARAMS"));
+        uint32_t searchparams =
+            (std::getenv("SEARCH_PARAMS") == nullptr) ? 1U : std::stoul(std::getenv("SEARCH_PARAMS"));
 
         std::vector<CocTilingParams> cocTilings;
-        if (warmUpTimes == 0) {
+        if (warmUpTimes == 0)
+        {
             cocTilings.push_back(cocTiling);
-        } else {
-            if (searchparams == 1) {
+        }
+        else
+        {
+            if (searchparams == 1)
+            {
                 // 搜索 tiling
                 GetTilings(cocTilings, cocTiling, opName, rankSize);
-            } else {
+            }
+            else
+            {
                 CostModelConfig costModelConfig;
-                costModelConfig.hardwareType = CostModelHardwareType::A2;
                 costModelConfig.dataType = dataType;
-                if (transA == 0 && (transB == 0 || transB == 1)) {
-                    costModelConfig.m0List = {128};
+                ConfigureCostModelConfig(actualKernelType, costModelConfig);
+                if (blockNum > 0)
+                {
+                    costModelConfig.aicCoreNum = static_cast<uint32_t>(blockNum);
                 }
+                costModelConfig.m0List =
+                    (transA == 1 && transB == 1) ? std::vector<uint32_t>{256} : std::vector<uint32_t>{128};
                 auto baseTiling = cocTiling;
                 costModelConfig.tilingValidator =
-                    [opPtr = op.get(), rankSize, baseTiling](
-                        CostModelTiling const &candidate) {
-                        auto candidateTiling = baseTiling;
-                        candidateTiling.m0 = candidate.m0;
-                        candidateTiling.k0 = candidate.k0;
-                        candidateTiling.n0 = candidate.n0;
-                        candidateTiling.commTileM = candidate.commTileM;
-                        candidateTiling.commInterval = candidate.commInterval;
-                        candidateTiling.commNpuSplit = candidate.commNpuSplit;
-                        candidateTiling.commDataSplit = candidate.commDataSplit;
-                        candidateTiling.commBlockM = candidate.commBlockM;
-                        return opPtr->CheckCocTilingParams(
-                            rankSize, candidateTiling);
-                    };
-                bool ok = ApplyCostModel(
-                    info, actualKernelType, rankSize,
-                    cocTiling, costModelConfig);
-                if (!ok) {
+                    [opPtr = op.get(), rankSize, baseTiling](CostModelTiling const &candidate)
+                {
+                    auto candidateTiling = baseTiling;
+                    candidateTiling.m0 = candidate.m0;
+                    candidateTiling.k0 = candidate.k0;
+                    candidateTiling.n0 = candidate.n0;
+                    candidateTiling.commTileM = candidate.commTileM;
+                    candidateTiling.commInterval = candidate.commInterval;
+                    candidateTiling.commNpuSplit = candidate.commNpuSplit;
+                    candidateTiling.commDataSplit = candidate.commDataSplit;
+                    candidateTiling.commBlockM = candidate.commBlockM;
+                    return opPtr->CheckCocTilingParams(rankSize, candidateTiling);
+                };
+                bool ok = ApplyCostModel(info, actualKernelType, rankSize, cocTiling, costModelConfig);
+                if (!ok)
+                {
                     ok = ApplyLookupTable(info, actualKernelType, rankSize, cocTiling);
                 }
-                if (!ok) {
-                    std::cerr << "[Tiling] no cost model or LUT for ("
-                              << opName << "," << rankSize << "), using defaults\n";
+                if (!ok)
+                {
+                    std::cerr << "[Tiling] no cost model or LUT for (" << opName << "," << rankSize
+                              << "), using defaults\n";
                 }
                 cocTilings.push_back(cocTiling);
             }
@@ -305,32 +349,40 @@ int main(int argc, char **argv)
 
         auto kernelFunc = KernelDispatcher::GetKernelFunc(actualKernelType, dataType);
 
-        for (size_t i = 0; i < warmUpTimes; i++) {
-            kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, cocTilings[0], transA, transB);
+        for (size_t i = 0; i < warmUpTimes; i++)
+        {
+            kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, cocTilings[0], transA,
+                       transB);
         }
 
         ACL_CHECK(aclrtSynchronizeStream(stream));
 
-        for (CocTilingParams tiling : cocTilings) {
-            for (size_t i = 0; i < testCycleTimes; i++) {
-                kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, tiling, transA, transB);
+        for (CocTilingParams tiling : cocTilings)
+        {
+            for (size_t i = 0; i < testCycleTimes; i++)
+            {
+                kernelFunc(stream, blockNum, fftsAddr, kernelParams, workspaceDevice, gmSymmetric, tiling, transA,
+                           transB);
             }
         }
 
         ACL_CHECK(aclrtSynchronizeStream(stream));
 
-        if (dataFile != "") {
+        if (dataFile != "")
+        {
             op->WriteResultFile(kernelParams, cocTiling, rankId, dataFile);
         }
 
-        if (rankId == 0) {
+        if (rankId == 0)
+        {
             WriteTilingInfos(opName, cocTilings, tilingFileName, transA, transB);
             std::printf("M: %d, K: %d, N: %d aclrtSynchronizeStream success!\n", cocTiling.m, cocTiling.k, cocTiling.n);
         }
 
         FreeDeviceSpace(kernelParams);
 
-        if (workSpaceSize > 0) {
+        if (workSpaceSize > 0)
+        {
             ACL_CHECK(aclrtFree(workspaceDevice));
         }
         shmem_free(symmPtr);

@@ -11,33 +11,34 @@
 #ifndef OPERATOR_HOST_H
 #define OPERATOR_HOST_H
 
-#include "matmul_allreduce/matmul_allreduce_host.h"
 #include "allgather_matmul/allgather_matmul_host.h"
-#include "matmul_reduce_scatter/matmul_reduce_scatter_host.h"
-#include "allgather_matmul_with_gather_result/allgather_matmul_with_gather_result_host.h"
-#include "allgather_matmul_remote_read/allgather_matmul_remote_read_host.h"
-#include "grouped_matmul_alltoallv/grouped_matmul_alltoallv_host.h"
-#include "alltoallv_grouped_matmul/alltoallv_grouped_matmul_host.h"
-#include "allgather_matmul_rdma/allgather_matmul_rdma_host.h"
-#include "alltoallv_gmm_v2/alltoallv_gmm_v2_host.h"
 #include "allgather_matmul_dequant/allgather_matmul_dequant_host.h"
 #include "allgather_matmul_dequant_bias/allgather_matmul_dequant_bias_host.h"
+#include "allgather_matmul_rdma/allgather_matmul_rdma_host.h"
+#include "allgather_matmul_remote_read/allgather_matmul_remote_read_host.h"
+#include "allgather_matmul_with_gather_result/allgather_matmul_with_gather_result_host.h"
+#include "alltoallv_gmm_v2/alltoallv_gmm_v2_host.h"
+#include "alltoallv_grouped_matmul/alltoallv_grouped_matmul_host.h"
+#include "grouped_matmul_alltoallv/grouped_matmul_alltoallv_host.h"
+#include "matmul_allreduce/matmul_allreduce_host.h"
+#include "matmul_dequant_reduce_scatter_write/matmul_dequant_reduce_scatter_write_host.h"
+#include "matmul_reduce_scatter/matmul_reduce_scatter_host.h"
 
 #ifdef CATCCOS_ENABLE_A5_BUILD
 #include "ascend950_allgather_matmul/ascend950_allgather_matmul_host.h"
+#include "ascend950_allgather_matmul_udma/ascend950_allgather_matmul_udma_host.h"
+#include "ascend950_alltoallv_grouped_matmul/ascend950_alltoallv_grouped_matmul_host.h"
+#include "ascend950_fp4_mx_allgather_matmul/ascend950_fp4_mx_allgather_matmul_host.h"
+#include "ascend950_fp4_mx_alltoallv_grouped_matmul/ascend950_fp4_mx_alltoallv_grouped_matmul_host.h"
+#include "ascend950_fp4_mx_grouped_matmul_alltoallv/ascend950_fp4_mx_grouped_matmul_alltoallv_host.h"
+#include "ascend950_fp4_mx_matmul_reduce_scatter/ascend950_fp4_mx_matmul_reduce_scatter_host.h"
+#include "ascend950_fp8_mx_allgather_matmul/ascend950_fp8_mx_allgather_matmul_host.h"
+#include "ascend950_fp8_mx_alltoallv_grouped_matmul/ascend950_fp8_mx_alltoallv_grouped_matmul_host.h"
+#include "ascend950_fp8_mx_grouped_matmul_alltoallv/ascend950_fp8_mx_grouped_matmul_alltoallv_host.h"
+#include "ascend950_grouped_matmul_alltoallv/ascend950_grouped_matmul_alltoallv_host.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_host.h"
 #include "ascend950_mx_quant_allgather/mx_quant_allgather_host.h"
-#include "ascend950_grouped_matmul_alltoallv/ascend950_grouped_matmul_alltoallv_host.h"
-#include "ascend950_fp8_mx_grouped_matmul_alltoallv/ascend950_fp8_mx_grouped_matmul_alltoallv_host.h"
-#include "ascend950_fp4_mx_grouped_matmul_alltoallv/ascend950_fp4_mx_grouped_matmul_alltoallv_host.h"
-#include "ascend950_fp8_mx_allgather_matmul/ascend950_fp8_mx_allgather_matmul_host.h"
-#include "ascend950_fp4_mx_allgather_matmul/ascend950_fp4_mx_allgather_matmul_host.h"
-#include "ascend950_fp8_mx_alltoallv_grouped_matmul/ascend950_fp8_mx_alltoallv_grouped_matmul_host.h"
-#include "ascend950_fp4_mx_alltoallv_grouped_matmul/ascend950_fp4_mx_alltoallv_grouped_matmul_host.h"
-#include "ascend950_alltoallv_grouped_matmul/ascend950_alltoallv_grouped_matmul_host.h"
-#include "ascend950_fp4_mx_matmul_reduce_scatter/ascend950_fp4_mx_matmul_reduce_scatter_host.h"
 #include "ascend950_mxfp8_matmul_alltoall/ascend950_mxfp8_matmul_alltoall_host.h"
-#include "ascend950_allgather_matmul_udma/ascend950_allgather_matmul_udma_host.h"
 #endif
 
-#endif // OPERATOR_HOST_H
+#endif  // OPERATOR_HOST_H

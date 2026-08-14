@@ -12,58 +12,81 @@
 
 #include <sstream>
 #include <vector>
+
 #include "info.h"
 #include "launch_map.h"
 #include "operator_registry.h"
 #include "utils.h"
 
 const std::vector<uint32_t> vCommInterval = {1, 2, 4, 6, 8, 10, 12, 14};
-const std::vector<uint32_t> vCommTileM    = {2, 4, 8, 16, 32, 64, 128};
-const std::vector<uint32_t> vM0           = {128, 256};
-const std::vector<std::pair<uint32_t, uint32_t>> vCommSplitNpuDataPair = {{1, 16}, {2, 8}, {4, 4}, {1, 20}, {2, 10}, {4, 5}};
+const std::vector<uint32_t> vCommTileM = {2, 4, 8, 16, 32, 64, 128};
+const std::vector<uint32_t> vM0 = {128, 256};
+const std::vector<std::pair<uint32_t, uint32_t>> vCommSplitNpuDataPair = {{1, 16}, {2, 8},  {4, 4},
+                                                                          {1, 20}, {2, 10}, {4, 5}};
 const std::vector<std::vector<uint32_t>> allParams = {vCommInterval, vCommTileM, vM0};
 
-void GetParamFromSearchSpace(std::vector<uint32_t>& curParams,
-                             std::vector<std::vector<uint32_t>> &results,
-                             int pos) {
-    if (pos == allParams.size()) {
-        for (int i = 0; i < vCommSplitNpuDataPair.size(); i++) {
+uint32_t GetTilingK0(CocCommType type)
+{
+    switch (type)
+    {
+        case ASCEND950_FP4_MX_ALLGATHER_MATMUL:
+        case ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV:
+        case ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL:
+        case ASCEND950_FP4_MX_MATMUL_REDUCE_SCATTER:
+            return 512;
+        default:
+            return 256;
+    }
+}
+
+void GetParamFromSearchSpace(std::vector<uint32_t> &curParams, std::vector<std::vector<uint32_t>> &results, int pos)
+{
+    if (pos == allParams.size())
+    {
+        for (int i = 0; i < vCommSplitNpuDataPair.size(); i++)
+        {
             std::vector<uint32_t> tmpParams(curParams.begin(), curParams.end());
             tmpParams.push_back(vCommSplitNpuDataPair[i].first);
             tmpParams.push_back(vCommSplitNpuDataPair[i].second);
             results.push_back(tmpParams);
         }
-    } else {
-        for (int i = 0; i < allParams[pos].size(); i++) {
+    }
+    else
+    {
+        for (int i = 0; i < allParams[pos].size(); i++)
+        {
             curParams[pos] = allParams[pos][i];
             GetParamFromSearchSpace(curParams, results, pos + 1);
         }
     }
 }
 
-void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t,
-    const std::string &opName, int rankSize) {
+void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t, const std::string &opName, int rankSize)
+{
     auto op = OperatorRegistry::Instance().CreateOperator(opName);
-    if (!op) {
+    if (!op)
+    {
         std::cout << "Operator " << opName << " not found!" << std::endl;
         return;
     }
+    uint32_t k0 = GetTilingK0(op->GetActualKernelType(t));
     std::vector<uint32_t> curParams(allParams.size(), 0);
     std::vector<std::vector<uint32_t>> allTilings;
     GetParamFromSearchSpace(curParams, allTilings, 0);
-    for (const auto &tiling : allTilings) {
+    for (const auto &tiling : allTilings)
+    {
         uint32_t idx = 0;
         t.commInterval = tiling[idx++];
-        t.commTileM    = tiling[idx++];
-        t.commBlockM   = t.commTileM;
-        t.m0           = tiling[idx++];
-        t.k0           = 256;
-        t.n0           = (t.m0 == 128) ? 256 : 128;
+        t.commTileM = tiling[idx++];
+        t.commBlockM = t.commTileM;
+        t.m0 = tiling[idx++];
+        t.k0 = k0;
+        t.n0 = (t.m0 == 128) ? 256 : 128;
         t.commNpuSplit = tiling[idx++];
         t.commDataSplit = tiling[idx++];
 
         if (!op->CheckCocTilingParams(rankSize, t)) continue;
-        
+
         tilings.push_back(t);
     }
 }
@@ -71,40 +94,36 @@ void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t,
 bool CreateTilingFile(const std::string filename)
 {
     std::ofstream outFile(filename, std::ios::out);
-    if (!outFile.is_open()) {
+    if (!outFile.is_open())
+    {
         std::cerr << "Open file failed." << std::endl;
         return false;
     }
-    outFile << "Op,M,K,N,Transpose A,Transpose B,M0,commInterval,commTileM,commBlockM,commNpuSplit,commDataSplit,Time(us)\n";
+    outFile << "Op,M,K,N,Transpose A,Transpose "
+               "B,M0,commInterval,commTileM,commBlockM,commNpuSplit,commDataSplit,Time(us)\n";
     outFile.close();
     return true;
 }
 
 bool WriteTilingInfos(std::string opName, std::vector<CocTilingParams> &cocTilings, const std::string filename,
-                      int transA = 0, int transB = 1) {
+                      int transA = 0, int transB = 1)
+{
     std::ofstream outputFile(filename, std::ios::out | std::ios::app);
-    if (!outputFile) {
+    if (!outputFile)
+    {
         ERROR_LOG("Open file failed. path = %s, error = %s", filename.c_str(), strerror(errno));
         return false;
     }
 
-    for (CocTilingParams cocTiling : cocTilings) {
-        outputFile << opName
-                   << "," << cocTiling.m
-                   << "," << cocTiling.k
-                   << "," << cocTiling.n
-                   << "," << transA
-                   << "," << transB
-                   << "," << cocTiling.m0
-                   << "," << cocTiling.commInterval
-                   << "," << cocTiling.commTileM
-                   << "," << cocTiling.commBlockM
-                   << "," << cocTiling.commNpuSplit
-                   << "," << cocTiling.commDataSplit
+    for (CocTilingParams cocTiling : cocTilings)
+    {
+        outputFile << opName << "," << cocTiling.m << "," << cocTiling.k << "," << cocTiling.n << "," << transA << ","
+                   << transB << "," << cocTiling.m0 << "," << cocTiling.commInterval << "," << cocTiling.commTileM
+                   << "," << cocTiling.commBlockM << "," << cocTiling.commNpuSplit << "," << cocTiling.commDataSplit
                    << "," << "\n";
     }
     outputFile.close();
     return true;
 }
 
-#endif // TILING_H
+#endif  // TILING_H

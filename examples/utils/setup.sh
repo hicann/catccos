@@ -94,10 +94,18 @@ else
 fi
 
 SHMEM_PATH="${PROJECT_ROOT}/3rdparty/shmem"
+SHMEM_INSTALL_PATH="${SHMEM_PATH}/install"
+SHMEM_HEADER_PATH="${SHMEM_INSTALL_PATH}/shmem/include/shmem.h"
+
+if [ -n "${SHMEM_HOME_PATH:-}" ] && [ ! -f "${SHMEM_HOME_PATH}/shmem/include/shmem.h" ]; then
+    echo "[WARN] SHMEM_HOME_PATH is stale or incomplete: ${SHMEM_HOME_PATH}"
+    echo "[INFO] Rebuilding the local SHMEM installation."
+    unset SHMEM_HOME_PATH
+fi
 
 if [ -z "$SHMEM_HOME_PATH" ]; then
     cd "$SHMEM_PATH"
-    if [ ! -d "$SHMEM_PATH/install" ]; then
+    if [ ! -f "$SHMEM_INSTALL_PATH/set_env.sh" ] || [ ! -f "$SHMEM_HEADER_PATH" ]; then
         bash scripts/build.sh "${SHMEM_BUILD_ARGS[@]}" || {
             echo "[ERROR] Running build.sh in 3rdparty/shmem failed."
             exit 1
@@ -112,6 +120,11 @@ if [ -z "$SHMEM_HOME_PATH" ]; then
     }
 else
     echo "[INFO] SHMEM_HOME_PATH has already been set to: $SHMEM_HOME_PATH"
+fi
+
+if [ ! -f "${SHMEM_HOME_PATH}/shmem/include/shmem.h" ]; then
+    echo "[ERROR] SHMEM installation is incomplete: ${SHMEM_HOME_PATH}/shmem/include/shmem.h not found."
+    exit 1
 fi
 
 echo "Environment setup completed!"

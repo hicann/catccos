@@ -7,8 +7,9 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "allgather_matmul_dequant_bias/allgather_matmul_dequant_bias_device.h"
 #include "allgather_matmul_dequant/allgather_matmul_dequant_device.h"
+#include "allgather_matmul_dequant_bias/allgather_matmul_dequant_bias_device.h"
+#include "matmul_dequant_reduce_scatter_write/matmul_dequant_reduce_scatter_write_device.h"
 
 using ElementA = int8_t;
 using ElementB = int8_t;
@@ -25,48 +26,50 @@ using LayoutScale = Catlass::layout::VectorLayout;
 // ============================================================================
 
 template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
-static void LaunchAllGatherMatmulDequantBiasWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling)
+static void LaunchAllGatherMatmulDequantBiasWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                                       KernelParams &kernelParams, uint8_t *symmetricPtr,
+                                                       CocTilingParams &cocTiling)
 {
-    using DeviceOp = typename ConfigAlias<
-        ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC0, ElementScale, LayoutScale>::Device;
+    using DeviceOp = typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC0, ElementScale,
+                                          LayoutScale>::Device;
 
     Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
     Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / WORKSPACE_STAGES};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / WORKSPACE_STAGES, cocTiling.k0};
 
-    typename DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
-        cocTiling.commInterval,
-        kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
-        kernelParams.customPtrs[1],  // scalePtr
-        kernelParams.customPtrs[0],  // biasPtr
-        symmetricPtr,
-        commCoreSplit, commBlockShape, commTileShape
-    };
+    typename DeviceOp::Arguments args{problemShape,
+                                      static_cast<uint32_t>(shmem_my_pe()),
+                                      static_cast<uint32_t>(shmem_n_pes()),
+                                      cocTiling.commInterval,
+                                      kernelParams.ptrA,
+                                      kernelParams.ptrB,
+                                      kernelParams.ptrC,
+                                      kernelParams.customPtrs[1],  // scalePtr
+                                      kernelParams.customPtrs[0],  // biasPtr
+                                      symmetricPtr,
+                                      commCoreSplit,
+                                      commBlockShape,
+                                      commTileShape};
     DeviceOp op;
     op.Initialize(args);
     op.Run((aclrtStream)stream, blockNum, fftsAddr);
 }
 
-void LaunchAllGatherMatmulDequantBiasINT8(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+void LaunchAllGatherMatmulDequantBiasINT8(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                          KernelParams &kernelParams, uint8_t *workSpace, uint8_t *symmetricPtr,
+                                          CocTilingParams &cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     (void)transA;
     (void)transB;
-    if (cocTiling.m0 == 128) {
+    if (cocTiling.m0 == 128)
+    {
         LaunchAllGatherMatmulDequantBiasWithConfig<AllGatherMatmulDequantBiasConfig_M0_128>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling);
-    } else {
+    }
+    else
+    {
         LaunchAllGatherMatmulDequantBiasWithConfig<AllGatherMatmulDequantBiasConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling);
     }
@@ -77,48 +80,49 @@ void LaunchAllGatherMatmulDequantBiasINT8(
 // ============================================================================
 
 template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
-static void LaunchAllGatherMatmulDequantWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling)
+static void LaunchAllGatherMatmulDequantWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                                   KernelParams &kernelParams, uint8_t *workSpace,
+                                                   uint8_t *symmetricPtr, CocTilingParams &cocTiling)
 {
-    using DeviceOp = typename ConfigAlias<
-        ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC0, ElementScale, LayoutScale>::Device;
+    using DeviceOp = typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC0, ElementScale,
+                                          LayoutScale>::Device;
 
     Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
     Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / WORKSPACE_STAGES};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / WORKSPACE_STAGES, cocTiling.k0};
 
-    typename DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
-        cocTiling.commInterval,
-        kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
-        kernelParams.customPtrs[0],  // scalePtr
-        workSpace,                   // ptrWB (no padding, workspace unused)
-        symmetricPtr,
-        commCoreSplit, commBlockShape, commTileShape
-    };
+    typename DeviceOp::Arguments args{problemShape,
+                                      static_cast<uint32_t>(shmem_my_pe()),
+                                      static_cast<uint32_t>(shmem_n_pes()),
+                                      cocTiling.commInterval,
+                                      kernelParams.ptrA,
+                                      kernelParams.ptrB,
+                                      kernelParams.ptrC,
+                                      kernelParams.customPtrs[0],  // scalePtr
+                                      workSpace,                   // ptrWB (no padding, workspace unused)
+                                      symmetricPtr,
+                                      commCoreSplit,
+                                      commBlockShape,
+                                      commTileShape};
     DeviceOp op;
     op.Initialize(args);
     op.Run((aclrtStream)stream, blockNum, fftsAddr);
 }
 
-void LaunchAllGatherMatmulDequantINT8(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+void LaunchAllGatherMatmulDequantINT8(void *stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams &kernelParams,
+                                      uint8_t *workSpace, uint8_t *symmetricPtr, CocTilingParams &cocTiling,
+                                      uint32_t transA, uint32_t transB)
 {
     (void)transA;
     (void)transB;
-    if (cocTiling.m0 == 128) {
+    if (cocTiling.m0 == 128)
+    {
         LaunchAllGatherMatmulDequantWithConfig<AllGatherMatmulDequantConfig_M0_128>(
             stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
-    } else {
+    }
+    else
+    {
         LaunchAllGatherMatmulDequantWithConfig<AllGatherMatmulDequantConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
     }
@@ -129,49 +133,107 @@ void LaunchAllGatherMatmulDequantINT8(
 // ============================================================================
 
 template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
-static void LaunchAllGatherMatmulDequantPaddingWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling)
+static void LaunchAllGatherMatmulDequantPaddingWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                                          KernelParams &kernelParams, uint8_t *workSpace,
+                                                          uint8_t *symmetricPtr, CocTilingParams &cocTiling)
 {
-    using DeviceOp = typename ConfigAlias<
-        ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC0, ElementScale, LayoutScale>::Device;
+    using DeviceOp = typename ConfigAlias<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC0, ElementScale,
+                                          LayoutScale>::Device;
 
     Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
     Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / WORKSPACE_STAGES};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / WORKSPACE_STAGES, cocTiling.k0};
 
-    typename DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
-        cocTiling.commInterval,
-        kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
-        kernelParams.customPtrs[0],  // scalePtr
-        workSpace,                   // ptrWB (padding workspace)
-        symmetricPtr,
-        commCoreSplit, commBlockShape, commTileShape
-    };
+    typename DeviceOp::Arguments args{problemShape,
+                                      static_cast<uint32_t>(shmem_my_pe()),
+                                      static_cast<uint32_t>(shmem_n_pes()),
+                                      cocTiling.commInterval,
+                                      kernelParams.ptrA,
+                                      kernelParams.ptrB,
+                                      kernelParams.ptrC,
+                                      kernelParams.customPtrs[0],  // scalePtr
+                                      workSpace,                   // ptrWB (padding workspace)
+                                      symmetricPtr,
+                                      commCoreSplit,
+                                      commBlockShape,
+                                      commTileShape};
     DeviceOp op;
     op.Initialize(args);
     op.Run((aclrtStream)stream, blockNum, fftsAddr);
 }
 
-void LaunchAllGatherMatmulDequantPaddingINT8(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+void LaunchAllGatherMatmulDequantPaddingINT8(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                             KernelParams &kernelParams, uint8_t *workSpace, uint8_t *symmetricPtr,
+                                             CocTilingParams &cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)transA;
     (void)transB;
-    if (cocTiling.m0 == 128) {
+    if (cocTiling.m0 == 128)
+    {
         LaunchAllGatherMatmulDequantPaddingWithConfig<AllGatherMatmulDequantPaddingConfig_M0_128>(
             stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
-    } else {
+    }
+    else
+    {
         LaunchAllGatherMatmulDequantPaddingWithConfig<AllGatherMatmulDequantPaddingConfig_M0_256>(
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
+    }
+}
+
+// ============================================================================
+// MatmulDequantReduceScatterWrite
+// ============================================================================
+
+template <template <class, class, class, class, class, class, class, class> class ConfigAlias>
+static void LaunchMatmulDequantReduceScatterWriteWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                                            KernelParams &kernelParams, uint8_t *workSpace,
+                                                            uint8_t *symmetricPtr, CocTilingParams &cocTiling)
+{
+    using DeviceOp =
+        typename ConfigAlias<int8_t, LayoutA0, int8_t, LayoutB0, int32_t, LayoutC0, half, LayoutC0>::Device;
+
+    Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
+    Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
+    Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
+    Catlass::MatrixCoord commTileShape{cocTiling.commTileM / WORKSPACE_STAGES, cocTiling.n0};
+
+    typename DeviceOp::Arguments args{problemShape,
+                                      static_cast<uint32_t>(shmem_my_pe()),
+                                      static_cast<uint32_t>(shmem_n_pes()),
+                                      cocTiling.commInterval,
+                                      blockNum,
+                                      kernelParams.ptrA,
+                                      kernelParams.ptrB,
+                                      kernelParams.customPtrs[0],
+                                      kernelParams.customPtrs[1],
+                                      kernelParams.customPtrs[2],
+                                      workSpace,
+                                      kernelParams.ptrC,
+                                      symmetricPtr,
+                                      commCoreSplit,
+                                      commBlockShape,
+                                      commTileShape};
+
+    DeviceOp op;
+    op.Initialize(args, workSpace);
+    op.Run((aclrtStream)stream, blockNum, fftsAddr);
+}
+
+void LaunchMatmulDequantReduceScatterWriteINT8(void *stream, uint32_t blockNum, uint64_t fftsAddr,
+                                               KernelParams &kernelParams, uint8_t *workSpace, uint8_t *symmetricPtr,
+                                               CocTilingParams &cocTiling, uint32_t transA, uint32_t transB)
+{
+    (void)transA;
+    (void)transB;
+    if (cocTiling.m0 == 128)
+    {
+        LaunchMatmulDequantReduceScatterWriteWithConfig<MatmulDequantReduceScatterWriteConfig_M0_128>(
+            stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
+    }
+    else
+    {
+        LaunchMatmulDequantReduceScatterWriteWithConfig<MatmulDequantReduceScatterWriteConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, workSpace, symmetricPtr, cocTiling);
     }
 }
