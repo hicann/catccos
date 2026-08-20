@@ -2,7 +2,7 @@
 
 ## 📌 简介
 
-CATCCOS(**CA**NN **T**emplates for **C**ompute-**C**ommunication **O**verlap **S**ubroutines)，中文名为昇腾计算-通信融合算子模板库，是一个聚焦于提供高性能计算通信融合类算子基础模板的代码库。  
+CATCCOS(**CA**NN **T**emplates for **C**ompute-**C**ommunication **O**verlap **S**ubroutines)，中文名为昇腾计算-通信融合算子模板库，是一个聚焦于提供高性能计算通信融合类算子基础模板的代码库。
 
 通过抽象分层的方式将计算-通信算子代码模板化。简化通算融合算子开发，解决易用性问题。内存语义实现计算通信细粒度并行，最大化掩盖度；根据计算通信特征，结合硬件架构深度优化，提供极致性能。
 
@@ -89,7 +89,9 @@ bash scripts/build.sh
 在示例目录下执行运行脚本，执行算子样例程序。
 
 ```bash
-bash scripts/run.sh <device_list>
+# bash scripts/run.sh <device_list>
+# device_list为选择的设备编号，以启动两卡执行任务为例
+bash scripts/run.sh 0,1
 ```
 
 出现如下执行结果，说明算子运行成功，精度比较通过。
