@@ -13,7 +13,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type Release/Debug (default Debug)" FORCE)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type Release/Debug (default Debug)")
+endif()
 
 if(NOT DEFINED ASCEND_HOME_PATH AND NOT DEFINED ENV{ASCEND_HOME_PATH})
     message(FATAL_ERROR "Cannot find ASCEND_HOME_PATH, please run set_env.sh.")
