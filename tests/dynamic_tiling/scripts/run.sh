@@ -113,7 +113,7 @@ if [ "$TEST_TYPE" = "0" ]; then
                 ;;
             "a5fp8mxagmm")
                 python3 ${UTILS_PATH}/gen_data_fp8_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
-                ;;            
+                ;;
             "a5fp4mxagmm")
                 python3 ${UTILS_PATH}/gen_data_fp4_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
                 ;;
@@ -134,6 +134,9 @@ if [ "$TEST_TYPE" = "0" ]; then
                 ;;
             "a5agmmudma")
                 python3 ${UTILS_PATH}/gen_data_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
+                ;;
+            "a5mxfp8atammsplitkurma")
+                python3 ${PROJECT_ROOT}/examples/ascend950_mxfp8_alltoall_matmul_split_k_urma/scripts/gen_data.py ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH} --device-id-list "$DEVICE_ID_STR"
                 ;;
         esac
 
@@ -164,6 +167,11 @@ if [ "$TEST_TYPE" = "0" ]; then
             -o "$KERNEL_NAME" = "a5gmmata" -o "$KERNEL_NAME" = "a5fp8gmmata" -o "$KERNEL_NAME" = "a5fp4gmmata" -o "$KERNEL_NAME" = "a5agmmudma" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin ${DATA_TYPE} ${M} ${N} ${K} &
+            done
+            wait
+        elif [ "$KERNEL_NAME" = "a5mxfp8atammsplitkurma" ]; then
+            for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
+                python3 ${UTILS_PATH}/verify_result.py ./output/output_${idx}.bin ./output/golden_${idx}.bin ${DATA_TYPE} $((M / RANK_SIZE)) ${N} $((K * RANK_SIZE)) &
             done
             wait
         else

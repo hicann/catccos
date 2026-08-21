@@ -38,6 +38,7 @@
 #include "ascend950_grouped_matmul_alltoallv/ascend950_grouped_matmul_alltoallv_host.h"
 #include "ascend950_matmul_reduce_scatter/ascend950_matmul_reduce_scatter_host.h"
 #include "ascend950_mx_quant_allgather/mx_quant_allgather_host.h"
+#include "ascend950_mxfp8_alltoall_matmul_split_k_urma/ascend950_mxfp8_alltoall_matmul_split_k_urma_host.h"
 #include "ascend950_mxfp8_matmul_alltoall/ascend950_mxfp8_matmul_alltoall_host.h"
 #endif
 

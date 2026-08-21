@@ -11,18 +11,17 @@
 #define OP_H
 
 #include <acl/acl.h>
-#include <runtime/rt_ffts.h>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <map>
+
 #include <ctime>
+#include <fstream>
 #include <iomanip>
+#include <map>
+#include <sstream>
+#include <string>
 
-#include "tiling.h"
-#include "launch_map.h"
 #include "coc_tiling_lut.h"
-
+#include "launch_map.h"
 #include "operator_host.h"
+#include "tiling.h"
 
-#endif // OP_H
+#endif  // OP_H

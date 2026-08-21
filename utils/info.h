@@ -79,6 +79,7 @@ enum CocCommType
     DISPATCH_FFN_COMBINE,
     ASCEND950_DISPATCH_FFN_COMBINE,
     ASCEND950_ALLGATHER_MATMUL_UDMA,
+    ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA,
     TYPE_NUM,
     UNKNOWN
 };
@@ -167,13 +168,16 @@ struct KernelParams
 
 inline void FreeDeviceSpace(KernelParams &params)
 {
-    if (params.ptrA != nullptr) {
+    if (params.ptrA != nullptr)
+    {
         ACL_CHECK(aclrtFree(params.ptrA));
     }
-    if (params.ptrB != nullptr) {
+    if (params.ptrB != nullptr)
+    {
         ACL_CHECK(aclrtFree(params.ptrB));
     }
-    if (params.ptrC != nullptr) {
+    if (params.ptrC != nullptr)
+    {
         ACL_CHECK(aclrtFree(params.ptrC));
     }
     params.ptrA = nullptr;
@@ -181,7 +185,8 @@ inline void FreeDeviceSpace(KernelParams &params)
     params.ptrC = nullptr;
     for (uint32_t i = 0; i < params.customCount; i++)
     {
-        if (params.customPtrs[i] != nullptr) {
+        if (params.customPtrs[i] != nullptr)
+        {
             ACL_CHECK(aclrtFree(params.customPtrs[i]));
         }
     }
@@ -220,6 +225,7 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"moe", CocCommType::DISPATCH_FFN_COMBINE},
     {"a5moe", CocCommType::ASCEND950_DISPATCH_FFN_COMBINE},
     {"a5agmmudma", CocCommType::ASCEND950_ALLGATHER_MATMUL_UDMA},
+    {"a5mxfp8atammsplitkurma", CocCommType::ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA},
     // 新增算子继续添加...
 };
 
@@ -265,6 +271,7 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
     {DISPATCH_FFN_COMBINE, "DispatchFFNCombine"},
     {ASCEND950_DISPATCH_FFN_COMBINE, "Ascend950DispatchFFNCombine"},
     {ASCEND950_ALLGATHER_MATMUL_UDMA, "Ascend950AllGatherMatmulUdma"},
+    {ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA, "Ascend950MxFp8AllToAllMatmulSplitKUrma"},
 };
 
 inline int32_t CeilDev(int32_t num, int32_t div)
@@ -276,4 +283,4 @@ inline int32_t CeilDev(int32_t num, int32_t div)
     return (num + div - 1) / div;
 }
 
-#endif // INFO_H
+#endif  // INFO_H

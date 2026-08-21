@@ -215,7 +215,8 @@ int main(int argc, char **argv)
     {
         attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_ROCE;
     }
-    else if (commType == ASCEND950_ALLGATHER_MATMUL_UDMA || commType == ASCEND950_MXFP8_MATMUL_ALLTOALL)
+    else if (commType == ASCEND950_ALLGATHER_MATMUL_UDMA || commType == ASCEND950_MXFP8_MATMUL_ALLTOALL ||
+             commType == ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA)
     {
         attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_UDMA;
     }

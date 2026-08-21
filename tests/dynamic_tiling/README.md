@@ -36,27 +36,27 @@ bash scripts/run.sh <kernel_name> <data_type> [test_start_line] [test_collect_ro
 ### 参数说明
 
 | 参数 | 说明 | 取值示例 |
-|------|------|---------| 
+|------|------|---------|
 | `kernel_name` | 通信-计算融合算子缩写, 在tests/dynamic_tiling/include/launch_map.h内设定 | `mmar`: MATMUL_ALLREDUCE<br>`agmm`: ALLGATHER_MATMUL<br>`mmrs`: MATMUL_REDUCE_SCATTER |
 | `data_type` | 数据类型 | `1`: FP16<br>`27`: BF16 |
 | `test_start_line`（可选） | 测试起始行索引（对应`test_shapes.csv`中的行号，从0开始）<br>需与 `test_collect_rows` 一同指定，用于性能测试 | `0`, `10`, `...` |
 | `test_collect_rows`（可选） | 每次采集性能数据的测试用例数量 | `5`, `10`, `...` |
 | `device_list` | 指定运行的设备（NPU）编号列表，以逗号分隔 | `0,1`, `4,5,6,7` |
 
-> **注意**：  
+> **注意**：
 > - `rankSize`由`device_list`中设备数量自动确定
 > - 精度测试默认按顺序执行test_shapes.csv中定义的所有shape
 > - 性能测试需指定test_start_line和test_collect_rows参数：从第test_start_line个shape开始，每次采集test_collect_rows个测试用例，持续执行直至文件末尾
 
 ### 示例
 
-- **精度测试示例**：  
+- **精度测试示例**：
   使用 NPU 0 和 1，运行 **MatMul-AllReduce** 精度测试，数据类型为FP16，`rankSize = 2`：
   ```bash
   bash scripts/run.sh "mmar" 1 0,1
   ```
 
-- **性能测试示例**：  
+- **性能测试示例**：
   使用 NPU 4、5、6、7，运行 **AllGather-MatMul** 性能测试，数据类型为 BF16，从 `test_shapes.csv` 第0行开始，每 10 个 shape 采集一次 `msprof` 性能数据，`rankSize = 4`：
   ```bash
   bash scripts/run.sh "agmm" 27 0 10 4,5,6,7
@@ -67,6 +67,7 @@ bash scripts/run.sh <kernel_name> <data_type> [test_start_line] [test_collect_ro
   bash scripts/run.sh "a5agmm" 1 0,1          # AllGather-MatMul 精度
   bash scripts/run.sh "a5mmrs" 1 0,1         # MatMul-ReduceScatter 精度
   bash scripts/run.sh "a5mxfp8mmata" 1 0,1    # MxFP8-MatMul-AllToAll 精度
+  bash scripts/run.sh "a5mxfp8atammsplitkurma" 1 0,1   # MxFP8 split-K AllToAll-MatMul(URMA) 精度
   bash scripts/run.sh "a5mmrs" 1 0 10 0,1   # MatMul-ReduceScatter 性能（LUT）
   ```
 
@@ -82,9 +83,9 @@ scripts/test_shapes.csv
 
 ---
 
-**提示**：  
-- 确保设备编号正确且可用。  
-- 建议在性能测试前清理无关进程，以保证数据准确性。  
+**提示**：
+- 确保设备编号正确且可用。
+- 建议在性能测试前清理无关进程，以保证数据准确性。
 - 性能数据默认输出至 `output/` 目录。
 
 ---
@@ -108,6 +109,7 @@ scripts/test_shapes.csv
 | a5agmm | ASCEND950_ALLGATHER_MATMUL |
 | a5mmrs | ASCEND950_MATMUL_REDUCE_SCATTER |
 | a5mxfp8mmata | ASCEND950_MXFP8_MATMUL_ALLTOALL |
+| a5mxfp8atammsplitkurma | ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA |
 | atavgmmv2 | ALLTOALLV_GMM_V2 |
 | agmmdq | ALLGATHER_MATMUL_DEQUANT |
 | agmmdqbs | ALLGATHER_MATMUL_DEQUANT_BIAS |
