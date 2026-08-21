@@ -6,5 +6,13 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-add_subdirectory(comm_block_scheduler_alltoallv_gmm)
-add_subdirectory(dynamic_tiling)
+if(NOT CATLASS_BISHENG_ARCH STREQUAL "a5")
+    message(STATUS "Skipping comm_block_scheduler_alltoallv_gmm UT: requires Ascend950")
+    return()
+endif()
+
+catccos_example_add_executable(
+    test_comm_block_scheduler_alltoallv_gmm
+    SOURCES test_comm_block_scheduler_alltoallv_gmm.cpp
+    COMPILE_DEFINITIONS CATLASS_ARCH=3510
+)

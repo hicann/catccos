@@ -1,9 +1,9 @@
 import os
 import torch
 import numpy as np
-import collections
 import argparse
-from utils import DataType, tensor_from_file
+from moe_routing import generate_balanced_expert_idx_list
+from utils import DataType
 
 try:
     import torch_npu
@@ -16,6 +16,7 @@ expert_tokens_global_list = None
 expanded_row_idx_global_list = None
 gate_weight_global_list = None
 
+
 # Helper for saving to binary file
 def write_to_bin(tensor, file_path):
     if tensor is None or file_path is None:
@@ -26,12 +27,15 @@ def write_to_bin(tensor, file_path):
         torch.float32: torch.int32,
         torch.int32: torch.int32,
         torch.int64: torch.int64,
-        torch.int8: torch.int8
+        torch.int8: torch.int8,
+        torch.float8_e4m3fn: torch.int8,
+        torch.float8_e8m0fnu: torch.int8,
     }
     # Ensure directory exists
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     print("Output file: ", file_path)
     tensor.cpu().view(untyped_dict.get(tensor.dtype)).numpy().tofile(file_path)
+
 
 def generate_random_tensor(size, dtype):
     if dtype in [torch.float16, torch.bfloat16, torch.float32]:
@@ -40,16 +44,18 @@ def generate_random_tensor(size, dtype):
         return torch.randint(-1024, 1024, size=size, dtype=dtype)
     raise ValueError(f"Invalid dtype: {dtype}")
 
+
 def moe_init_routing_cpu(matrix_a, expert_idx, expert_num, drop_pad_mode):
     if drop_pad_mode != 0:
         raise ValueError("CPU fallback only supports drop_pad_mode=0")
 
     flat_expert_idx = expert_idx.reshape(-1).to(torch.int64)
     expanded_row_idx = torch.argsort(flat_expert_idx, stable=True).to(torch.int32)
-    source_row_idx = (expanded_row_idx.to(torch.int64) // expert_idx.shape[1])
+    source_row_idx = expanded_row_idx.to(torch.int64) // expert_idx.shape[1]
     routed_matrix_a = matrix_a.index_select(0, source_row_idx)
     expert_tokens = torch.bincount(flat_expert_idx, minlength=expert_num).to(torch.int32)
     return routed_matrix_a, expanded_row_idx, expert_tokens
+
 
 def unpermute_cpu(permuted_tokens, sorted_indices, probs):
     tokens = permuted_tokens.squeeze(0)
@@ -63,13 +69,25 @@ def unpermute_cpu(permuted_tokens, sorted_indices, probs):
     output.index_add_(0, token_idx, tokens * weights)
     return output
 
+
 #####################################################################
 # Independent Operators
 #####################################################################
 
-def moe_init_routing(matrix_a, expert_idx, active_num, expert_capacity, expert_num, drop_pad_mode,
-                     matrix_a_path=None, expert_idx_path=None,
-                     out_matrix_a_path=None, out_expanded_row_idx_path=None, out_expert_tokens_path=None):
+
+def moe_init_routing(
+    matrix_a,
+    expert_idx,
+    active_num,
+    expert_capacity,
+    expert_num,
+    drop_pad_mode,
+    matrix_a_path=None,
+    expert_idx_path=None,
+    out_matrix_a_path=None,
+    out_expanded_row_idx_path=None,
+    out_expert_tokens_path=None,
+):
     if matrix_a_path:
         write_to_bin(matrix_a, matrix_a_path)
     if expert_idx_path:
@@ -77,20 +95,29 @@ def moe_init_routing(matrix_a, expert_idx, active_num, expert_capacity, expert_n
 
     if torch_npu is None:
         routed_matrix_a, expanded_row_idx, expert_tokens = moe_init_routing_cpu(
-            matrix_a, expert_idx, expert_num, drop_pad_mode)
+            matrix_a, expert_idx, expert_num, drop_pad_mode
+        )
     else:
-        (routed_matrix_a, expanded_row_idx,
-         expert_tokens, pertoken_scale) = torch_npu.npu_moe_init_routing_v2(
-            matrix_a.to('npu'), expert_idx.to('npu'), scale=None, offset=None,
-            active_num=active_num, expert_capacity=expert_capacity, expert_num=expert_num,
+        (routed_matrix_a, expanded_row_idx, expert_tokens, pertoken_scale) = torch_npu.npu_moe_init_routing_v2(
+            matrix_a.to('npu'),
+            expert_idx.to('npu'),
+            scale=None,
+            offset=None,
+            active_num=active_num,
+            expert_capacity=expert_capacity,
+            expert_num=expert_num,
             drop_pad_mode=drop_pad_mode,
-            expert_tokens_num_type=1, expert_tokens_num_flag=True,
-            active_expert_range=[0, expert_num], quant_mode=-1, row_idx_type=0)
+            expert_tokens_num_type=1,
+            expert_tokens_num_flag=True,
+            active_expert_range=[0, expert_num],
+            quant_mode=-1,
+            row_idx_type=0,
+        )
 
         routed_matrix_a = routed_matrix_a.cpu()
         expanded_row_idx = expanded_row_idx.cpu()
         expert_tokens = expert_tokens.cpu()
-    
+
     print(f"expert_num = {expert_num}")
     print(f"matrix_a shape{matrix_a.shape}")
     print(f"routed_matrix_a shape{routed_matrix_a.shape}")
@@ -108,23 +135,37 @@ def moe_init_routing(matrix_a, expert_idx, active_num, expert_capacity, expert_n
 
     return routed_matrix_a, expanded_row_idx, expert_tokens
 
-def alltoallv1(matrix_a_list, expert_tokens_list, ep, expert_per_rank, k, max_output_size, batch_size,
-               matrix_a_paths=None, out_matrix_a_paths=None):
+
+def alltoallv1(
+    matrix_a_list,
+    expert_tokens_list,
+    ep,
+    expert_per_rank,
+    k,
+    max_output_size,
+    batch_size,
+    matrix_a_paths=None,
+    out_matrix_a_paths=None,
+):
     if matrix_a_paths:
         for i, path in enumerate(matrix_a_paths):
             write_to_bin(matrix_a_list[i], path)
-            
+
     ep_expert_tokens = [t.tolist() for t in expert_tokens_list]
-    
+
     output_splits = [None] * ep
     for i in range(ep):
-        num_global_tokens_per_local_expert = np.array(ep_expert_tokens)[:, i * expert_per_rank:(i + 1) * expert_per_rank]
+        num_global_tokens_per_local_expert = np.array(ep_expert_tokens)[
+            :, i * expert_per_rank : (i + 1) * expert_per_rank
+        ]
         output_splits[i] = np.sum(num_global_tokens_per_local_expert, axis=-1).tolist()
-    
+
     m_matrix_a = [sum(output_splits[i]) for i in range(ep)]
-    matrix_a_i_list = [torch.zeros(size=(batch_size, m_matrix_a[i], k), dtype=matrix_a_list[0].dtype) for i in range(ep)]
+    matrix_a_i_list = []
+    for i in range(ep):
+        matrix_a_i_list.append(torch.zeros(size=(batch_size, m_matrix_a[i], k), dtype=matrix_a_list[0].dtype))
     matrix_a_block_list = [[] for _ in range(ep)]
-    
+
     for src_ep in range(ep):
         src_offset = 0
         for local_expert_idx in range(expert_per_rank):
@@ -135,11 +176,12 @@ def alltoallv1(matrix_a_list, expert_tokens_list, ep, expert_per_rank, k, max_ou
                 dst_expert_len = expert_tokens_list[dst_ep][expert_idx].item()
                 for j in range(expert_idx):
                     dst_expert_offset += expert_tokens_list[dst_ep][j].item()
-                    
-                matrix_a_i_list[src_ep][:, src_offset:src_offset + dst_expert_len, :] = \
-                    matrix_a_list[dst_ep][:, dst_expert_offset:dst_expert_offset + dst_expert_len, :]
+
+                matrix_a_i_list[src_ep][:, src_offset : src_offset + dst_expert_len, :] = matrix_a_list[dst_ep][
+                    :, dst_expert_offset : dst_expert_offset + dst_expert_len, :
+                ]
                 src_offset += dst_expert_len
-            
+
             if max_output_size > 0:
                 if src_offset > max_output_size and src_offset_old <= max_output_size:
                     src_offset = max_output_size
@@ -154,6 +196,7 @@ def alltoallv1(matrix_a_list, expert_tokens_list, ep, expert_per_rank, k, max_ou
             write_to_bin(matrix_a_i_list[i], path)
 
     return matrix_a_i_list, matrix_a_block_list
+
 
 def gmm1(matrix_a, matrix_b, a_blocks, matrix_a_path=None, matrix_b_path=None, out_matrix_c_path=None):
     if matrix_a_path:
@@ -172,41 +215,52 @@ def gmm1(matrix_a, matrix_b, a_blocks, matrix_a_path=None, matrix_b_path=None, o
         result_blocks.append(product)
 
     matrix_c = torch.cat(result_blocks, dim=1).to(matrix_a.dtype).to(torch.float32)
-    
+
     if out_matrix_c_path:
         write_to_bin(matrix_c, out_matrix_c_path)
-        
+
     return matrix_c
+
 
 def swiglu(matrix_c, matrix_c_path=None, out_swiglu_path=None):
     if matrix_c_path:
         write_to_bin(matrix_c, matrix_c_path)
-        
+
     x0, gate = matrix_c.chunk(2, dim=-1)
     swish = x0 * torch.sigmoid(x0.to(torch.float32)).to(x0.dtype)
     y = swish * gate
-    
+
     if out_swiglu_path:
         write_to_bin(y, out_swiglu_path)
-        
+
     return y
 
-def alltoallv2(permuted_tokens_list, expert_tokens_list, ep, expert_per_rank, k2, 
-               permuted_tokens_paths=None, out_permuted_paths=None):
+
+def alltoallv2(
+    permuted_tokens_list,
+    expert_tokens_list,
+    ep,
+    expert_per_rank,
+    k2,
+    permuted_tokens_paths=None,
+    out_permuted_paths=None,
+):
     if permuted_tokens_paths:
         for i, path in enumerate(permuted_tokens_paths):
             write_to_bin(permuted_tokens_list[i], path)
-            
+
     ep_expert_tokens = [t.tolist() for t in expert_tokens_list]
-    
+
     input_splits = [None] * ep
     for i in range(ep):
-        num_global_tokens_per_local_expert = np.array(ep_expert_tokens)[:, i * expert_per_rank:(i + 1) * expert_per_rank]
+        num_global_tokens_per_local_expert = np.array(ep_expert_tokens)[
+            :, i * expert_per_rank : (i + 1) * expert_per_rank
+        ]
         input_splits[i] = np.sum(num_global_tokens_per_local_expert, axis=0).tolist()
-    
+
     m_matrix_a = [sum(expert_tokens_list[i]) for i in range(ep)]
     matrix_a_i_list = [torch.zeros(size=(1, m_matrix_a[i], k2), dtype=permuted_tokens_list[0].dtype) for i in range(ep)]
-    
+
     for src_ep in range(ep):
         src_offset = 0
         for local_expert_idx in range(expert_per_rank):
@@ -216,9 +270,10 @@ def alltoallv2(permuted_tokens_list, expert_tokens_list, ep, expert_per_rank, k2
                 dst_expert_len = expert_tokens_list[dst_ep][expert_idx].item()
                 for j in range(expert_idx):
                     dst_expert_offset += expert_tokens_list[dst_ep][j].item()
-                    
-                matrix_a_i_list[dst_ep][:, dst_expert_offset:dst_expert_offset + dst_expert_len, :] = \
-                    permuted_tokens_list[src_ep][:, src_offset:src_offset + dst_expert_len, :]
+
+                matrix_a_i_list[dst_ep][:, dst_expert_offset : dst_expert_offset + dst_expert_len, :] = (
+                    permuted_tokens_list[src_ep][:, src_offset : src_offset + dst_expert_len, :]
+                )
                 src_offset += dst_expert_len
 
     if out_permuted_paths:
@@ -227,13 +282,21 @@ def alltoallv2(permuted_tokens_list, expert_tokens_list, ep, expert_per_rank, k2
 
     return matrix_a_i_list
 
+
 def gmm2(matrix_a, matrix_b, a_blocks, matrix_a_path=None, matrix_b_path=None, out_matrix_c_path=None):
     # Same grouped matmul logic as gmm1
     return gmm1(matrix_a, matrix_b, a_blocks, matrix_a_path, matrix_b_path, out_matrix_c_path)
 
-def unpermute(permuted_tokens, sorted_indices, probs, 
-              permuted_tokens_path=None, sorted_indices_path=None, probs_path=None,
-              out_unpermuted_path=None):
+
+def unpermute(
+    permuted_tokens,
+    sorted_indices,
+    probs,
+    permuted_tokens_path=None,
+    sorted_indices_path=None,
+    probs_path=None,
+    out_unpermuted_path=None,
+):
     if permuted_tokens_path:
         write_to_bin(permuted_tokens, permuted_tokens_path)
     if sorted_indices_path:
@@ -247,11 +310,12 @@ def unpermute(permuted_tokens, sorted_indices, probs,
         unpermuted_tokens = torch_npu.npu_moe_token_unpermute(
             permuted_tokens.squeeze(0).to('npu'),
             sorted_indices.to('npu'),
-            probs.to('npu') if probs is not None else None).cpu()
+            probs.to('npu') if probs is not None else None,
+        ).cpu()
 
     if out_unpermuted_path:
         write_to_bin(unpermuted_tokens, out_unpermuted_path)
-        
+
     return unpermuted_tokens
 
 
@@ -259,7 +323,22 @@ def unpermute(permuted_tokens, sorted_indices, probs,
 # Compositions
 #####################################################################
 
-def generate_dispatch_gmm(m, k, n, top_k, active_num, capacity, drop_pad_mode, ep, expert_per_rank, batch_size, max_output_size, dtype, data_path="./output"):
+
+def generate_dispatch_gmm(
+    m,
+    k,
+    n,
+    top_k,
+    active_num,
+    capacity,
+    drop_pad_mode,
+    ep,
+    expert_per_rank,
+    batch_size,
+    max_output_size,
+    dtype,
+    data_path="./output",
+):
     global matrix_a_block_list
     global expert_tokens_global_list
     global expanded_row_idx_global_list
@@ -268,7 +347,7 @@ def generate_dispatch_gmm(m, k, n, top_k, active_num, capacity, drop_pad_mode, e
     expert_num = ep * expert_per_rank
     matrix_a_list = [generate_random_tensor((m, k), dtype) for _ in range(ep)]
     expert_idx_list = [torch.argsort(torch.rand(m, expert_num), dim=-1)[:, :top_k].to(torch.int32) for _ in range(ep)]
-    matrix_b_list = [generate_random_tensor((expert_per_rank, k, n), dtype) / (k ** 0.5) for _ in range(ep)] 
+    matrix_b_list = [generate_random_tensor((expert_per_rank, k, n), dtype) / (k**0.5) for _ in range(ep)]
     gate_weight_list = [torch.softmax(torch.randn(m, top_k, dtype=torch.float32), dim=-1) for _ in range(ep)]
 
     routed_matrix_a_list = []
@@ -276,16 +355,21 @@ def generate_dispatch_gmm(m, k, n, top_k, active_num, capacity, drop_pad_mode, e
     expanded_row_idx_list = []
 
     print(f"expert_idx_list:{expert_idx_list[0]}")
-    
+
     # 1. Routing
     for i in range(ep):
         routed_a, expanded_row_idx, expert_tokens = moe_init_routing(
-            matrix_a_list[i], expert_idx_list[i], active_num, capacity, expert_num, drop_pad_mode,
+            matrix_a_list[i],
+            expert_idx_list[i],
+            active_num,
+            capacity,
+            expert_num,
+            drop_pad_mode,
             matrix_a_path=f"{data_path}/in_routing_matrix_a_{i}.bin",
             expert_idx_path=f"{data_path}/in_routing_expert_idx_{i}.bin",
             out_matrix_a_path=f"{data_path}/out_routing_matrix_a_{i}.bin",
             out_expanded_row_idx_path=f"{data_path}/out_expanded_row_idx_{i}.bin",
-            out_expert_tokens_path=f"{data_path}/out_routing_tokens_{i}.bin"
+            out_expert_tokens_path=f"{data_path}/out_routing_tokens_{i}.bin",
         )
 
         routed_matrix_a_list.append(routed_a)
@@ -300,82 +384,231 @@ def generate_dispatch_gmm(m, k, n, top_k, active_num, capacity, drop_pad_mode, e
     # 2. AlltoAllv1
     routed_matrix_a_list = [a.unsqueeze(0) for a in routed_matrix_a_list]
     matrix_a_i_list, matrix_a_block_list = alltoallv1(
-        routed_matrix_a_list, expert_tokens_list, ep, expert_per_rank, k, max_output_size, batch_size,
+        routed_matrix_a_list,
+        expert_tokens_list,
+        ep,
+        expert_per_rank,
+        k,
+        max_output_size,
+        batch_size,
         matrix_a_paths=[f"{data_path}/in_alltoall_matrix_a_{i}.bin" for i in range(ep)],
-        out_matrix_a_paths=[f"{data_path}/out_alltoall_matrix_a_{i}.bin" for i in range(ep)]
+        out_matrix_a_paths=[f"{data_path}/out_alltoall_matrix_a_{i}.bin" for i in range(ep)],
     )
 
     # 3. GMM1
     matrix_c_list = []
     for i in range(ep):
         matrix_c = gmm1(
-            matrix_a_i_list[i], matrix_b_list[i], matrix_a_block_list[i],
+            matrix_a_i_list[i],
+            matrix_b_list[i],
+            matrix_a_block_list[i],
             matrix_b_path=f"{data_path}/in_gmm_matrix_b_{i}.bin",
-            out_matrix_c_path=f"{data_path}/out_gmm_matrix_c_{i}.bin"
+            out_matrix_c_path=f"{data_path}/out_gmm_matrix_c_{i}.bin",
         )
         matrix_c_list.append(matrix_c)
 
     return matrix_c_list
 
 
-def generate_dispatch_gmm_swiglu(m, k, n, top_k, active_num, capacity, drop_pad_mode, ep, expert_per_rank, batch_size, max_output_size, dtype, data_path="./output"):
+def generate_dispatch_gmm_swiglu(
+    m,
+    k,
+    n,
+    top_k,
+    active_num,
+    capacity,
+    drop_pad_mode,
+    ep,
+    expert_per_rank,
+    batch_size,
+    max_output_size,
+    dtype,
+    data_path="./output",
+):
     # Reuse dispatch_gmm up to GMM1
-    matrix_c_list = generate_dispatch_gmm(m, k, n, top_k, active_num, capacity, drop_pad_mode, ep, expert_per_rank, batch_size, max_output_size, dtype, data_path)
+    matrix_c_list = generate_dispatch_gmm(
+        m,
+        k,
+        n,
+        top_k,
+        active_num,
+        capacity,
+        drop_pad_mode,
+        ep,
+        expert_per_rank,
+        batch_size,
+        max_output_size,
+        dtype,
+        data_path,
+    )
     print(f"matrix_c:{matrix_c_list[0].shape}")
-    
+
     # 4. SwiGLU
     swiglu_out_list = []
     for i in range(ep):
         swiglu_out = swiglu(
             matrix_c_list[i],
             matrix_c_path=f"{data_path}/in_swiglu_matrix_c_{i}.bin",
-            out_swiglu_path=f"{data_path}/out_swiglu_{i}.bin"
+            out_swiglu_path=f"{data_path}/out_swiglu_{i}.bin",
         )
         swiglu_out_list.append(swiglu_out)
-        
+
     print(f"swiglu_out:{swiglu_out_list[0].shape}")
     return swiglu_out_list
 
 
-def generate_dispatch_ffn_combine(m, k, n, top_k, active_num, capacity, drop_pad_mode, ep, expert_per_rank, batch_size, max_output_size, dtype, data_path="./output"):
+def generate_dispatch_ffn_combine(
+    m,
+    k,
+    n,
+    top_k,
+    active_num,
+    capacity,
+    drop_pad_mode,
+    ep,
+    expert_per_rank,
+    batch_size,
+    max_output_size,
+    dtype,
+    data_path="./output",
+    routing_mode="random",
+):
     global matrix_a_block_list
     global expert_tokens_global_list
     global expanded_row_idx_global_list
 
-    # reuse dispatch gmm swiglu
-    swiglu_out_list = generate_dispatch_gmm_swiglu(m, k, n, top_k, active_num, capacity, drop_pad_mode, ep, expert_per_rank, batch_size, max_output_size, dtype, data_path)
-    
-    # GMM2
+    from gen_mx_quant_allgather_data import _quantize_fp8
+
+    def dynamic_quant_rne(matrix, axis):
+        """Match Ascend950 runtime MX quantization: E8M0 scale + clipped FP8 RNE."""
+        _, scale, _ = _quantize_fp8(matrix, "E4M3", axis=axis)
+        if axis == 1:
+            valid_scale = scale[:, : matrix.shape[1] // 32]
+            expanded_scale = valid_scale.repeat_interleave(32, dim=1)
+        else:
+            valid_scale = scale[: matrix.shape[0] // 32, :]
+            expanded_scale = valid_scale.repeat_interleave(32, dim=0)
+        quant = (matrix / expanded_scale).clamp(-448.0, 448.0).to(torch.float8_e4m3fn)
+        dequant = quant.float() * expanded_scale
+        return quant, scale, dequant
+
+    if dtype != torch.bfloat16:
+        raise ValueError("Ascend950 MXFP8 dispatch_ffn_combine currently requires BF16 routing input/output")
+    if k % 256 != 0 or n % 512 != 0:
+        raise ValueError("MXFP8 dispatch_ffn_combine requires K % 256 == 0 and N % 512 == 0")
+
+    expert_num = ep * expert_per_rank
+    torch.manual_seed(1)
+    matrix_a_list = [generate_random_tensor((m, k), dtype) for _ in range(ep)]
+    if routing_mode == "balanced":
+        balanced = generate_balanced_expert_idx_list(m, expert_num, top_k, ep)
+        expert_idx_list = [torch.tensor(routes, dtype=torch.int32) for routes in balanced]
+    elif routing_mode == "random":
+        expert_idx_list = []
+        for _ in range(ep):
+            expert_idx_list.append(torch.argsort(torch.rand(m, expert_num), dim=-1)[:, :top_k].to(torch.int32))
+    else:
+        raise ValueError(f"Unsupported routing mode: {routing_mode}")
+    global_counts = torch.bincount(
+        torch.cat([idx.reshape(-1) for idx in expert_idx_list]).to(torch.int64), minlength=expert_num
+    )
+    print(f"routing_mode:{routing_mode} global_expert_tokens:{global_counts.tolist()}")
+    gate_weight_list = [torch.softmax(torch.randn(m, top_k, dtype=torch.float32), dim=-1) for _ in range(ep)]
+
+    routed_matrix_a_list = []
+    expert_tokens_list = []
+    expanded_row_idx_list = []
+    for i in range(ep):
+        routed_a, expanded_row_idx, expert_tokens = moe_init_routing(
+            matrix_a_list[i],
+            expert_idx_list[i],
+            active_num,
+            capacity,
+            expert_num,
+            drop_pad_mode,
+            matrix_a_path=f"{data_path}/in_routing_matrix_a_{i}.bin",
+            expert_idx_path=f"{data_path}/in_routing_expert_idx_{i}.bin",
+        )
+        routed_matrix_a_list.append(routed_a.unsqueeze(0))
+        expert_tokens_list.append(expert_tokens)
+        expanded_row_idx_list.append(expanded_row_idx)
+
+    matrix_a_i_list, matrix_a_block_list = alltoallv1(
+        routed_matrix_a_list, expert_tokens_list, ep, expert_per_rank, k, max_output_size, batch_size
+    )
+
+    matrix_c_list = []
+    for rank in range(ep):
+        weight = generate_random_tensor((expert_per_rank, k, n), dtype) / (k**0.5)
+        dequant_weights = []
+        q_weights = []
+        q_scales = []
+        for expert in range(expert_per_rank):
+            q, scale, deq = _quantize_fp8(weight[expert].float(), "E4M3", axis=0)
+            q_weights.append(q.t().contiguous())
+            q_scales.append(scale.t().contiguous().to(torch.float8_e8m0fnu))
+            dequant_weights.append(deq)
+        write_to_bin(torch.stack(q_weights), f"{data_path}/in_gmm_matrix_b_{rank}.bin")
+        write_to_bin(torch.stack(q_scales), f"{data_path}/in_gmm_matrix_b_scale_{rank}.bin")
+
+        a_blocks = torch.split(matrix_a_i_list[rank], matrix_a_block_list[rank], dim=1)
+        result_blocks = []
+        for expert, a_block in enumerate(a_blocks):
+            _, _, dequant_a = dynamic_quant_rne(a_block.squeeze(0).float(), axis=1)
+            result_blocks.append(torch.matmul(dequant_a, dequant_weights[expert]).to(torch.bfloat16))
+        matrix_c_list.append(torch.cat(result_blocks, dim=0).unsqueeze(0))
+
+    swiglu_dequant_list = []
+    for matrix_c in matrix_c_list:
+        act, gate = matrix_c.chunk(2, dim=-1)
+        glu = (act.float() * torch.sigmoid(act.float()) * gate.float()).to(torch.bfloat16)
+        _, _, deq = dynamic_quant_rne(glu.squeeze(0).float(), axis=1)
+        swiglu_dequant_list.append(deq.unsqueeze(0))
+
     matrix_c2_list = []
     k2 = n // 2
     n2 = k
-    matrix_b2_list = [generate_random_tensor((expert_per_rank, k2, n2), dtype) / (k2 ** 0.5) for _ in range(ep)] 
+    for rank in range(ep):
+        weight = generate_random_tensor((expert_per_rank, k2, n2), dtype) / (k2**0.5)
+        dequant_weights = []
+        q_weights = []
+        q_scales = []
+        for expert in range(expert_per_rank):
+            q, scale, deq = _quantize_fp8(weight[expert].float(), "E4M3", axis=0)
+            q_weights.append(q.t().contiguous())
+            q_scales.append(scale.t().contiguous().to(torch.float8_e8m0fnu))
+            dequant_weights.append(deq)
+        write_to_bin(torch.stack(q_weights), f"{data_path}/in_gmm_matrix_b2_{rank}.bin")
+        write_to_bin(torch.stack(q_scales), f"{data_path}/in_gmm_matrix_b2_scale_{rank}.bin")
 
-    for i in range(ep):
-        matrix_c2 = gmm2(swiglu_out_list[i], 
-                         matrix_b2_list[i], 
-                         matrix_a_block_list[i], 
-                         matrix_b_path=f"{data_path}/in_gmm_matrix_b2_{i}.bin", 
-                         out_matrix_c_path=f"{data_path}/out_gmm2_matrix_c_{i}.bin"
-                        )
-        matrix_c2_list.append(matrix_c2)
+        a_blocks = torch.split(swiglu_dequant_list[rank], matrix_a_block_list[rank], dim=1)
+        result_blocks = []
+        for e, a in enumerate(a_blocks):
+            result_blocks.append(torch.matmul(a.squeeze(0), dequant_weights[e]).to(torch.bfloat16))
+        matrix_c2_list.append(torch.cat(result_blocks, dim=0).unsqueeze(0))
 
     # alltoallv
-    routed_back_list = alltoallv2(matrix_c2_list, expert_tokens_global_list, ep, expert_per_rank, n2, 
-                                 permuted_tokens_paths=[f"{data_path}/in_alltoallv2_permuted_{i}.bin" for i in range(ep)],
-                                 out_permuted_paths=[f"{data_path}/out_alltoallv2_routed_back_{i}.bin" for i in range(ep)])
+    routed_back_list = alltoallv2(
+        matrix_c2_list,
+        expert_tokens_list,
+        ep,
+        expert_per_rank,
+        n2,
+        permuted_tokens_paths=[f"{data_path}/in_alltoallv2_permuted_{i}.bin" for i in range(ep)],
+        out_permuted_paths=[f"{data_path}/out_alltoallv2_routed_back_{i}.bin" for i in range(ep)],
+    )
 
     # gather
     combine_out_list = []
     for i in range(ep):
         combine_out = unpermute(
             routed_back_list[i],
-            expanded_row_idx_global_list[i],
-            probs=gate_weight_global_list[i],
+            expanded_row_idx_list[i],
+            probs=gate_weight_list[i],
             permuted_tokens_path=f"{data_path}/in_gather_permuted_{i}.bin",
             sorted_indices_path=f"{data_path}/in_gather_expanded_row_idx_{i}.bin",
             probs_path=f"{data_path}/in_gather_gate_weight_{i}.bin",
-            out_unpermuted_path=f"{data_path}/out_gather_combine_{i}.bin"
+            out_unpermuted_path=f"{data_path}/out_gather_combine_{i}.bin",
         )
         combine_out_list.append(combine_out)
 
@@ -390,41 +623,56 @@ def generate_data(args: argparse.Namespace) -> None:
     out_type = args.out_dtype.torch_type
 
     expert_per_rank = expert_num // ep_size
-    
+
     if args.kernel_name == "dispatch_gmm":
         generate_dispatch_gmm(
-            M, K, N, top_k, 
-            active_num=M*top_k, capacity=M*top_k,
-            drop_pad_mode=0,
-            ep=ep_size, expert_per_rank=expert_per_rank,
-            batch_size=1,
-            max_output_size=M*top_k*expert_per_rank,
-            dtype=out_type
-        )
-    elif args.kernel_name == "dispatch_gmm_swiglu":
-        generate_dispatch_gmm_swiglu(
-            M, K, N, top_k, 
-            active_num=M*top_k, capacity=M*top_k,
-            drop_pad_mode=0,
-            ep=ep_size, expert_per_rank=expert_per_rank,
-            batch_size=1,
-            max_output_size=M*top_k*expert_per_rank,
-            dtype=out_type
-        )
-    elif args.kernel_name == "dispatch_ffn_combine":
-        _ = generate_dispatch_ffn_combine(
-            M, K, N, top_k,
+            M,
+            K,
+            N,
+            top_k,
             active_num=M * top_k,
             capacity=M * top_k,
             drop_pad_mode=0,
             ep=ep_size,
             expert_per_rank=expert_per_rank,
             batch_size=1,
-            max_output_size=M * top_k * expert_per_rank,
-            dtype=out_type
+            max_output_size=M * top_k * ep_size,
+            dtype=out_type,
+        )
+    elif args.kernel_name == "dispatch_gmm_swiglu":
+        generate_dispatch_gmm_swiglu(
+            M,
+            K,
+            N,
+            top_k,
+            active_num=M * top_k,
+            capacity=M * top_k,
+            drop_pad_mode=0,
+            ep=ep_size,
+            expert_per_rank=expert_per_rank,
+            batch_size=1,
+            max_output_size=M * top_k * ep_size,
+            dtype=out_type,
+        )
+    elif args.kernel_name == "dispatch_ffn_combine":
+        _ = generate_dispatch_ffn_combine(
+            M,
+            K,
+            N,
+            top_k,
+            active_num=M * top_k,
+            capacity=M * top_k,
+            drop_pad_mode=0,
+            ep=ep_size,
+            expert_per_rank=expert_per_rank,
+            batch_size=1,
+            max_output_size=M * top_k * ep_size,
+            dtype=out_type,
+            routing_mode=args.routing_mode,
         )
     else:
         raise ValueError(f"Unsupported kernel name: {args.kernel_name}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -437,7 +685,8 @@ if __name__ == "__main__":
     parser.add_argument('--top_k', type=int, default=4)
     parser.add_argument('--expert', type=int, default=4)
     parser.add_argument('--ep', type=int, default=2)
-    
+    parser.add_argument('--routing-mode', choices=['random', 'balanced'], default='random')
+
     args = parser.parse_args()
     # Example usage:
     generate_data(args)

@@ -12,10 +12,12 @@
 
 #include "operator_registry.h"
 
-class Ascend950DispatchFFNCombineOperator: public CatccosOperator {
-public:
-    void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile) override {
+class Ascend950DispatchFFNCombineOperator : public CatccosOperator
+{
+   public:
+    void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling, uint32_t rankId,
+                             std::string dataFile) override
+    {
         uint32_t expertPerRank = cocTiling.expertNum / cocTiling.epSize;
         uint32_t EP = cocTiling.rankSize;
         uint32_t k2 = cocTiling.n / 2;
@@ -23,8 +25,12 @@ public:
 
         uint32_t maxOutputSize = cocTiling.m * cocTiling.topK * cocTiling.rankSize;
         size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
-        size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank * sizeof(half);
-        size_t b2Size = static_cast<size_t>(k2) * n2 * expertPerRank * sizeof(half);
+        size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank;
+        size_t b2Size = static_cast<size_t>(k2) * n2 * expertPerRank;
+        size_t scaleK = RoundUp<size_t>(CeilDev(cocTiling.k, 32), 2);
+        size_t scaleK2 = RoundUp<size_t>(CeilDev(k2, 32), 2);
+        size_t bScaleSize = scaleK * cocTiling.n * expertPerRank;
+        size_t b2ScaleSize = scaleK2 * n2 * expertPerRank;
         size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
 
         size_t expertIdxSize = cocTiling.m * cocTiling.topK * sizeof(int32_t);
@@ -32,11 +38,14 @@ public:
         uint8_t *aDevice;
         ACL_CHECK(aclrtMalloc((void **)(&aDevice), aSize, ACL_MEM_MALLOC_HUGE_FIRST));
         uint8_t *aHost;
-        if (dataFile != "") {
+        if (dataFile != "")
+        {
             ACL_CHECK(aclrtMallocHost((void **)(&aHost), aSize));
             ReadFile(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
-        } else {
+        }
+        else
+        {
             std::vector<half> matrixA(cocTiling.m * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
@@ -44,26 +53,46 @@ public:
         uint8_t *bDevice;
         ACL_CHECK(aclrtMalloc((void **)(&bDevice), bSize, ACL_MEM_MALLOC_HUGE_FIRST));
         uint8_t *bHost;
-        if (dataFile != "") {
+        if (dataFile != "")
+        {
             ACL_CHECK(aclrtMallocHost((void **)(&bHost), bSize));
             ReadFile(dataFile + "/in_gmm_matrix_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
-        } else {
-            std::vector<half> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
+        }
+        else
+        {
+            std::vector<int8_t> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
         uint8_t *b2Device;
         ACL_CHECK(aclrtMalloc((void **)(&b2Device), b2Size, ACL_MEM_MALLOC_HUGE_FIRST));
         uint8_t *b2Host;
-        if (dataFile != "") {
+        if (dataFile != "")
+        {
             ACL_CHECK(aclrtMallocHost((void **)(&b2Host), b2Size));
             ReadFile(dataFile + "/in_gmm_matrix_b2_" + std::to_string(rankId) + ".bin", b2Host, b2Size);
             ACL_CHECK(aclrtMemcpy(b2Device, b2Size, b2Host, b2Size, ACL_MEMCPY_HOST_TO_DEVICE));
-        } else {
-            std::vector<half> matrixB2(k2 * n2 * expertPerRank, 1);
+        }
+        else
+        {
+            std::vector<int8_t> matrixB2(k2 * n2 * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(b2Device, b2Size, matrixB2.data(), b2Size, ACL_MEMCPY_HOST_TO_DEVICE));
         }
+
+        uint8_t *bScaleDevice;
+        uint8_t *bScaleHost;
+        ACL_CHECK(aclrtMalloc((void **)(&bScaleDevice), bScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        ACL_CHECK(aclrtMallocHost((void **)(&bScaleHost), bScaleSize));
+        ReadFile(dataFile + "/in_gmm_matrix_b_scale_" + std::to_string(rankId) + ".bin", bScaleHost, bScaleSize);
+        ACL_CHECK(aclrtMemcpy(bScaleDevice, bScaleSize, bScaleHost, bScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
+
+        uint8_t *b2ScaleDevice;
+        uint8_t *b2ScaleHost;
+        ACL_CHECK(aclrtMalloc((void **)(&b2ScaleDevice), b2ScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        ACL_CHECK(aclrtMallocHost((void **)(&b2ScaleHost), b2ScaleSize));
+        ReadFile(dataFile + "/in_gmm_matrix_b2_scale_" + std::to_string(rankId) + ".bin", b2ScaleHost, b2ScaleSize);
+        ACL_CHECK(aclrtMemcpy(b2ScaleDevice, b2ScaleSize, b2ScaleHost, b2ScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
         uint8_t *expertIdxDevice;
         uint8_t *expertIdxHost;
@@ -89,21 +118,26 @@ public:
         // ACL_CHECK(aclrtMalloc((void **)(&outputDevice), outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
         // ACL_CHECK(aclrtMemset(outputDevice, outputSize, 0, outputSize));
 
-        params.SetKernelParams(aDevice, bDevice, cDevice, b2Device, expertIdxDevice, probsDevice);
-        
-        if (dataFile != "") {
+        params.SetKernelParams(aDevice, bDevice, cDevice, b2Device, expertIdxDevice, probsDevice, bScaleDevice,
+                               b2ScaleDevice);
+
+        if (dataFile != "")
+        {
             ACL_CHECK(aclrtFreeHost(aHost));
             ACL_CHECK(aclrtFreeHost(bHost));
             ACL_CHECK(aclrtFreeHost(b2Host));
         }
         ACL_CHECK(aclrtFreeHost(expertIdxHost));
         ACL_CHECK(aclrtFreeHost(probsHost));
+        ACL_CHECK(aclrtFreeHost(bScaleHost));
+        ACL_CHECK(aclrtFreeHost(b2ScaleHost));
 
         return;
     }
 
-    void WriteResultFile(const KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile) override {
+    void WriteResultFile(const KernelParams &params, const CocTilingParams &cocTiling, uint32_t rankId,
+                         std::string dataFile) override
+    {
         size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
         uint8_t *cDevice = params.ptrC;
         uint8_t *cHost;
@@ -114,31 +148,41 @@ public:
         ACL_CHECK(aclrtFreeHost(cHost));
     }
 
-    size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override {
+    size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override
+    {
         uint32_t expertPerRank = cocTiling.expertNum / cocTiling.epSize;
         uint32_t EP = cocTiling.rankSize;
         size_t maxOutputSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.topK;
+        size_t metaInfoSize = static_cast<size_t>(EP) * EP * expertPerRank * sizeof(int32_t);
         size_t workspaceSize =
-            RoundUp<size_t>(
-                RoundUp<size_t>(cocTiling.m, 256) * cocTiling.topK * sizeof(int32_t), 512) + // expandedRowIdx
-                               RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) +         // AllToAllV_GMM workspace
-                               EP * EP * expertPerRank * sizeof(int32_t) +                                // metaInfo
-                               RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(half), 512) +         // allToAllVGmmOut
-                               RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2) * sizeof(half), 512) + // swigluOutput
-                               RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) +         // gmmAllToAllWorkspace
-                               EP * EP * expertPerRank * sizeof(int32_t);                                 // metaInfo
+            RoundUp<size_t>(RoundUp<size_t>(cocTiling.m, 256) * cocTiling.topK * sizeof(int32_t), 512) +
+            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) + RoundUp<size_t>(metaInfoSize, 512) +
+            RoundUp<size_t>(maxOutputSize * cocTiling.k, 512) +
+            RoundUp<size_t>(maxOutputSize * RoundUp<size_t>(CeilDev(cocTiling.k, 32), 2), 512) +
+            RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2) * sizeof(half), 512) +
+            RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2), 512) +
+            RoundUp<size_t>(maxOutputSize * RoundUp<size_t>(CeilDev(cocTiling.n / 2, 32), 2), 512) +
+            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) + RoundUp<size_t>(metaInfoSize, 512);
         return workspaceSize;
     }
 
-    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {
+    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override
+    {
         return CocCommType::ASCEND950_DISPATCH_FFN_COMBINE;
     }
 
-    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override {
+    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override
+    {
         auto blockCount = MAX_BLOCK_COUNT;
         uint32_t kLoop = CeilDev(cocTiling.k, cocTiling.k0);
         int32_t maxPeerMemPerRank = IPC_BUFF_MAX_SIZE / INPUT_DTYPE / rankSize / blockCount;
-        if (cocTiling.commInterval * cocTiling.m0 * cocTiling.k0 * kLoop >= maxPeerMemPerRank) {
+        if (cocTiling.commInterval * cocTiling.m0 * cocTiling.k0 * kLoop >= maxPeerMemPerRank)
+        {
+            return false;
+        }
+        if (cocTiling.k % 256 != 0 || cocTiling.n % 512 != 0)
+        {
+            std::cerr << "MXFP8 FFN requires K % 256 == 0 and N % 512 == 0" << std::endl;
             return false;
         }
         return true;
@@ -147,4 +191,4 @@ public:
 
 REGISTER_OPERATOR("Ascend950DispatchFFNCombine", Ascend950DispatchFFNCombineOperator);
 
-#endif // ASCEND950_DISPATCH_FFN_COMBINE_HOST_H
+#endif  // ASCEND950_DISPATCH_FFN_COMBINE_HOST_H
