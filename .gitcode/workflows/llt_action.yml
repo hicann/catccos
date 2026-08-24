@@ -1,0 +1,87 @@
+name: llt_action
+
+on:
+  workflow_call:
+    inputs:
+      image_version:
+        required: true
+        type: string
+
+jobs:
+  JOB_ut:
+    name: UT
+    steps:
+      -
+        name: Checkout
+        identifier: process_checkout
+        uses: checkout
+        with:
+          ref: ${{ atomgit.event.pull_request.merge_commit_sha || atomgit.sha }}
+          token: ${{secrets.GIT_TOKEN}}
+      -
+        name: Checkout gitcode
+        identifier: process_checkout_gitcode
+        uses: checkout
+        with:
+          repository: "https://gitcode.com/cann/.gitcode.git"
+          ref: master
+          path: "./ci"
+      -
+        name: download
+        identifier: process_download
+        uses: obs-download
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-cann-open"
+          access-key: ${{ secrets.AK }}
+          secret-key: ${{ secrets.SK }}
+          key: |
+            ${{ env.obs_path }}/pr_filelist.txt
+            ${{ env.obs_path }}/pr_filelist_mod.txt
+            ${{ env.obs_path }}/ut.sh
+          path: ${{ steps.process_checkout.outputs.path }}
+      -
+        name: tar businesscode
+        run: |
+          cd ${{ steps.process_checkout.outputs.path }}
+          tar -zcf ../ut_data.tar.gz .
+          mv ../ut_data.tar.gz ./
+      -
+        name: upload
+        identifier: process_upload
+        uses: obs-upload
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-cann-open"
+          access-key: ${{secrets.AK}}
+          secret-key: ${{secrets.SK}}
+          artifact-path: |
+            ${{ steps.process_checkout.outputs.path }}/ut_data.tar.gz
+          object-prefix: ${{ env.obs_ut_path }}/
+      -
+        name: UT
+        timeout-minutes: 30
+        uses: manifest-management-plugin
+        with:
+          action: DEPLOY
+          repo: ${{ steps.process_checkout.outputs.path }}
+          file_path: ${{ steps.process_checkout.outputs.path }}/ci/smoke-conf/smoke-A2.yaml
+          manifest_image: swr.cn-north-4.myhuaweicloud.com/hw-ascend/${{ inputs.image_version }}
+          custom_shell_script: |-
+            set -ex
+            export pr_id=${{ env.MERGE_ID }}
+            export AK=${{secrets.AK}}
+            export SK=${{secrets.SK}}
+            mkdir -p ~/taskspace && cd ~/taskspace
+            wget -nv ${{ steps.process_upload.outputs.primary-url }}
+            tar -zxf $(basename "${{ steps.process_upload.outputs.primary-url }}")
+            bash ~/taskspace/ut.sh
+      -
+        name: ut resource clean
+        uses: manifest-management-plugin
+        with:
+          action: CRUSH
+          repo: ${{ steps.process_checkout.outputs.path }}
+          file_path: ${{ steps.process_checkout.outputs.path }}/ci/smoke-conf/smoke-A2.yaml
+    if: "${{ default() }}"
+    runs-on: ['self-hosted','arch=arm','smoke=204']
