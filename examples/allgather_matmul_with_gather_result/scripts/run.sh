@@ -52,7 +52,8 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
 
     # Verify output
     python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output.bin ${DATA_DIR}/golden.bin 1 ${M} ${N} ${K}
-    python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output_gather_a.bin ${DATA_DIR}/gather_a.bin 1 ${M} ${N} ${K}
+    # Gathered A has shape [RANK_SIZE * M, K], so verify it with K as the row width.
+    python3 ${UTILS_PATH}/verify_result.py ${DATA_DIR}/output_gather_a.bin ${DATA_DIR}/gather_a.bin 1 ${M} ${K} ${K}
 done
 
 cd ${CURRENT_DIR}

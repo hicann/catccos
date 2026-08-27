@@ -156,7 +156,8 @@ if [ "$TEST_TYPE" = "0" ]; then
             python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden.bin ${DATA_TYPE} ${M} ${N} ${K}
         elif [ "$KERNEL_NAME" = "agmmwg" ]; then
             python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden.bin ${DATA_TYPE} ${M} ${N} ${K}
-            python3 ${UTILS_PATH}/verify_result.py ./output/output_gather_a.bin ./output/gather_a.bin ${DATA_TYPE} ${M} ${N} ${K}
+            # Gathered A has shape [RANK_SIZE * M, K], so verify it with K as the row width.
+            python3 ${UTILS_PATH}/verify_result.py ./output/output_gather_a.bin ./output/gather_a.bin ${DATA_TYPE} ${M} ${K} ${K}
         elif [ "$KERNEL_NAME" = "agmmdq" -o "$KERNEL_NAME" = "agmmdqbs" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_rank${idx}.bin ./output/golden_rank${idx}.bin 1 ${M} ${N} ${K} &
