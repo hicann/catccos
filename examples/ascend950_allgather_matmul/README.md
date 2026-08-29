@@ -4,7 +4,7 @@
    进入示例目录并执行编译脚本：
    ```bash
    cd examples/ascend950_allgather_matmul
-   bash scripts/make_main.sh
+   bash scripts/build.sh
    ```
 
 2. **运行AllGather-MatMul-Ascend950示例程序**
