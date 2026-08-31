@@ -389,7 +389,7 @@ REGISTER_KERNEL_FUNC(MatmulAllReduce, MATMUL_ALLREDUCE, BF16);
 
 ### Step 7: 在info.h补充算子类型信息
 
-在 `examples/utils/info.h` 中完成以下三处修改：
+在 `utils/info.h` 中完成以下三处修改：
 
 **7.1** 在 `CocCommType` 枚举中新增算子类型：
 ```cpp

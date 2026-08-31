@@ -111,6 +111,9 @@ if [ "$TEST_TYPE" = "0" ]; then
             "agmmdq")
                 python3 ${UTILS_PATH}/gen_allgather_fixpipe_quant_data.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} 0 0 ${DATA_PATH}
                 ;;
+            "mmdqrs")
+                python3 ${UTILS_PATH}/gen_double_golden_data_mmdqrs.py ${KERNEL_NAME} 1 ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
+                ;;
             "a5fp8mxagmm")
                 python3 ${UTILS_PATH}/gen_data_fp8_mx_allgather_matmul.py ${KERNEL_NAME} ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} ${TA} ${TB} ${DATA_PATH}
                 ;;
@@ -163,7 +166,9 @@ if [ "$TEST_TYPE" = "0" ]; then
                 python3 ${UTILS_PATH}/verify_result.py ./output/output_rank${idx}.bin ./output/golden_rank${idx}.bin 1 ${M} ${N} ${K} &
             done
             wait
-        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5atavgmm" \
+        elif [ "$KERNEL_NAME" = "mmdqrs" ]; then
+            python3 ${UTILS_PATH}/verify_result.py ./output/output.bin ./output/golden_fp32.bin 1 ${M} ${N} ${K} --golden_low=./output/golden_aclnn.bin
+        elif [ "$KERNEL_NAME" = "atagmm" -o "$KERNEL_NAME" = "gmmata" -o "$KERNEL_NAME" = "atavgmm" -o "$KERNEL_NAME" = "atavgmmv2" -o "$KERNEL_NAME" = "a5atavgmm" \
             -o "$KERNEL_NAME" = "a5fp8mxagmm" -o "$KERNEL_NAME" = "a5fp4mxagmm" -o "$KERNEL_NAME" = "a5fp8mxatavgmm" -o "$KERNEL_NAME" = "a5fp4mxatavgmm" \
             -o "$KERNEL_NAME" = "a5gmmata" -o "$KERNEL_NAME" = "a5fp8gmmata" -o "$KERNEL_NAME" = "a5fp4gmmata" -o "$KERNEL_NAME" = "a5agmmudma" ]; then
             for (( idx = 0; idx < ${RANK_SIZE}; idx = idx + 1)); do
