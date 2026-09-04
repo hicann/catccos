@@ -1,7 +1,6 @@
 # CATCCOS 硬件参数知识库
 
 > 供 Architecture Designer、Kernel Generator、Requirement Analyzer 使用
-> 详细参数参考：[芯片参数.md](../../芯片参数.md)
 
 ## 1. ArchTag 映射
 
