@@ -33,7 +33,7 @@
 |---------|-------------|---------|---------|---------|--------------|------|
 | AllGather + MatMul + Dequant | `AllGatherMatmulDequant` | AllGather | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/allgather_matmul_dequant.hpp` | [allgather_matmul_dequant](../examples/allgather_matmul_dequant/)* |
 | AllGather + MatMul + Dequant + Bias | `AllGatherMatmulDequantBias` | AllGather | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/allgather_matmul_dequant_bias.hpp` | [allgather_matmul_dequant_bias](../examples/allgather_matmul_dequant_bias/README.md) |
-| MatMul + Dequant + ReduceScatter v2 | `MatmulDequantReduceScatterV2` | ReduceScatter | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/matmul_dequant_reduce_scatter_v2.hpp` | [matmul_dequant_reduce_scatter_v2](../examples/matmul_dequant_reduce_scatter_v2/)* |
+| MatMul + Dequant + ReduceScatter Write | `MatmulDequantReduceScatterWrite` | ReduceScatter | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/matmul_dequant_reduce_scatter_write.hpp` | [matmul_dequant_reduce_scatter_write](../examples/matmul_dequant_reduce_scatter_write/)* |
 
 ---
 
