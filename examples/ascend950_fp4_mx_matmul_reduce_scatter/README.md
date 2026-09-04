@@ -1,16 +1,15 @@
 ### 使用方式
 
-1. **编译项目**  
+1. **编译项目**
    进入示例目录并执行编译脚本：
    ```bash
    cd examples/ascend950_fp4_mx_matmul_reduce_scatter
    bash scripts/build.sh
    ```
 
-2. **运行Ascend950-FP4-MX-MatMul-ReduceScatter示例程序**  
-   进入示例目录并执行运行脚本：
+2. **运行Ascend950-FP4-MX-MatMul-ReduceScatter示例程序**
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/ascend950_fp4_mx_matmul_reduce_scatter
    bash scripts/run.sh [device_list]
    ```
 
@@ -21,6 +20,6 @@
        bash scripts/run.sh 6,7
        ```
 
-   - **配置计算规模**：  
-     矩阵形状参数（M、K、N）可在配置文件 `scripts/test_shapes.csv` 中进行设置。  
+   - **配置计算规模**：
+     矩阵形状参数（M、K、N）可在配置文件 `scripts/test_shapes.csv` 中进行设置。
      修改该文件以定义测试用例的输入维度。

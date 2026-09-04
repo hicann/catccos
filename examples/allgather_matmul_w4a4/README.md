@@ -8,9 +8,8 @@
    ```
 
 2. **运行W4A4 AllGather-MatMul示例程序**
-   进入示例目录并执行运行脚本：
+   在示例目录下执行运行脚本：
    ```bash
-   cd examples/allgather_matmul_w4a4
    bash scripts/run.sh [device_list]
    ```
 
