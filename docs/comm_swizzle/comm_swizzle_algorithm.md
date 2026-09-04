@@ -2,14 +2,14 @@
 
 ## 概述
 
-[CommSwizzle](../../include/catccos/catccos.hpp#165-194) 是 catccos 库中用于**多核并行通信调度**的 swizzle 算法。它解决的核心问题是：当多个 core 需要同时与多个远程 rank 进行数据通信时，**如何调度通信顺序，使得在同一时刻不同 core 访问不同的 rank，从而避免通信链路拥塞**。
+[CommSwizzle](../../include/catccos/catccos.hpp#L165-L194) 是 catccos 库中用于**多核并行通信调度**的 swizzle 算法。它解决的核心问题是：当多个 core 需要同时与多个远程 rank 进行数据通信时，**如何调度通信顺序，使得在同一时刻不同 core 访问不同的 rank，从而避免通信链路拥塞**。
 
 ## 核心数据结构
 
 | 参数 | 类型 | 含义 |
 |------|------|------|
-| `gridShape` | [DistMatrixCoord(row, column, rank)](../../include/catccos/dist_coord.hpp#42-47) | 通信数据的三维网格形状：row × column 为数据维度，rank 为远程节点数 |
-| `coreSplit` | [MatrixCoord(row, column)](../../include/catccos/dist_coord.hpp#42-47) | 并行 core 在数据维度(row)和 rank 维度(column)的划分 |
+| `gridShape` | [DistMatrixCoord(row, column, rank)](../../include/catccos/dist_coord.hpp#L42-L47) | 通信数据的三维网格形状：row × column 为数据维度，rank 为远程节点数 |
+| `coreSplit` | [MatrixCoord(row, column)](../../include/catccos/dist_coord.hpp#L42-L47) | 并行 core 在数据维度(row)和 rank 维度(column)的划分 |
 | `loopIdx` | `uint32_t` | 迭代索引，范围 `[0, Numel(gridShape))` |
 
 ## 算法步骤
@@ -74,7 +74,7 @@ coord[1] = (offset + offset / gridShape.rank() + coord[0]) % gridShape.rank();
 
 ### 第四步：2D → 3D 还原
 
-将展平的坐标还原为 [DistMatrixCoord](../../include/catccos/dist_coord.hpp#42-47)：
+将展平的坐标还原为 [DistMatrixCoord](../../include/catccos/dist_coord.hpp#L42-L47)：
 
 ```cpp
 return DistMatrixCoord{coord[0] / gridShape.column(),   // row
@@ -108,7 +108,7 @@ return DistMatrixCoord{coord[0] / gridShape.column(),   // row
    ![image](./comm_swizzle_animation_non_deterministic.gif)
 
     - 开启确定性计算之后，step4~step7都只有一个core在操作一个rank的数据，步骤从6步增加到8步：
-    
+
     ![image](./comm_swizzle_animation_deterministic.gif)
 
 > [!NOTE]
