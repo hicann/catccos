@@ -58,7 +58,15 @@ chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
 
 以`matmul_allreduce`算子样例为例，快速上手CATCCOS算子开发：
 
-1. 配置环境变量(可选)
+1. 安装 Python 依赖
+
+  在 CATCCOS 根目录下执行：
+
+  ```bash
+  python3 -m pip install -r requirements.txt
+  ```
+
+2. 配置环境变量(可选)
 
   ```bash
   # 用于统一配置 CANN、SHMEM、CATLASS 相关环境变量（A2 默认）
@@ -77,7 +85,7 @@ chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
   source ./examples/utils/setup.sh -soc_type Ascend950
   ```
 
-2. 编译算子样例
+3. 编译算子样例
 进入examples下对应的算子目录并执行编译脚本，即可编译examples中的kernel代码。
 
 ```bash
@@ -85,7 +93,7 @@ cd examples/matmul_allreduce
 bash scripts/build.sh
 ```
 
-3. 执行算子样例
+4. 执行算子样例
 在示例目录下执行运行脚本，执行算子样例程序。
 
 ```bash
