@@ -12,7 +12,7 @@ CATCCOS的分层结构如下所示(以AllGather Matmul为例)，这些组件针�
 
 在CATCCOS中，我们为每个算子定义Host和Device两个模块。Host模块主要负责**算子执行的输入输出处理**，包括Device地址空间申请、输入数据构造、输出结果保存等功能。Device模块则负责汇总算子各个入参，然后**调用Kernel层级的API执行算子**。
 
-具体可见CATCCOS的示例中[examples/allgather_matmul](../examples/allgather_matmul)，如下文摘录所示。
+具体可见CATCCOS的示例中[examples/allgather_matmul](../../examples/allgather_matmul)，如下文摘录所示。
 ```c++
 // examples/allgather_matmul/allgather_matmul_host.h
 // 根据shape申请Device地址空间，如果是精度测试则通过dataFile将输入矩阵拷贝到申请的空间，如果是性能测试则将申请的空间全部赋值为1
