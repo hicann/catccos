@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -10,13 +11,19 @@
 #ifndef ALLGATHER_MATMUL_DEQUANT_KERNEL_H
 #define ALLGATHER_MATMUL_DEQUANT_KERNEL_H
 
-#include "info.h"
-
-#include "catlass/catlass.hpp"
+#include "catccos/catccos.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
+#include "catccos/dgemm/device/device_dgemm.hpp"
+#include "catccos/dgemm/kernel/allgather_matmul_dequant.hpp"
 #include "catlass/arch/arch.hpp"
+#include "catlass/catlass.hpp"
 #include "catlass/epilogue/block/block_epilogue.hpp"
 #include "catlass/epilogue/dispatch_policy.hpp"
-#include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/epilogue/tile/tile_broadcast_mul.hpp"
 #include "catlass/epilogue/tile/tile_broadcast_one_blk.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
@@ -26,29 +33,16 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
-
-#include "catccos/catccos.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/kernel/allgather_matmul_dequant.hpp"
-#include "catccos/dgemm/device/device_dgemm.hpp"
+#include "info.h"
 
 using namespace AscendC;
 using namespace Catccos;
 
-template <
-    class ElementA_, class LayoutA_,
-    class ElementB_, class LayoutB_,
-    class ElementD_, class LayoutD_,
-    class ElementScale_, class LayoutScale_,
-    bool EnablePadding_,
-    uint32_t M0_ = 128, uint32_t N0_ = 256, uint32_t K0_ = 256
->
-struct AllGatherMatmulDequantConfig {
+template <class ElementA_, class LayoutA_, class ElementB_, class LayoutB_, class ElementD_, class LayoutD_,
+          class ElementScale_, class LayoutScale_, bool EnablePadding_, uint32_t M0_ = 128, uint32_t N0_ = 256,
+          uint32_t K0_ = 256>
+struct AllGatherMatmulDequantConfig
+{
     using ArchTag = Catlass::Arch::AtlasA2;
 
     using ElementA = ElementA_;
@@ -85,8 +79,8 @@ struct AllGatherMatmulDequantConfig {
     using ActualTypeB = typename PaddingHelperB::ActualType;
     using GlobalPaddingB = typename PaddingHelperB::GlobalPadding;
 
-    using BlockMmad = DGemm::Block::FixpipeBlockMmad<MmadDispatchPolicy, L1TileShape, L0TileShape,
-        AType, ActualTypeB, DType>;
+    using BlockMmad =
+        DGemm::Block::FixpipeBlockMmad<MmadDispatchPolicy, L1TileShape, L0TileShape, AType, ActualTypeB, DType>;
 
     using BlockSchedulerForAllgather = typename Catccos::DGemm::Block::GemmBlockSwizzleAllGatherMesh<7, 1>;
     using CommBlockScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
@@ -95,39 +89,35 @@ struct AllGatherMatmulDequantConfig {
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
+                                                      CopyDirect::Put, CopyTransport::Mte>;
     using TileSchedulerForAllgather = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockComm = Comm::Block::CommBlock<
-        CommDispatchPolicy,
-        RemoteSrcType, RemoteDstType,
-        void,
-        TileRemoteCopy, TileSchedulerForAllgather
-    >;
+    using BlockComm = Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy,
+                                             TileSchedulerForAllgather>;
 
-    using Kernel = DGemm::Kernel::AllGatherDequantMatmul<
-        GlobalPaddingB,
-        BlockMmad,
-        BlockComm,
-        BlockSchedulerForAllgather,
-        CommBlockScheduler,
-        WORKSPACE_STAGES
-    >;
+    using Kernel =
+        DGemm::Kernel::AllGatherDequantMatmul<GlobalPaddingB, BlockMmad, BlockComm, BlockSchedulerForAllgather,
+                                              CommBlockScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 // Without padding
 template <class EA, class LA, class EB, class LB, class ED, class LD, class ES, class LS>
-using AllGatherMatmulDequantConfig_M0_128 = AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, false, 128, 256, 256>;
+using AllGatherMatmulDequantConfig_M0_128 =
+    AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, false, 128, 256, 256>;
 template <class EA, class LA, class EB, class LB, class ED, class LD, class ES, class LS>
-using AllGatherMatmulDequantConfig_M0_256 = AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, false, 256, 128, 256>;
+using AllGatherMatmulDequantConfig_M0_256 =
+    AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, false, 256, 128, 256>;
 
 // With padding
 template <class EA, class LA, class EB, class LB, class ED, class LD, class ES, class LS>
-using AllGatherMatmulDequantPaddingConfig_M0_128 = AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, true, 128, 256, 256>;
+using AllGatherMatmulDequantPaddingConfig_M0_128 =
+    AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, true, 128, 256, 256>;
 template <class EA, class LA, class EB, class LB, class ED, class LD, class ES, class LS>
-using AllGatherMatmulDequantPaddingConfig_M0_256 = AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, true, 256, 128, 256>;
+using AllGatherMatmulDequantPaddingConfig_M0_256 =
+    AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, true, 256, 128, 256>;
 
-#endif // ALLGATHER_MATMUL_DEQUANT_KERNEL_H
+#endif  // ALLGATHER_MATMUL_DEQUANT_KERNEL_H

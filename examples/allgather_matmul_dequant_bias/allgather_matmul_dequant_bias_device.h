@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -10,13 +11,19 @@
 #ifndef ALLGATHER_MATMUL_DEQUANT_BIAS_KERNEL_H
 #define ALLGATHER_MATMUL_DEQUANT_BIAS_KERNEL_H
 
-#include "info.h"
-
-#include "catlass/catlass.hpp"
+#include "catccos/catccos.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
+#include "catccos/dgemm/device/device_dgemm.hpp"
+#include "catccos/dgemm/kernel/allgather_matmul_dequant_bias.hpp"
 #include "catlass/arch/arch.hpp"
+#include "catlass/catlass.hpp"
 #include "catlass/epilogue/block/block_epilogue.hpp"
 #include "catlass/epilogue/dispatch_policy.hpp"
-#include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/epilogue/tile/tile_broadcast_mul.hpp"
 #include "catlass/epilogue/tile/tile_broadcast_one_blk.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
@@ -26,28 +33,15 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
-
-#include "catccos/catccos.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/kernel/allgather_matmul_dequant_bias.hpp"
-#include "catccos/dgemm/device/device_dgemm.hpp"
+#include "info.h"
 
 using namespace AscendC;
 using namespace Catccos;
 
-template <
-    class ElementA_, class LayoutA_,
-    class ElementB_, class LayoutB_,
-    class ElementC_, class LayoutC_,
-    class ElementScale_, class LayoutScale_,
-    uint32_t M0_ = 128, uint32_t N0_ = 256, uint32_t K0_ = 256
->
-struct AllGatherMatmulDequantBiasConfig {
+template <class ElementA_, class LayoutA_, class ElementB_, class LayoutB_, class ElementC_, class LayoutC_,
+          class ElementScale_, class LayoutScale_, uint32_t M0_ = 128, uint32_t N0_ = 256, uint32_t K0_ = 256>
+struct AllGatherMatmulDequantBiasConfig
+{
     using ArchTag = Catlass::Arch::AtlasA2;
 
     using ElementA = ElementA_;
@@ -78,8 +72,8 @@ struct AllGatherMatmulDequantBiasConfig {
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
 
-    using BlockMmad = DGemm::Block::BiasFixpipeBlockMmad<MmadDispatchPolicy,
-        L1TileShape, L0TileShape, AType, BType, CType, BiasType>;
+    using BlockMmad =
+        DGemm::Block::BiasFixpipeBlockMmad<MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType, BiasType>;
 
     constexpr static bool IS_DYNAMIC = true;
 
@@ -90,31 +84,25 @@ struct AllGatherMatmulDequantBiasConfig {
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
+                                                      CopyDirect::Put, CopyTransport::Mte>;
     using TileSchedulerForAllgather = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockComm = Comm::Block::CommBlock<
-        CommDispatchPolicy,
-        RemoteSrcType, RemoteDstType,
-        void,
-        TileRemoteCopy, TileSchedulerForAllgather
-    >;
+    using BlockComm = Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy,
+                                             TileSchedulerForAllgather>;
 
-    using Kernel = DGemm::Kernel::AllGatherDequantMatmulBias<
-        BlockMmad,
-        BlockComm,
-        BlockSchedulerForAllgather,
-        CommBlockScheduler,
-        WORKSPACE_STAGES
-    >;
+    using Kernel = DGemm::Kernel::AllGatherDequantMatmulBias<BlockMmad, BlockComm, BlockSchedulerForAllgather,
+                                                             CommBlockScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 template <class EA, class LA, class EB, class LB, class EC, class LC, class ES, class LS>
-using AllGatherMatmulDequantBiasConfig_M0_128 = AllGatherMatmulDequantBiasConfig<EA, LA, EB, LB, EC, LC, ES, LS, 128, 256, 256>;
+using AllGatherMatmulDequantBiasConfig_M0_128 =
+    AllGatherMatmulDequantBiasConfig<EA, LA, EB, LB, EC, LC, ES, LS, 128, 256, 256>;
 template <class EA, class LA, class EB, class LB, class EC, class LC, class ES, class LS>
-using AllGatherMatmulDequantBiasConfig_M0_256 = AllGatherMatmulDequantBiasConfig<EA, LA, EB, LB, EC, LC, ES, LS, 256, 128, 256>;
+using AllGatherMatmulDequantBiasConfig_M0_256 =
+    AllGatherMatmulDequantBiasConfig<EA, LA, EB, LB, EC, LC, ES, LS, 256, 128, 256>;
 
-#endif // ALLGATHER_MATMUL_DEQUANT_BIAS_KERNEL_H
+#endif  // ALLGATHER_MATMUL_DEQUANT_BIAS_KERNEL_H

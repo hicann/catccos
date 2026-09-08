@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -13,16 +14,6 @@
 #include "info.h"
 
 // from catlass
-#include "catlass/arch/arch.hpp"
-#include "catlass/catlass.hpp"
-#include "catlass/epilogue/tile/tile_copy.hpp"
-#include "catlass/epilogue/tile/tile_swizzle.hpp"
-#include "catlass/gemm/block/block_mmad.hpp"
-#include "catlass/gemm/block/block_swizzle.hpp"
-#include "catlass/gemm/dispatch_policy.hpp"
-#include "catlass/gemm/gemm_type.hpp"
-#include "catlass/layout/layout.hpp"
-
 #include "catccos/catccos.hpp"
 #include "catccos/comm/block/comm_block.hpp"
 #include "catccos/comm/block/comm_block_swizzle.hpp"
@@ -32,6 +23,15 @@
 #include "catccos/dgemm/block/block_swizzle_allgather.hpp"
 #include "catccos/dgemm/device/device_dgemm.hpp"
 #include "catccos/dgemm/kernel/ascend950_alltoall_matmul.hpp"
+#include "catlass/arch/arch.hpp"
+#include "catlass/catlass.hpp"
+#include "catlass/epilogue/tile/tile_copy.hpp"
+#include "catlass/epilogue/tile/tile_swizzle.hpp"
+#include "catlass/gemm/block/block_mmad.hpp"
+#include "catlass/gemm/block/block_swizzle.hpp"
+#include "catlass/gemm/dispatch_policy.hpp"
+#include "catlass/gemm/gemm_type.hpp"
+#include "catlass/layout/layout.hpp"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -71,8 +71,8 @@ struct Ascend950AllToAllMatmulConfig
     using BlockComm =
         Comm::Block::CommBlock<AllToAllDispatch, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
-    using Kernel = DGemm::Kernel::AllToAllMatmul<BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler,
-                                                  WORKSPACE_STAGES>;
+    using Kernel =
+        DGemm::Kernel::AllToAllMatmul<BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };

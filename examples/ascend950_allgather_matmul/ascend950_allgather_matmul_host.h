@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -82,7 +83,10 @@ class Ascend950AllGatherMatmulOperator : public CatccosOperator
 
     size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override { return 0; }
 
-    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override { return CocCommType::ASCEND950_ALLGATHER_MATMUL; }
+    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override
+    {
+        return CocCommType::ASCEND950_ALLGATHER_MATMUL;
+    }
 
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override
     {

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -11,11 +12,13 @@
 #ifndef ALLGATHER_MATMUL_TILING_H
 #define ALLGATHER_MATMUL_TILING_H
 #include <cstdint>
+
 #include "kernel_tiling/kernel_tiling.h"
 
 constexpr uint64_t HCCL_WINDOW_SIZE = 16UL * 1024UL * 1024UL;
 
-struct CocTilingParams {
+struct CocTilingParams
+{
     uint32_t m = 0;
     uint32_t k = 0;
     uint32_t n = 0;
@@ -33,7 +36,8 @@ struct CocTilingParams {
     uint64_t segmentSize = 0;
 };
 
-struct AllGatherMatmulHcclTiling {
+struct AllGatherMatmulHcclTiling
+{
     Mc2InitTiling mc2InitTiling;
     Mc2CcTiling mc2CcTiling;
     CocTilingParams params;

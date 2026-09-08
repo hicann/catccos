@@ -1,11 +1,13 @@
+
 #ifndef MX_QUANT_ALLGATHER_HOST_H
 #define MX_QUANT_ALLGATHER_HOST_H
 
-#include "operator_registry.h"
 #include "catlass/detail/alignment.hpp"
+#include "operator_registry.h"
 
-class MxQuantAllGatherOperator : public CatccosOperator {
-public:
+class MxQuantAllGatherOperator : public CatccosOperator
+{
+   public:
     // BLOCK_SIZE for MX quantization (must match device template)
     static constexpr uint32_t MX_BLOCK_SIZE = 32;
     // Pack ratio: fp8=1 (1 byte/elem), fp4=2 (0.5 bytes/elem)
@@ -15,9 +17,9 @@ public:
     static constexpr uint32_t PACK_RATIO = 1;
 #endif
 
-    void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile) override {
-
+    void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling, uint32_t rankId,
+                             std::string dataFile) override
+    {
         uint32_t M = cocTiling.m;
         uint32_t N = cocTiling.n;
         uint32_t rankSize = cocTiling.rankSize;
@@ -33,9 +35,9 @@ public:
         size_t mxScaleSize = static_cast<size_t>(M) * numScalesPerRow * rankSize;
 
         // Allocate input
-        uint8_t *inputDevice = AllocateAndLoadBuffer(
-            inputSize, dataFile, "/rank_" + std::to_string(rankId) + "_input.bin",
-            M * N, static_cast<half>(rankId + 1));
+        uint8_t *inputDevice =
+            AllocateAndLoadBuffer(inputSize, dataFile, "/rank_" + std::to_string(rankId) + "_input.bin", M * N,
+                                  static_cast<half>(rankId + 1));
 
         // Allocate output (quantized data)
         uint8_t *outputDevice;
@@ -48,9 +50,9 @@ public:
         params.SetKernelParams(inputDevice, mxScaleDevice, outputDevice);
     }
 
-    void WriteResultFile(const KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile) override {
-
+    void WriteResultFile(const KernelParams &params, const CocTilingParams &cocTiling, uint32_t rankId,
+                         std::string dataFile) override
+    {
         uint32_t M = cocTiling.m;
         uint32_t N = cocTiling.n;
         uint32_t rankSize = cocTiling.rankSize;
@@ -75,16 +77,16 @@ public:
         ACL_CHECK(aclrtFreeHost(mxScaleHost));
     }
 
-    size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override {
-        return 0;
-    }
+    size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override { return 0; }
 
-    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {
+    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override
+    {
         // Reuse QUANT_ALLGATHER or add a new enum entry
         return CocCommType::MX_QUANT_ALLGATHER;
     }
 
-    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override {
+    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams &cocTiling) override
+    {
         auto blockCount = MAX_BLOCK_COUNT;
         uint32_t N = cocTiling.n;
         // Check N is divisible by BLOCK_SIZE
@@ -96,19 +98,23 @@ public:
         return bytesPerBlock < maxPeerMemPerRank;
     }
 
-private:
+   private:
     template <typename T>
-    uint8_t* AllocateAndLoadBuffer(size_t bufferSize, const std::string &dataFile,
-        const std::string &fileSuffix, uint32_t defaultCount, T defaultValue) {
+    uint8_t *AllocateAndLoadBuffer(size_t bufferSize, const std::string &dataFile, const std::string &fileSuffix,
+                                   uint32_t defaultCount, T defaultValue)
+    {
         uint8_t *devicePtr;
         ACL_CHECK(aclrtMalloc((void **)(&devicePtr), bufferSize, ACL_MEM_MALLOC_HUGE_FIRST));
-        if (!dataFile.empty()) {
+        if (!dataFile.empty())
+        {
             uint8_t *hostPtr;
             ACL_CHECK(aclrtMallocHost((void **)(&hostPtr), bufferSize));
             ReadFile(dataFile + fileSuffix, hostPtr, bufferSize);
             ACL_CHECK(aclrtMemcpy(devicePtr, bufferSize, hostPtr, bufferSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(hostPtr));
-        } else {
+        }
+        else
+        {
             std::vector<T> defaultData(defaultCount, defaultValue);
             ACL_CHECK(aclrtMemcpy(devicePtr, bufferSize, defaultData.data(), bufferSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
@@ -118,4 +124,4 @@ private:
 
 REGISTER_OPERATOR("MxQuantAllGather", MxQuantAllGatherOperator);
 
-#endif // MX_QUANT_ALLGATHER_HOST_H
+#endif  // MX_QUANT_ALLGATHER_HOST_H

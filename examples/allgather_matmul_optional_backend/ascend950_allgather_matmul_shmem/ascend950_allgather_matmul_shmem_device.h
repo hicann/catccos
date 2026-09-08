@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -13,6 +14,16 @@
 #include "info.h"
 
 // from catlass
+#include "catccos/arch/shmem_comm.hpp"
+#include "catccos/catccos.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
+#include "catccos/dgemm/device/device_dgemm.hpp"
+#include "catccos/dgemm/kernel/ascend950_allgather_matmul_with_local_optional_backend.hpp"
 #include "catlass/arch/arch.hpp"
 #include "catlass/catlass.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
@@ -22,17 +33,6 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
-
-#include "catccos/catccos.hpp"
-#include "catccos/arch/shmem_comm.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/device/device_dgemm.hpp"
-#include "catccos/dgemm/kernel/ascend950_allgather_matmul_with_local_optional_backend.hpp"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -83,12 +83,10 @@ struct Ascend950AllGatherMatmulShmemConfig
 
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
 using Ascend950AllGatherMatmulShmemConfig_M0_128 =
-    Ascend950AllGatherMatmulShmemConfig<
-        ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 128, 256, 256>;
+    Ascend950AllGatherMatmulShmemConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 128, 256, 256>;
 
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
 using Ascend950AllGatherMatmulShmemConfig_M0_256 =
-    Ascend950AllGatherMatmulShmemConfig<
-        ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>;
+    Ascend950AllGatherMatmulShmemConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>;
 
 #endif  // ASCEND950_ALLGATHER_MATMUL_SHMEM_DEVICE_H
