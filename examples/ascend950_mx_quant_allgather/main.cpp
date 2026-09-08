@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * MX Quant + AllGather fused operator example
@@ -5,8 +6,8 @@
 
 #include <chrono>
 
-#include "mx_quant_allgather_host.h"
 #include "mx_quant_allgather_device.h"
+#include "mx_quant_allgather_host.h"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -23,23 +24,24 @@ inline constexpr int MX_QUANT_DTYPE_DEFAULT = 0;
 
 #if MX_QUANT_DTYPE == 0
 using ElementOutput = float8_e4m3_t;
-static constexpr const char* DTYPE_NAME = "fp8_e4m3";
+static constexpr const char *DTYPE_NAME = "fp8_e4m3";
 #elif MX_QUANT_DTYPE == 1
 using ElementOutput = float8_e5m2_t;
-static constexpr const char* DTYPE_NAME = "fp8_e5m2";
+static constexpr const char *DTYPE_NAME = "fp8_e5m2";
 #elif MX_QUANT_DTYPE == 2
 using ElementOutput = float4_e2m1x2_t;
-static constexpr const char* DTYPE_NAME = "fp4_e2m1";
+static constexpr const char *DTYPE_NAME = "fp4_e2m1";
 #elif MX_QUANT_DTYPE == 3
 using ElementOutput = float4_e1m2x2_t;
-static constexpr const char* DTYPE_NAME = "fp4_e1m2";
+static constexpr const char *DTYPE_NAME = "fp4_e1m2";
 #else
 #error "Invalid MX_QUANT_DTYPE. Must be 0 (fp8_e4m3), 1 (fp8_e5m2), 2 (fp4_e2m1), or 3 (fp4_e1m2)."
 #endif
 
-struct Options {
+struct Options
+{
     static constexpr auto HELPER =
-       "Usage: mx_quant_allgather rank_size rank_id ip_port m n k data_path [device_id_list]\n";
+        "Usage: mx_quant_allgather rank_size rank_id ip_port m n k data_path [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -53,15 +55,18 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        for (int i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++)
+        {
             if (std::string(argv[i]) == "-p") perfMode = true;
         }
 
         int positionalArgc = 0;
-        for (int i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++)
+        {
             if (std::string(argv[i]) != "-p") positionalArgc++;
         }
-        if (positionalArgc < 7) {
+        if (positionalArgc < 7)
+        {
             printf(HELPER);
             return -1;
         }
@@ -73,13 +78,18 @@ struct Options {
         n = std::atoi(argv[5]);
         k = std::atoi(argv[6]);
         dataPath = argv[7];
-        if (argc > 8) {
+        if (argc > 8)
+        {
             char *idListStr = argv[8];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
+            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
+            {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        } else {
-            for (size_t i = 0; i < rankSize; ++i) {
+        }
+        else
+        {
+            for (size_t i = 0; i < rankSize; ++i)
+            {
                 deviceIdList.push_back(i);
             }
         }
@@ -110,7 +120,8 @@ int main(int argc, char **argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0) {
+    if (options.Parse(argc, argv) != 0)
+    {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -133,13 +144,12 @@ int main(int argc, char **argv)
 
     cocTiling.rankSize = rankSize;
 
-    std::cout << "[TEST] MxQuantAllGather rank_size: " << rankSize
-              << " rank_id: " << rankId
-              << " M=" << options.m << " N=" << options.n
-              << " dtype=" << DTYPE_NAME << std::endl;
+    std::cout << "[TEST] MxQuantAllGather rank_size: " << rankSize << " rank_id: " << rankId << " M=" << options.m
+              << " N=" << options.n << " dtype=" << DTYPE_NAME << std::endl;
 
     auto op = OperatorRegistry::Instance().CreateOperator("MxQuantAllGather");
-    if (!op) {
+    if (!op)
+    {
         std::cout << "Operator MxQuantAllGather not found!" << std::endl;
         return -1;
     }
@@ -151,8 +161,8 @@ int main(int argc, char **argv)
     uint8_t *symmetricPtr = (uint8_t *)symmPtr;
 
     uint8_t *inputPtr = kernelParams.ptrA;
-    uint8_t *mxScalePtr = kernelParams.ptrB;   // mxscale
-    uint8_t *outputPtr = kernelParams.ptrC;    // quantized data
+    uint8_t *mxScalePtr = kernelParams.ptrB;  // mxscale
+    uint8_t *outputPtr = kernelParams.ptrC;   // quantized data
     uint32_t curBlockNum = rankSize;
     constexpr uint32_t KERNEL_ITERATIONS = 10;
     constexpr uint32_t WARM_UP_ITERS = 5;
@@ -161,37 +171,41 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtSynchronizeStream(stream));
     uint64_t fftsAddr = shmemx_get_ffts_config();
 
-    if (options.perfMode) {
+    if (options.perfMode)
+    {
         std::cout << "[PERF] Warming up (" << WARM_UP_ITERS << " iters)..." << std::endl;
-        for (uint32_t i = 0; i < WARM_UP_ITERS; i++) {
-            MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput>
-                <<<curBlockNum, nullptr, stream>>>(
-                    fftsAddr, inputPtr, outputPtr, mxScalePtr, symmetricPtr, cocTiling, i);
+        for (uint32_t i = 0; i < WARM_UP_ITERS; i++)
+        {
+            MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput><<<curBlockNum, nullptr, stream>>>(
+                fftsAddr, inputPtr, outputPtr, mxScalePtr, symmetricPtr, cocTiling, i);
         }
         ACL_CHECK(aclrtSynchronizeStream(stream));
 
         std::cout << "[PERF] Running (" << PERF_ITERS << " iters)..." << std::endl;
         auto startTime = std::chrono::high_resolution_clock::now();
-        for (uint32_t i = 0; i < PERF_ITERS; i++) {
-            MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput>
-                <<<curBlockNum, nullptr, stream>>>(
-                    fftsAddr, inputPtr, outputPtr, mxScalePtr, symmetricPtr, cocTiling, i);
+        for (uint32_t i = 0; i < PERF_ITERS; i++)
+        {
+            MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput><<<curBlockNum, nullptr, stream>>>(
+                fftsAddr, inputPtr, outputPtr, mxScalePtr, symmetricPtr, cocTiling, i);
         }
         ACL_CHECK(aclrtSynchronizeStream(stream));
         auto endTime = std::chrono::high_resolution_clock::now();
 
         double totalUs = std::chrono::duration<double, std::micro>(endTime - startTime).count();
         double avgUs = totalUs / PERF_ITERS;
-        if (rankId == 0) {
+        if (rankId == 0)
+        {
             std::printf("[PERF] MxQuantAllGather M=%u N=%u rankSize=%d\n", options.m, options.n, rankSize);
             std::printf("[PERF]   Avg latency: %.2f us/iter\n", avgUs);
         }
-    } else {
+    }
+    else
+    {
         std::cout << "Before calling MxQuantAllGather kernel" << std::endl;
-        for (uint32_t i = 0; i < KERNEL_ITERATIONS; i++) {
-            MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput>
-                <<<curBlockNum, nullptr, stream>>>(
-                    fftsAddr, inputPtr, outputPtr, mxScalePtr, symmetricPtr, cocTiling, i);
+        for (uint32_t i = 0; i < KERNEL_ITERATIONS; i++)
+        {
+            MxQuantAllGather<ElementInput, LayoutInput, ElementOutput, LayoutOutput><<<curBlockNum, nullptr, stream>>>(
+                fftsAddr, inputPtr, outputPtr, mxScalePtr, symmetricPtr, cocTiling, i);
         }
         ACL_CHECK(aclrtSynchronizeStream(stream));
         std::cout << "After calling MxQuantAllGather kernel" << std::endl;

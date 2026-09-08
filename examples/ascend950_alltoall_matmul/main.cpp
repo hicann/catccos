@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,7 +27,8 @@ using DeviceOp = Config::Device;
 
 struct Options
 {
-    static constexpr auto HELPER = "Usage: alltoall_matmul rank_size rank_id ip_port m n k [data_path] [device_id_list]\n";
+    static constexpr auto HELPER =
+        "Usage: alltoall_matmul rank_size rank_id ip_port m n k [data_path] [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -106,7 +108,8 @@ int main(int argc, char **argv)
     // Validate: M must be divisible by rankSize for uniform AllToAll
     if (m % rankSize != 0)
     {
-        std::cerr << "[ERROR] M (" << m << ") must be divisible by rankSize (" << rankSize << ") for uniform AllToAll\n";
+        std::cerr << "[ERROR] M (" << m << ") must be divisible by rankSize (" << rankSize
+                  << ") for uniform AllToAll\n";
         return 1;
     }
 

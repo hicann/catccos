@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -11,14 +12,14 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "hccl/hccl_types.h"
-#include "tiling/tiling_api.h"
-#include "register/op_def_registry.h"
-
 #include "../op_kernel/all_gather_matmul_hccl_tiling.h"
+#include "hccl/hccl_types.h"
+#include "register/op_def_registry.h"
+#include "tiling/tiling_api.h"
 
-namespace optiling {
-static ge::graphStatus TilingFunc(gert::TilingContext* context)
+namespace optiling
+{
+static ge::graphStatus TilingFunc(gert::TilingContext *context)
 {
     auto tiling = context->GetTilingData<AllGatherMatmulHcclTiling>();
     context->SetBlockDim(platform_ascendc::PlatformAscendC(context->GetPlatformInfo()).GetCoreNumAic());
@@ -27,27 +28,32 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto group = attrs->GetAttrPointer<char>(0);
     uint32_t opType = HCCL_CMD_ALLGATHER;
     std::string algConfig = "AllGather=level0:fullmesh";
-    AscendC::Mc2CcTilingConfig mc2CcTilingConfig(
-        group, opType, algConfig, HCCL_REDUCE_SUM, HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP16);
+    AscendC::Mc2CcTilingConfig mc2CcTilingConfig(group, opType, algConfig, HCCL_REDUCE_SUM, HCCL_DATA_TYPE_FP16,
+                                                 HCCL_DATA_TYPE_FP16);
 
     constexpr uint8_t ascend950CcuSchedEngine = 6;
-    if (auto ret = mc2CcTilingConfig.SetCommEngine(ascend950CcuSchedEngine); ret != 0) {
+    if (auto ret = mc2CcTilingConfig.SetCommEngine(ascend950CcuSchedEngine); ret != 0)
+    {
         std::fprintf(stderr, "[AGMM_TILING] SetCommEngine(CCU_SCHED) failed, ret=%u\n", ret);
         return ge::GRAPH_FAILED;
     }
-    if (auto ret = mc2CcTilingConfig.SetSkipLocalRankCopy(0); ret != 0) {
+    if (auto ret = mc2CcTilingConfig.SetSkipLocalRankCopy(0); ret != 0)
+    {
         std::fprintf(stderr, "[AGMM_TILING] SetSkipLocalRankCopy failed, ret=%u\n", ret);
         return ge::GRAPH_FAILED;
     }
-    if (auto ret = mc2CcTilingConfig.SetSkipBufferWindowCopy(0); ret != 0) {
+    if (auto ret = mc2CcTilingConfig.SetSkipBufferWindowCopy(0); ret != 0)
+    {
         std::fprintf(stderr, "[AGMM_TILING] SetSkipBufferWindowCopy failed, ret=%u\n", ret);
         return ge::GRAPH_FAILED;
     }
-    if (auto ret = mc2CcTilingConfig.GetTiling(tiling->mc2InitTiling); ret != 0) {
+    if (auto ret = mc2CcTilingConfig.GetTiling(tiling->mc2InitTiling); ret != 0)
+    {
         std::fprintf(stderr, "[AGMM_TILING] Get mc2InitTiling failed, ret=%u\n", ret);
         return ge::GRAPH_FAILED;
     }
-    if (auto ret = mc2CcTilingConfig.GetTiling(tiling->mc2CcTiling); ret != 0) {
+    if (auto ret = mc2CcTilingConfig.GetTiling(tiling->mc2CcTiling); ret != 0)
+    {
         std::fprintf(stderr, "[AGMM_TILING] Get mc2CcTiling failed, ret=%u\n", ret);
         return ge::GRAPH_FAILED;
     }
@@ -77,11 +83,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     return ge::GRAPH_SUCCESS;
 }
-}
+}  // namespace optiling
 
-
-namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
+namespace ge
+{
+static ge::graphStatus InferShape(gert::InferShapeContext *context)
 {
     const auto &aShape = context->GetInputShape(0);
     const auto &bShape = context->GetInputShape(1);
@@ -101,32 +107,24 @@ static ge::graphStatus InferDataType(gert::InferDataTypeContext *context)
     context->SetOutputDataType(0, inputDataType);
     return ge::GRAPH_SUCCESS;
 }
-}
+}  // namespace ge
 
-namespace ops {
-class AllGatherMatmulHccl : public OpDef {
-public:
-    explicit AllGatherMatmulHccl(const char* name) : OpDef(name)
+namespace ops
+{
+class AllGatherMatmulHccl : public OpDef
+{
+   public:
+    explicit AllGatherMatmulHccl(const char *name) : OpDef(name)
     {
-        this->Input("a")
-            .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16})
-            .Format({ge::FORMAT_ND});
-        this->Input("b")
-            .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16})
-            .Format({ge::FORMAT_ND});
-        this->Output("c")
-            .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16})
-            .Format({ge::FORMAT_ND});
+        this->Input("a").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
+        this->Input("b").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
+        this->Output("c").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
         this->Attr("group").String();
         this->Attr("rankSize").Int(16);
 
         this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataType);
 
-        this->AICore()
-            .SetTiling(optiling::TilingFunc);
+        this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend950");
 
         this->MC2().HcclGroup("group");
@@ -135,4 +133,4 @@ public:
 };
 
 OP_ADD(AllGatherMatmulHccl);
-}
+}  // namespace ops

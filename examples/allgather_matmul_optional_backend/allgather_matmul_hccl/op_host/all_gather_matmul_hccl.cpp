@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -8,13 +9,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "tiling/tiling_api.h"
-#include "register/op_def_registry.h"
-
 #include "../op_kernel/all_gather_matmul_hccl_tiling.h"
+#include "register/op_def_registry.h"
+#include "tiling/tiling_api.h"
 
-namespace optiling {
-static ge::graphStatus TilingFunc(gert::TilingContext* context)
+namespace optiling
+{
+static ge::graphStatus TilingFunc(gert::TilingContext *context)
 {
     auto tiling = context->GetTilingData<AllGatherMatmulHcclTiling>();
     context->SetBlockDim(platform_ascendc::PlatformAscendC(context->GetPlatformInfo()).GetCoreNumAic());
@@ -48,11 +49,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     return ge::GRAPH_SUCCESS;
 }
-}
+}  // namespace optiling
 
-
-namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
+namespace ge
+{
+static ge::graphStatus InferShape(gert::InferShapeContext *context)
 {
     const auto &aShape = context->GetInputShape(0);
     const auto &bShape = context->GetInputShape(1);
@@ -72,32 +73,24 @@ static ge::graphStatus InferDataType(gert::InferDataTypeContext *context)
     context->SetOutputDataType(0, inputDataType);
     return ge::GRAPH_SUCCESS;
 }
-}
+}  // namespace ge
 
-namespace ops {
-class AllGatherMatmulHccl : public OpDef {
-public:
-    explicit AllGatherMatmulHccl(const char* name) : OpDef(name)
+namespace ops
+{
+class AllGatherMatmulHccl : public OpDef
+{
+   public:
+    explicit AllGatherMatmulHccl(const char *name) : OpDef(name)
     {
-        this->Input("a")
-            .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16})
-            .Format({ge::FORMAT_ND});
-        this->Input("b")
-            .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16})
-            .Format({ge::FORMAT_ND});
-        this->Output("c")
-            .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16})
-            .Format({ge::FORMAT_ND});
+        this->Input("a").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
+        this->Input("b").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
+        this->Output("c").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
         this->Attr("group").String();
         this->Attr("rankSize").Int(16);
 
         this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataType);
 
-        this->AICore()
-            .SetTiling(optiling::TilingFunc);
+        this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910_93");
 
         this->MC2().HcclGroup("group");
@@ -105,4 +98,4 @@ public:
 };
 
 OP_ADD(AllGatherMatmulHccl);
-}
+}  // namespace ops

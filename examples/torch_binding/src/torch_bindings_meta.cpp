@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -8,17 +9,15 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <torch/torch.h>
 #include <torch/library.h>
+#include <torch/torch.h>
 
 #include <vector>
 
-namespace catccos::meta {
+namespace catccos::meta
+{
 
-at::Tensor allgather_matmul_meta(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    int64_t rank_size)
+at::Tensor allgather_matmul_meta(const at::Tensor& a, const at::Tensor& b, int64_t rank_size)
 {
     auto a_sizes = a.sym_sizes();
     auto b_sizes = b.sym_sizes();
@@ -31,6 +30,4 @@ at::Tensor allgather_matmul_meta(
 
 }  // namespace catccos::meta
 
-TORCH_LIBRARY_IMPL(catccos, Meta, m) {
-    m.impl("allgather_matmul", &catccos::meta::allgather_matmul_meta);
-}
+TORCH_LIBRARY_IMPL(catccos, Meta, m) { m.impl("allgather_matmul", &catccos::meta::allgather_matmul_meta); }

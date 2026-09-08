@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -22,10 +23,12 @@ using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
 using LayoutD = Catlass::layout::RowMajor;
 
-using Config = Ascend950Fp8MxGroupedMatmulAllToAllVConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementMxScale>;
+using Config = Ascend950Fp8MxGroupedMatmulAllToAllVConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementD,
+                                                                 LayoutD, ElementMxScale>;
 using DeviceOp = Config::Device;
 
-struct Options {
+struct Options
+{
     static constexpr auto helper = "Usage: gmm_alltoallv_fp8_mx m n k ep_size expert_num device_list\n";
 
     int rankSize;
@@ -40,7 +43,8 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum class ArgsIndex {
+        enum class ArgsIndex
+        {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -53,7 +57,8 @@ struct Options {
             INDEX_MAX
         };
 
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX) || argc <= static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX) || argc <= static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             printf(helper);
             return -1;
         }
@@ -67,13 +72,18 @@ struct Options {
         epSize = std::atoi(argv[static_cast<int>(ArgsIndex::EP_SIZE_INDEX)]);
         expertNum = std::atoi(argv[static_cast<int>(ArgsIndex::EXPERT_NUM_INDEX)]);
 
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
+            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
+            {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        } else {
-            for (int i = 0; i < rankSize; ++i) {
+        }
+        else
+        {
+            for (int i = 0; i < rankSize; ++i)
+            {
                 deviceIdList.push_back(i);
             }
         }
@@ -85,7 +95,8 @@ int main(int argc, char **argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0) {
+    if (options.Parse(argc, argv) != 0)
+    {
         return 1;
     }
     int rankSize = options.rankSize;
@@ -102,7 +113,7 @@ int main(int argc, char **argv)
     cocTiling.m = m;
     cocTiling.n = n;
     cocTiling.k = k;
-    COCMatMulInfo info{ int64_t(m), int64_t(k), int64_t(n) };
+    COCMatMulInfo info{int64_t(m), int64_t(k), int64_t(n)};
     cocTiling.m0 = M0;
     cocTiling.n0 = N0;
     cocTiling.k0 = K0;
@@ -128,7 +139,8 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("Ascend950Fp8MxGroupedMatmulAllToAllV");
-    if (!op) {
+    if (!op)
+    {
         std::cout << "Operator Ascend950Fp8MxGroupedMatmulAllToAllV not found!" << std::endl;
         return -1;
     }
@@ -152,23 +164,31 @@ int main(int argc, char **argv)
     uint8_t *localExpertPtr = kernelParams.customPtrs[2];
     uint8_t *globalExpertPtr = kernelParams.customPtrs[3];
 
-    DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
-        cocTiling.commInterval,
-        options.epSize, options.expertNum,
-        aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr,
-        localExpertPtr, globalExpertPtr,
-        symmetricPtr,
-        commCoreSplit, commBlockShape, commTileShape
-    };
+    DeviceOp::Arguments args{problemShape,
+                             static_cast<uint32_t>(rankId),
+                             static_cast<uint32_t>(rankSize),
+                             cocTiling.commInterval,
+                             options.epSize,
+                             options.expertNum,
+                             aPtr,
+                             bPtr,
+                             aMxScalePtr,
+                             bMxScalePtr,
+                             cPtr,
+                             localExpertPtr,
+                             globalExpertPtr,
+                             symmetricPtr,
+                             commCoreSplit,
+                             commBlockShape,
+                             commTileShape};
 
     DeviceOp deviceOp;
     deviceOp.Initialize(args);
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 1; i++)
+    {
         deviceOp.Run(stream, blockNum, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));

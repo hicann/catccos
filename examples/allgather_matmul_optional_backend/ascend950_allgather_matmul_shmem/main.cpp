@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -21,8 +22,7 @@ using ElementA = half;
 using ElementB = half;
 using ElementC = half;
 
-using Config = Ascend950AllGatherMatmulShmemConfig_M0_128<
-    ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
+using Config = Ascend950AllGatherMatmulShmemConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 using DeviceOp = Config::Device;
 
 struct Options
@@ -55,8 +55,7 @@ struct Options
             INDEX_MAX
         };
 
-        if (argc < static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX) ||
-            argc > static_cast<int>(ArgsIndex::INDEX_MAX))
+        if (argc < static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX) || argc > static_cast<int>(ArgsIndex::INDEX_MAX))
         {
             printf(HELPER);
             return -1;
@@ -99,8 +98,8 @@ int main(int argc, char **argv)
         return 1;
     }
     if (options.rankSize <= 0 || options.rankId < 0 || options.rankId >= options.rankSize ||
-        options.deviceIdList.size() != static_cast<size_t>(options.rankSize) ||
-        options.m == 0 || options.n == 0 || options.k == 0)
+        options.deviceIdList.size() != static_cast<size_t>(options.rankSize) || options.m == 0 || options.n == 0 ||
+        options.k == 0)
     {
         std::cerr << "Invalid rank, device list, or problem shape\n";
         return 1;
@@ -137,8 +136,7 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
     aclshmemx_uniqueid_t default_flag_uid;
-    int status = set_attr(
-        rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
+    int status = set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
     if (status != ACLSHMEM_SUCCESS)
     {
         std::cerr << "set_attr failed, rankId=" << rankId << ", status=" << status << std::endl;

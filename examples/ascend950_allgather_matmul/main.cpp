@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,7 +27,8 @@ using DeviceOp = Config::Device;
 
 struct Options
 {
-    static constexpr auto HELPER = "Usage: ascend950_allgather_matmul rank_size rank_id ip_port m n k [device_id_list]\n";
+    static constexpr auto HELPER =
+        "Usage: ascend950_allgather_matmul rank_size rank_id ip_port m n k [device_id_list]\n";
 
     int rankSize;
     int rankId;

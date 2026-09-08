@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -7,8 +8,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "allgather_matmul_remote_read_host.h"
 #include "allgather_matmul_remote_read_device.h"
+#include "allgather_matmul_remote_read_host.h"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -24,9 +25,10 @@ using ElementC = half;
 using Config = AllGatherMatmulRemoteReadConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 using DeviceOp = Config::Device;
 
-struct Options {
+struct Options
+{
     static constexpr auto HELPER =
-       "Usage: allgather_matmul_remote_read rank_size rank_id ip_port m n k data_path [device_id_list]\n";
+        "Usage: allgather_matmul_remote_read rank_size rank_id ip_port m n k data_path [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -39,7 +41,8 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum class ArgsIndex {
+        enum class ArgsIndex
+        {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -51,7 +54,8 @@ struct Options {
             INDEX_MAX
         };
 
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX))
+        {
             printf(HELPER);
             return -1;
         }
@@ -63,30 +67,33 @@ struct Options {
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
+            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
+            {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        } else {
-            for (size_t i = 0; i < rankSize; ++i) {
+        }
+        else
+        {
+            for (size_t i = 0; i < rankSize; ++i)
+            {
                 deviceIdList.push_back(i);
             }
         }
         return 0;
     }
 
-    std::string GetDataPath() const
-    {
-        return dataPath;
-    }
+    std::string GetDataPath() const { return dataPath; }
 };
 
 int main(int argc, char **argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0) {
+    if (options.Parse(argc, argv) != 0)
+    {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -113,8 +120,8 @@ int main(int argc, char **argv)
     cocTiling.rankSize = rankSize;
 
     std::cout << "[TEST] input rank_size: " << rankSize << " rank_id:" << rankId << " input_ip: " << ipPort << "\n";
-    std::cout << "[TEST] ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT: "
-              << ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT << "\n";
+    std::cout << "[TEST] ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT: " << ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT
+              << "\n";
 
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
@@ -126,7 +133,8 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulRemoteRead");
-    if (!op) {
+    if (!op)
+    {
         std::cout << "Operator AllGatherMatmulRemoteRead not found!" << std::endl;
         return -1;
     }
@@ -146,13 +154,17 @@ int main(int argc, char **argv)
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
 
-    DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
-        cocTiling.commInterval,
-        aPtr, bPtr, cPtr, symmetricPtr,
-        commCoreSplit, commBlockShape, commTileShape
-    };
+    DeviceOp::Arguments args{problemShape,
+                             static_cast<uint32_t>(rankId),
+                             static_cast<uint32_t>(rankSize),
+                             cocTiling.commInterval,
+                             aPtr,
+                             bPtr,
+                             cPtr,
+                             symmetricPtr,
+                             commCoreSplit,
+                             commBlockShape,
+                             commTileShape};
 
     DeviceOp deviceOp;
     deviceOp.Initialize(args);
@@ -160,14 +172,16 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "Before calling AG_MM remote-read kernel " << std::endl;
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 1; i++)
+    {
         deviceOp.Run(stream, BLOCK_NUM, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "After calling AG_MM remote-read kernel " << std::endl;
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
-    if (rankId == 0) {
+    if (rankId == 0)
+    {
         std::printf("test finished\n");
     }
 

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -7,14 +8,14 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include <tiling/platform/platform_ascendc.h>
+
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
-#include <tiling/platform/platform_ascendc.h>
-
-#include "allgather_matmul_w4a4_host.h"
 #include "allgather_matmul_w4a4_device.h"
+#include "allgather_matmul_w4a4_host.h"
 #include "catlass/arch/arch.hpp"
 
 using namespace AscendC;
@@ -34,12 +35,12 @@ using LayoutD = Catlass::layout::RowMajor;
 using LayoutScale = Catlass::layout::VectorLayout;
 using LayoutPerTokenScale = Catlass::layout::VectorLayout;
 
-using Config = AllGatherMatmulW4A4Config_M0_128<
-    ElementA, LayoutA, ElementB, LayoutB,
-    ElementC, LayoutC, ElementD, LayoutD,
-    ElementScale, LayoutScale, ElementPerTokenScale, LayoutPerTokenScale>;
+using Config =
+    AllGatherMatmulW4A4Config_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD,
+                                     ElementScale, LayoutScale, ElementPerTokenScale, LayoutPerTokenScale>;
 
-struct Options {
+struct Options
+{
     static constexpr auto HELPER =
         "Usage: allgather_matmul_w4a4 rank_size rank_id ip_port m n k data_path [device_id_list]\n";
 
@@ -54,7 +55,8 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum class ArgsIndex {
+        enum class ArgsIndex
+        {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -66,7 +68,8 @@ struct Options {
             INDEX_MAX
         };
 
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX))
+        {
             printf(HELPER);
             return -1;
         }
@@ -78,13 +81,18 @@ struct Options {
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
+            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
+            {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        } else {
-            for (size_t i = 0; i < static_cast<size_t>(rankSize); ++i) {
+        }
+        else
+        {
+            for (size_t i = 0; i < static_cast<size_t>(rankSize); ++i)
+            {
                 deviceIdList.push_back(static_cast<int>(i));
             }
         }
@@ -98,7 +106,8 @@ int main(int argc, char **argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0) {
+    if (options.Parse(argc, argv) != 0)
+    {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -127,8 +136,7 @@ int main(int argc, char **argv)
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
-    uint32_t blockNum =
-        static_cast<uint32_t>(platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic());
+    uint32_t blockNum = static_cast<uint32_t>(platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic());
     ACL_CHECK(aclrtCreateStream(&stream));
 
     aclshmemx_init_attr_t attributes;
@@ -137,12 +145,14 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulW4A4");
-    if (!op) {
+    if (!op)
+    {
         std::cerr << "Operator AllGatherMatmulW4A4 not found!" << std::endl;
         return -1;
     }
 
-    if (!op->CheckCocTilingParams(rankSize, cocTiling)) {
+    if (!op->CheckCocTilingParams(rankSize, cocTiling))
+    {
         std::cerr << "Invalid tiling params for symmetric buffer" << std::endl;
         return -1;
     }
@@ -162,19 +172,20 @@ int main(int argc, char **argv)
     uint64_t fftsAddr = shmemx_get_ffts_config();
 
     using DeviceOp = Config::Device;
-    DeviceOp::Arguments args{
-        problemShape,
-        static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
-        cocTiling.commInterval,
-        kernelParams.ptrA,
-        kernelParams.ptrB,
-        kernelParams.customPtrs[0],
-        kernelParams.ptrC,
-        kernelParams.customPtrs[1],
-        kernelParams.customPtrs[2],
-        gmSymmetric,
-        commCoreSplit, commBlockShape, commTileShape
-    };
+    DeviceOp::Arguments args{problemShape,
+                             static_cast<uint32_t>(rankId),
+                             static_cast<uint32_t>(rankSize),
+                             cocTiling.commInterval,
+                             kernelParams.ptrA,
+                             kernelParams.ptrB,
+                             kernelParams.customPtrs[0],
+                             kernelParams.ptrC,
+                             kernelParams.customPtrs[1],
+                             kernelParams.customPtrs[2],
+                             gmSymmetric,
+                             commCoreSplit,
+                             commBlockShape,
+                             commTileShape};
 
     DeviceOp deviceOp;
     deviceOp.Initialize(args);

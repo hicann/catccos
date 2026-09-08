@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,21 +24,36 @@ using ElementC = half;
 using Config = AllToAllVGMMV2Config_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 using DeviceOp = Config::Device;
 
-struct Options {
+struct Options
+{
     static constexpr auto helper = "Usage: alltoallv_gmm_v2 rank_size rank_id ip m n k expert_per_rank device_list\n";
-    int rankSize; uint32_t rankId; std::string ipPort{};
-    uint32_t m{0}; uint32_t n{0}; uint32_t k{0};
+    int rankSize;
+    uint32_t rankId;
+    std::string ipPort{};
+    uint32_t m{0};
+    uint32_t n{0};
+    uint32_t k{0};
     uint32_t expertPerRank{0};
     std::vector<int> deviceIdList{};
 
-    int Parse(int argc, char **argv) {
-        enum class ArgsIndex {
-            RANK_SIZE_INDEX = 1, RANK_ID_INDEX, IP_PORT_INDEX,
-            M_INDEX, N_INDEX, K_INDEX, EXPERT_PER_RANK_INDEX,
-            DEVICE_LIST_INDEX, INDEX_MAX
+    int Parse(int argc, char **argv)
+    {
+        enum class ArgsIndex
+        {
+            RANK_SIZE_INDEX = 1,
+            RANK_ID_INDEX,
+            IP_PORT_INDEX,
+            M_INDEX,
+            N_INDEX,
+            K_INDEX,
+            EXPERT_PER_RANK_INDEX,
+            DEVICE_LIST_INDEX,
+            INDEX_MAX
         };
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX) || argc <= static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
-            printf(helper); return -1;
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX) || argc <= static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
+            printf(helper);
+            return -1;
         }
         rankSize = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_SIZE_INDEX)]);
         rankId = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_ID_INDEX)]);
@@ -46,10 +62,15 @@ struct Options {
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         expertPerRank = std::atoi(argv[static_cast<int>(ArgsIndex::EXPERT_PER_RANK_INDEX)]);
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             char *s = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
             for (char *t = std::strtok(s, ","); t; t = std::strtok(nullptr, ",")) deviceIdList.push_back(std::atoi(t));
-        } else { for (int i = 0; i < rankSize; ++i) deviceIdList.push_back(i); }
+        }
+        else
+        {
+            for (int i = 0; i < rankSize; ++i) deviceIdList.push_back(i);
+        }
         return 0;
     }
 };
@@ -80,15 +101,27 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     CocTilingParams cocTiling;
-    cocTiling.m = m; cocTiling.n = n; cocTiling.k = k;
-    cocTiling.m0 = M0; cocTiling.n0 = N0; cocTiling.k0 = K0;
-    cocTiling.commTileM = 64; cocTiling.commInterval = 10;
-    cocTiling.commNpuSplit = rankSize; cocTiling.commDataSplit = 1;
-    cocTiling.commBlockM = 64; cocTiling.rankSize = rankSize;
-    cocTiling.epSize = EP; cocTiling.expertNum = EP * expertPerRank;
+    cocTiling.m = m;
+    cocTiling.n = n;
+    cocTiling.k = k;
+    cocTiling.m0 = M0;
+    cocTiling.n0 = N0;
+    cocTiling.k0 = K0;
+    cocTiling.commTileM = 64;
+    cocTiling.commInterval = 10;
+    cocTiling.commNpuSplit = rankSize;
+    cocTiling.commDataSplit = 1;
+    cocTiling.commBlockM = 64;
+    cocTiling.rankSize = rankSize;
+    cocTiling.epSize = EP;
+    cocTiling.expertNum = EP * expertPerRank;
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllToAllVGMMV2");
-    if (!op) { std::cout << "Operator not found!" << std::endl; return -1; }
+    if (!op)
+    {
+        std::cout << "Operator not found!" << std::endl;
+        return -1;
+    }
 
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, "./output");
@@ -97,7 +130,8 @@ int main(int argc, char **argv)
 
     size_t workSpaceSize = op->GetWorkspaceSize(cocTiling);
     uint8_t *workspaceDevice{nullptr};
-    if (workSpaceSize > 0) {
+    if (workSpaceSize > 0)
+    {
         ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     }
 
@@ -106,23 +140,29 @@ int main(int argc, char **argv)
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.k0};
 
-    DeviceOp::Arguments args{
-        problemShape,
-        rankId, static_cast<uint32_t>(rankSize),
-        EP, EP * expertPerRank,
-        kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
-        kernelParams.customPtrs[0],
-        workspaceDevice,
-        symmetricPtr,
-        commBlockShape, commTileShape
-    };
+    DeviceOp::Arguments args{problemShape,
+                             rankId,
+                             static_cast<uint32_t>(rankSize),
+                             EP,
+                             EP * expertPerRank,
+                             kernelParams.ptrA,
+                             kernelParams.ptrB,
+                             kernelParams.ptrC,
+                             kernelParams.customPtrs[0],
+                             workspaceDevice,
+                             symmetricPtr,
+                             commBlockShape,
+                             commTileShape};
 
     DeviceOp deviceOp;
     deviceOp.Initialize(args);
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++) { deviceOp.Run(stream, blockNum, fftsAddr); }
+    for (int i = 0; i < 1; i++)
+    {
+        deviceOp.Run(stream, blockNum, fftsAddr);
+    }
     ACL_CHECK(aclrtSynchronizeStream(stream));
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, "./output");

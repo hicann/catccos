@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -10,8 +11,8 @@
 
 #include <chrono>
 
-#include "quant_alltoall_host.h"
 #include "quant_alltoall_device.h"
+#include "quant_alltoall_host.h"
 
 using namespace AscendC;
 using namespace Catccos;
@@ -23,10 +24,9 @@ using ElementInput = bfloat16_t;
 using ElementOutput = hifloat8_t;
 using ElementScale = float;
 
-
-struct Options {
-    static constexpr auto HELPER =
-       "Usage: quant_alltoall rank_size rank_id ip_port m n k [device_id_list]\n";
+struct Options
+{
+    static constexpr auto HELPER = "Usage: quant_alltoall rank_size rank_id ip_port m n k [device_id_list]\n";
 
     int rankSize;
     int rankId;
@@ -40,7 +40,8 @@ struct Options {
 
     int Parse(int argc, char **argv)
     {
-        enum class ArgsIndex {
+        enum class ArgsIndex
+        {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -52,19 +53,24 @@ struct Options {
             INDEX_MAX
         };
 
-        for (int i = 1; i < argc; i++) {
-            if (std::string(argv[i]) == "-p") {
+        for (int i = 1; i < argc; i++)
+        {
+            if (std::string(argv[i]) == "-p")
+            {
                 perfMode = true;
             }
         }
 
         int positionalArgc = 0;
-        for (int i = 1; i < argc; i++) {
-            if (std::string(argv[i]) != "-p") {
+        for (int i = 1; i < argc; i++)
+        {
+            if (std::string(argv[i]) != "-p")
+            {
                 positionalArgc++;
             }
         }
-        if (positionalArgc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
+        if (positionalArgc > static_cast<int>(ArgsIndex::INDEX_MAX))
+        {
             printf(HELPER);
             return -1;
         }
@@ -76,23 +82,25 @@ struct Options {
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
+        {
             char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
+            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
+            {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        } else {
-            for (size_t i = 0; i < rankSize; ++i) {
+        }
+        else
+        {
+            for (size_t i = 0; i < rankSize; ++i)
+            {
                 deviceIdList.push_back(i);
             }
         }
         return 0;
     }
 
-    std::string GetDataPath() const
-    {
-        return dataPath;
-    }
+    std::string GetDataPath() const { return dataPath; }
 };
 
 CocTilingParams SetupTilingParams(uint32_t m, uint32_t n, uint32_t k)
@@ -116,7 +124,8 @@ int main(int argc, char **argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0) {
+    if (options.Parse(argc, argv) != 0)
+    {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -136,7 +145,8 @@ int main(int argc, char **argv)
     aclshmemx_uniqueid_t default_flag_uid;
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
-    if (status != ACLSHMEM_SUCCESS) {
+    if (status != ACLSHMEM_SUCCESS)
+    {
         ERROR_LOG("aclshmemx_init_attr failed, rankId=%d, status=%d", rankId, status);
         ACL_CHECK(aclrtDestroyStream(stream));
         ACL_CHECK(aclrtResetDevice(deviceId));
@@ -149,7 +159,8 @@ int main(int argc, char **argv)
     std::cout << "[TEST] input rank_size: " << rankSize << " rank_id:" << rankId << std::endl;
 
     auto op = OperatorRegistry::Instance().CreateOperator("QuantAllToAll");
-    if (!op) {
+    if (!op)
+    {
         std::cout << "Operator QuantAllToAll not found!" << std::endl;
         return -1;
     }
@@ -158,11 +169,13 @@ int main(int argc, char **argv)
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());
 
     void *symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
-    if (symmPtr == nullptr) {
+    if (symmPtr == nullptr)
+    {
         ERROR_LOG("aclshmem_calloc failed, rankId=%d", rankId);
         FreeDeviceSpace(kernelParams);
         status = shmem_finalize();
-        if (status != ACLSHMEM_SUCCESS) {
+        if (status != ACLSHMEM_SUCCESS)
+        {
             ERROR_LOG("shmem_finalize failed after aclshmem_calloc failure, rankId=%d, status=%d", rankId, status);
         }
         ACL_CHECK(aclrtDestroyStream(stream));
@@ -170,7 +183,7 @@ int main(int argc, char **argv)
         ACL_CHECK(aclFinalize());
         return -1;
     }
- 	uint8_t *symmetricPtr = (uint8_t *)symmPtr;
+    uint8_t *symmetricPtr = (uint8_t *)symmPtr;
     ACL_CHECK(aclrtMemset(symmetricPtr, SHMEM_BUFF_BYTES, 0, SHMEM_BUFF_BYTES));
     ACL_CHECK(aclrtSynchronizeStream(stream));
     aclshmem_barrier_all();
@@ -184,24 +197,27 @@ int main(int argc, char **argv)
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    if (options.perfMode) {
+    if (options.perfMode)
+    {
         // Warm up
         std::cout << "[PERF] Warming up (" << WARM_UP_ITERS << " iters)..." << std::endl;
-        for (uint32_t i = 0; i < WARM_UP_ITERS; i++) {
+        for (uint32_t i = 0; i < WARM_UP_ITERS; i++)
+        {
             QuantAllToAll<ElementInput, LayoutInput, ElementOutput, LayoutOutput, ElementScale>
                 <<<curBlockNum, nullptr, stream>>>(fftsAddr, inputPtr, scalePtr, outputPtr, symmetricPtr, cocTiling, i);
             ACL_CHECK(aclrtSynchronizeStream(stream));
-            aclshmem_barrier_all();        
+            aclshmem_barrier_all();
         }
 
         // Timed perf test
         std::cout << "[PERF] Running performance test (" << PERF_ITERS << " iters)..." << std::endl;
         auto startTime = std::chrono::high_resolution_clock::now();
-        for (uint32_t i = 0; i < PERF_ITERS; i++) {
+        for (uint32_t i = 0; i < PERF_ITERS; i++)
+        {
             QuantAllToAll<ElementInput, LayoutInput, ElementOutput, LayoutOutput, ElementScale>
                 <<<curBlockNum, nullptr, stream>>>(fftsAddr, inputPtr, scalePtr, outputPtr, symmetricPtr, cocTiling, i);
             ACL_CHECK(aclrtSynchronizeStream(stream));
-            aclshmem_barrier_all();        
+            aclshmem_barrier_all();
         }
         auto endTime = std::chrono::high_resolution_clock::now();
 
@@ -212,36 +228,41 @@ int main(int argc, char **argv)
         double dataBytes = static_cast<double>(options.m) * 3.0;
         double bandwidthGBs = dataBytes / (avgUs * 1e-6) / 1e9;
 
-        if (rankId == 0) {
+        if (rankId == 0)
+        {
             std::printf("[PERF] QuantAllToAll M=%u rankSize=%d\n", options.m, rankSize);
             std::printf("[PERF]   Total time: %.2f us / %d iters\n", totalUs, PERF_ITERS);
             std::printf("[PERF]   Avg latency: %.2f us/iter\n", avgUs);
             std::printf("[PERF]   Bandwidth: %.2f GB/s\n", bandwidthGBs);
         }
-    } else {
+    }
+    else
+    {
         std::cout << "Before calling QuantAllToAll kernel " << std::endl;
-        for (uint32_t i = 0; i < KERNEL_ITERATIONS; i++) {
+        for (uint32_t i = 0; i < KERNEL_ITERATIONS; i++)
+        {
             QuantAllToAll<ElementInput, LayoutInput, ElementOutput, LayoutOutput, ElementScale>
                 <<<curBlockNum, nullptr, stream>>>(fftsAddr, inputPtr, scalePtr, outputPtr, symmetricPtr, cocTiling, i);
             ACL_CHECK(aclrtSynchronizeStream(stream));
-            aclshmem_barrier_all();        
+            aclshmem_barrier_all();
         }
         std::cout << "After calling QuantAllToAll kernel " << std::endl;
 
         op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
         std::printf("rankId %d test finished\n", rankId);
     }
-    aclshmem_barrier_all();  
+    aclshmem_barrier_all();
     shmem_free(symmPtr);
     FreeDeviceSpace(kernelParams);
     status = shmem_finalize();
-    if (status != ACLSHMEM_SUCCESS) {
+    if (status != ACLSHMEM_SUCCESS)
+    {
         ERROR_LOG("shmem_finalize failed after aclshmem_calloc failure, rankId=%d, status=%d", rankId, status);
     }
     ACL_CHECK(aclrtDestroyStream(stream));
     ACL_CHECK(aclrtResetDevice(deviceId));
     ACL_CHECK(aclFinalize());
-    
+
     std::cout << "[TEST] begin to exit...... rankId: " << rankId << std::endl;
     return status == ACLSHMEM_SUCCESS ? 0 : -1;
     return 0;

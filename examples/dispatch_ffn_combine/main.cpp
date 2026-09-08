@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -16,7 +17,7 @@ using namespace Catccos;
 using ElementA = bfloat16_t;
 using ElementB = bfloat16_t;
 using ElementC = bfloat16_t;
- 
+
 using LayoutA = Catlass::layout::RowMajor;
 using LayoutB = Catlass::layout::RowMajor;
 using LayoutC = Catlass::layout::RowMajor;
@@ -33,16 +34,17 @@ int main(int argc, char **argv)
     std::string ipPort = argv[3];
     int32_t deviceId = atoi(argv[4]) + rankId % gNpuNum;
 
-    std::cout << "[TEST] input rank_size: " << rankSize << " rank_id:" << rankId << " input_ip: " << ipPort << std::endl;
+    std::cout << "[TEST] input rank_size: " << rankSize << " rank_id:" << rankId << " input_ip: " << ipPort
+              << std::endl;
 
     aclrtStream stream = nullptr;
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
     ACL_CHECK(aclrtCreateStream(&stream));
     aclshmemx_init_attr_t attributes;
- 	aclshmemx_uniqueid_t default_flag_uid;
- 	set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
- 	status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
+    aclshmemx_uniqueid_t default_flag_uid;
+    set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
+    status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     uint64_t fftsAddr = shmemx_get_ffts_config();
 
@@ -73,7 +75,7 @@ int main(int argc, char **argv)
     cocTiling.m = m;
     cocTiling.n = n;
     cocTiling.k = k;
-    COCMatMulInfo info{ int64_t(m), int64_t(k), int64_t(n) };
+    COCMatMulInfo info{int64_t(m), int64_t(k), int64_t(n)};
     cocTiling.m0 = M0;
     cocTiling.n0 = N0;
     cocTiling.k0 = K0;
@@ -105,15 +107,14 @@ int main(int argc, char **argv)
 
     size_t initRoutingWorkspace = moeInitRoutingQuantV2TilingBase.workspaceSize_;
 
-    MoeInitRoutingQuantV2Tiling moeTiling{
-        moeInitRoutingQuantV2TilingBase.moeInitRoutingTilingData,
-        moeInitRoutingQuantV2TilingBase.tilingKey_
-    }; 
+    MoeInitRoutingQuantV2Tiling moeTiling{moeInitRoutingQuantV2TilingBase.moeInitRoutingTilingData,
+                                          moeInitRoutingQuantV2TilingBase.tilingKey_};
 
     printf("tiling key: %d\n", moeInitRoutingQuantV2TilingBase.tilingKey_);
 
     auto op = OperatorRegistry::Instance().CreateOperator("DispatchFFNCombine");
-    if (!op) {
+    if (!op)
+    {
         std::cout << "Operator DispatchFFNCombine not found!" << std::endl;
         return -1;
     }
@@ -128,7 +129,8 @@ int main(int argc, char **argv)
     size_t expandedRowIdxSize = (cocTiling.m + 255) / 256 * 256 * cocTiling.topK * sizeof(int32_t);
 
     uint8_t *workspaceDevice{nullptr};
-    if (workSpaceSize > 0) {
+    if (workSpaceSize > 0)
+    {
         ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     }
 
@@ -141,21 +143,11 @@ int main(int argc, char **argv)
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 1; i++)
+    {
         DispatchFFNCombine<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-            <<<BLOCK_NUM, nullptr, stream>>>(
-                fftsAddr,
-                aPtr,
-                bPtr,
-                b2Ptr,
-                cPtr,
-                expertIdxPtr,
-                probsPtr,
-                workspaceDevice,
-                symmetricPtr,
-                cocTiling,
-                moeTiling
-            );
+            <<<BLOCK_NUM, nullptr, stream>>>(fftsAddr, aPtr, bPtr, b2Ptr, cPtr, expertIdxPtr, probsPtr, workspaceDevice,
+                                             symmetricPtr, cocTiling, moeTiling);
     }
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
@@ -166,18 +158,21 @@ int main(int argc, char **argv)
     uint8_t *tokensPerExpertHost;
     int32_t size = cocTiling.epSize * cocTiling.epSize * expertPerRank;
     ACL_CHECK(aclrtMallocHost((void **)(&tokensPerExpertHost), size));
-    ACL_CHECK(aclrtMemcpy(tokensPerExpertHost, size * sizeof(int32_t), tokensPerExpertDevice, size * sizeof(int32_t), ACL_MEMCPY_DEVICE_TO_HOST));
+    ACL_CHECK(aclrtMemcpy(tokensPerExpertHost, size * sizeof(int32_t), tokensPerExpertDevice, size * sizeof(int32_t),
+                          ACL_MEMCPY_DEVICE_TO_HOST));
 
     uint8_t *expandedRowIdxDevice = workspaceDevice;
     uint8_t *expandedRowIdxHost;
     ACL_CHECK(aclrtMallocHost((void **)(&expandedRowIdxHost), expandedRowIdxSize));
-    ACL_CHECK(aclrtMemcpy(expandedRowIdxHost, expandedRowIdxSize, expandedRowIdxDevice, expandedRowIdxSize, ACL_MEMCPY_DEVICE_TO_HOST));
+    ACL_CHECK(aclrtMemcpy(expandedRowIdxHost, expandedRowIdxSize, expandedRowIdxDevice, expandedRowIdxSize,
+                          ACL_MEMCPY_DEVICE_TO_HOST));
     ACL_CHECK(aclrtFreeHost(tokensPerExpertHost));
 
     shmem_free(symmPtr);
 
     FreeDeviceSpace(kernelParams);
-    if (workSpaceSize > 0) {
+    if (workSpaceSize > 0)
+    {
         ACL_CHECK(aclrtFree(workspaceDevice));
     }
 
@@ -189,5 +184,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
-
