@@ -10,23 +10,22 @@
 import os
 import pandas as pd
 import numpy as np
-import subprocess
-import time
-from typing import List
+from typing import List, Optional
 
 warm_up_times_str = os.getenv('WARM_UP_TIMES', '10')
 WARM_UP_TIMES = int(warm_up_times_str)
 perf_test_cycle_times_str = os.getenv('PERF_TEST_CYCLE_TIMES', '3')
 PERF_TEST_CYCLE_TIMES = int(perf_test_cycle_times_str)
 
+
 def open_input_file(input_file):
     df = pd.read_csv(input_file)
     return df
 
-def count_groups_pandas(
-    file_path: str,
-    key_cols: List[str] = ['M', 'K', 'N']
-) -> List[int]:
+
+def count_groups_pandas(file_path: str, key_cols: Optional[List[str]] = None) -> List[int]:
+    if key_cols is None:
+        key_cols = ['M', 'K', 'N']
     df = pd.read_csv(file_path, dtype=str)
 
     # 标记组边界：当任意 key 列与上行不同时，标记为新组
@@ -37,6 +36,7 @@ def count_groups_pandas(
     # 按 group_id 分组并计数
     counts = df.groupby(group_id).size().tolist()
     return counts
+
 
 def get_time_data(df, groups: list[int]):
     df = df.reset_index(drop=True)
@@ -53,6 +53,7 @@ def get_time_data(df, groups: list[int]):
         idx += data_rows
     return time_data
 
+
 def get_pref_path_list(path):
     pref_lists = list(filter(lambda item: item.startswith("PROF"), os.listdir(path)))
     res_list = []
@@ -67,27 +68,31 @@ def get_pref_path_list(path):
                     res_list.append(res)
     return res_list
 
+
 def average_perf_data_numpy(perf_data_list):
     if not perf_data_list:
         return []
-    
+
     arr = np.array(perf_data_list)
     return arr.mean(axis=0).tolist()
 
+
 def find_max_csv_filename(preName, folder_path):
     csv_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.csv') and f.startswith(preName)]
-    
+
     if not csv_files:
         return None
-    
+
     max_csv = max(csv_files)
     return max_csv
+
 
 def get_tiling_file(preName, path):
     path = path + "/"
     f = find_max_csv_filename(preName, path)
     file_path = path + f
     return file_path
+
 
 def process_coc_data(output_path):
     cur_file = os.path.abspath(__file__)
@@ -105,12 +110,14 @@ def process_coc_data(output_path):
         pref_data = get_time_data(pref_df, tiling_groups)
         pref_data_list.append(pref_data)
     tiling_df['Time(us)'] = average_perf_data_numpy(pref_data_list)
-    tiling_df.to_csv(output_path  + "/result.csv", index=False)
-    
+    tiling_df.to_csv(output_path + "/result.csv", index=False)
+
+
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('output_path', type=str)
     args = parser.parse_args()
-    
+
     process_coc_data(args.output_path)
