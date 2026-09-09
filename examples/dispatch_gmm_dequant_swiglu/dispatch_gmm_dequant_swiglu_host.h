@@ -75,8 +75,9 @@ public:
         if (dataFile != "") {
             ACL_CHECK(aclrtFreeHost(aHost));
             ACL_CHECK(aclrtFreeHost(bHost));
-            ACL_CHECK(aclrtFreeHost(expertIdxHost));
+            ACL_CHECK(aclrtFreeHost(scaleHost));
         }
+        ACL_CHECK(aclrtFreeHost(expertIdxHost));
 
         return;
     }

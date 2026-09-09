@@ -50,7 +50,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     # Set necessary parameters
     IPPORT="tcp://127.0.0.1:27008"
 
-    FIRST_NPU="0"
+    FIRST_NPU="${DEVICE_ID_LIST[0]}"
 
     # Start Process
     for (( idx =0; idx < ${RANK_SIZE}; idx = idx + 1 )); do

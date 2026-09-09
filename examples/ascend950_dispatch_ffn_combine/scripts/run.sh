@@ -84,7 +84,7 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r M K N; do
     # Generate golden data
     rm -rf output/*.bin
     ASCEND_RT_VISIBLE_DEVICES="${FIRST_NPU}" \
-        python3 ${UTILS_PATH}/gen_data_moe.py "dispatch_ffn_combine" ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} --top_k ${TOPK} --expert $EXPERT_NUM --ep $EP_SIZE --routing-mode "$ROUTING_MODE"
+        python3 ${UTILS_PATH}/gen_data_moe.py "dispatch_ffn_combine_mx" ${DATA_TYPE} ${RANK_SIZE} ${M} ${N} ${K} --top_k ${TOPK} --expert $EXPERT_NUM --ep $EP_SIZE --routing-mode "$ROUTING_MODE"
 
     # Set necessary parameters
     IPPORT="${IPPORT:-tcp://127.0.0.1:27008}"

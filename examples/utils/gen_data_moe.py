@@ -338,6 +338,7 @@ def generate_dispatch_gmm(
     max_output_size,
     dtype,
     data_path="./output",
+    routing_mode="random",
 ):
     global matrix_a_block_list
     global expert_tokens_global_list
@@ -346,7 +347,15 @@ def generate_dispatch_gmm(
 
     expert_num = ep * expert_per_rank
     matrix_a_list = [generate_random_tensor((m, k), dtype) for _ in range(ep)]
-    expert_idx_list = [torch.argsort(torch.rand(m, expert_num), dim=-1)[:, :top_k].to(torch.int32) for _ in range(ep)]
+    if routing_mode == "balanced":
+        balanced = generate_balanced_expert_idx_list(m, expert_num, top_k, ep)
+        expert_idx_list = [torch.tensor(routes, dtype=torch.int32) for routes in balanced]
+    elif routing_mode == "random":
+        expert_idx_list = [
+            torch.argsort(torch.rand(m, expert_num), dim=-1)[:, :top_k].to(torch.int32) for _ in range(ep)
+        ]
+    else:
+        raise ValueError(f"Unsupported routing mode: {routing_mode}")
     matrix_b_list = [generate_random_tensor((expert_per_rank, k, n), dtype) / (k**0.5) for _ in range(ep)]
     gate_weight_list = [torch.softmax(torch.randn(m, top_k, dtype=torch.float32), dim=-1) for _ in range(ep)]
 
@@ -424,6 +433,7 @@ def generate_dispatch_gmm_swiglu(
     max_output_size,
     dtype,
     data_path="./output",
+    routing_mode="random",
 ):
     # Reuse dispatch_gmm up to GMM1
     matrix_c_list = generate_dispatch_gmm(
@@ -440,6 +450,7 @@ def generate_dispatch_gmm_swiglu(
         max_output_size,
         dtype,
         data_path,
+        routing_mode,
     )
     print(f"matrix_c:{matrix_c_list[0].shape}")
 
@@ -458,6 +469,87 @@ def generate_dispatch_gmm_swiglu(
 
 
 def generate_dispatch_ffn_combine(
+    m,
+    k,
+    n,
+    top_k,
+    active_num,
+    capacity,
+    drop_pad_mode,
+    ep,
+    expert_per_rank,
+    batch_size,
+    max_output_size,
+    dtype,
+    data_path="./output",
+    routing_mode="random",
+):
+    global matrix_a_block_list
+    global expert_tokens_global_list
+    global expanded_row_idx_global_list
+    global gate_weight_global_list
+
+    # Reuse the non-quantized dispatch + GMM1 + SwiGLU generator so this path
+    # keeps producing BF16/FP16 weight files for the generic DFC kernels.
+    swiglu_out_list = generate_dispatch_gmm_swiglu(
+        m,
+        k,
+        n,
+        top_k,
+        active_num,
+        capacity,
+        drop_pad_mode,
+        ep,
+        expert_per_rank,
+        batch_size,
+        max_output_size,
+        dtype,
+        data_path,
+        routing_mode,
+    )
+
+    matrix_c2_list = []
+    k2 = n // 2
+    n2 = k
+    matrix_b2_list = [generate_random_tensor((expert_per_rank, k2, n2), dtype) / (k2**0.5) for _ in range(ep)]
+
+    for i in range(ep):
+        matrix_c2 = gmm2(
+            swiglu_out_list[i],
+            matrix_b2_list[i],
+            matrix_a_block_list[i],
+            matrix_b_path=f"{data_path}/in_gmm_matrix_b2_{i}.bin",
+            out_matrix_c_path=f"{data_path}/out_gmm2_matrix_c_{i}.bin",
+        )
+        matrix_c2_list.append(matrix_c2)
+
+    routed_back_list = alltoallv2(
+        matrix_c2_list,
+        expert_tokens_global_list,
+        ep,
+        expert_per_rank,
+        n2,
+        permuted_tokens_paths=[f"{data_path}/in_alltoallv2_permuted_{i}.bin" for i in range(ep)],
+        out_permuted_paths=[f"{data_path}/out_alltoallv2_routed_back_{i}.bin" for i in range(ep)],
+    )
+
+    combine_out_list = []
+    for i in range(ep):
+        combine_out = unpermute(
+            routed_back_list[i],
+            expanded_row_idx_global_list[i],
+            probs=gate_weight_global_list[i],
+            permuted_tokens_path=f"{data_path}/in_gather_permuted_{i}.bin",
+            sorted_indices_path=f"{data_path}/in_gather_expanded_row_idx_{i}.bin",
+            probs_path=f"{data_path}/in_gather_gate_weight_{i}.bin",
+            out_unpermuted_path=f"{data_path}/out_gather_combine_{i}.bin",
+        )
+        combine_out_list.append(combine_out)
+
+    return combine_out_list
+
+
+def generate_dispatch_ffn_combine_mx(
     m,
     k,
     n,
@@ -638,6 +730,7 @@ def generate_data(args: argparse.Namespace) -> None:
             batch_size=1,
             max_output_size=M * top_k * ep_size,
             dtype=out_type,
+            routing_mode=args.routing_mode,
         )
     elif args.kernel_name == "dispatch_gmm_swiglu":
         generate_dispatch_gmm_swiglu(
@@ -653,9 +746,26 @@ def generate_data(args: argparse.Namespace) -> None:
             batch_size=1,
             max_output_size=M * top_k * ep_size,
             dtype=out_type,
+            routing_mode=args.routing_mode,
         )
     elif args.kernel_name == "dispatch_ffn_combine":
         _ = generate_dispatch_ffn_combine(
+            M,
+            K,
+            N,
+            top_k,
+            active_num=M * top_k,
+            capacity=M * top_k,
+            drop_pad_mode=0,
+            ep=ep_size,
+            expert_per_rank=expert_per_rank,
+            batch_size=1,
+            max_output_size=M * top_k * ep_size,
+            dtype=out_type,
+            routing_mode=args.routing_mode,
+        )
+    elif args.kernel_name == "dispatch_ffn_combine_mx":
+        _ = generate_dispatch_ffn_combine_mx(
             M,
             K,
             N,

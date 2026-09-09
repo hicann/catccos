@@ -166,6 +166,7 @@ int main(int argc, char** argv)
     ACL_CHECK(aclrtMemcpy(
         expandedRowIdxHost, expandedRowIdxSize, expandedRowIdxDevice, expandedRowIdxSize, ACL_MEMCPY_DEVICE_TO_HOST));
     ACL_CHECK(aclrtFreeHost(tokensPerExpertHost));
+    ACL_CHECK(aclrtFreeHost(expandedRowIdxHost));
 
     shmem_free(symmPtr);
 

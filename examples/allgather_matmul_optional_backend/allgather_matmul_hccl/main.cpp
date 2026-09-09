@@ -125,6 +125,8 @@ int Sample(void* arg)
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulHccl");
     if (!op) {
         std::cout << "Operator AllGatherMatmulHccl not found!" << std::endl;
+        ACL_CHECK(aclrtDestroyStream(stream));
+        ACL_CHECK(aclrtResetDevice(ctx->device));
         return -1;
     }
     KernelParams kernelParams;
@@ -168,6 +170,9 @@ int Sample(void* arg)
             a, b, hcomName, ctx->options.rankSize, c, &workspaceSize, &executor);
         ret != ACL_SUCCESS) {
         std::cerr << aclGetRecentErrMsg() << std::endl;
+        FreeDeviceSpace(kernelParams);
+        ACL_CHECK(aclrtDestroyStream(stream));
+        ACL_CHECK(aclrtResetDevice(ctx->device));
         return ret;
     }
 
