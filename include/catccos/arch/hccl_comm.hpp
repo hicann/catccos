@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -19,21 +20,19 @@ namespace Catccos::Arch {
 inline constexpr uint64_t MB_SIZE = 1024 * 1024UL;
 
 template <typename T>
-CATLASS_DEVICE
-void StoreElement(__gm__ T *addr, T val)
+CATLASS_DEVICE void StoreElement(__gm__ T* addr, T val)
 {
-    *((__gm__ T *)addr) = val;
+    *((__gm__ T*)addr) = val;
 }
 
 template <typename T>
-CATLASS_DEVICE
-T LoadElement(__gm__ T *cache)
+CATLASS_DEVICE T LoadElement(__gm__ T* cache)
 {
-    return *((__gm__ T *)cache);
+    return *((__gm__ T*)cache);
 }
 
 CATLASS_DEVICE
-void Dcci(__gm__ uint8_t * addr)
+void Dcci(__gm__ uint8_t* addr)
 {
     using namespace AscendC;
     GlobalTensor<uint8_t> global;
@@ -46,10 +45,10 @@ void Dcci(__gm__ uint8_t * addr)
 }
 
 CATLASS_DEVICE
-int32_t WaitUntilEqualForBarrier(__gm__ int32_t *sigAddr, int32_t cmpVal)
+int32_t WaitUntilEqualForBarrier(__gm__ int32_t* sigAddr, int32_t cmpVal)
 {
     do {
-        Dcci((__gm__ uint8_t *)sigAddr);
+        Dcci((__gm__ uint8_t*)sigAddr);
 
         if (*sigAddr == cmpVal) {
             return *sigAddr;
@@ -76,35 +75,27 @@ public:
         uint64_t segmentSize;
 
         CATLASS_HOST_DEVICE
-        Params() : mc2InitTiling(nullptr), mc2CcTiling(nullptr), segmentSize(0)
-        {
-        }
+        Params() : mc2InitTiling(nullptr), mc2CcTiling(nullptr), segmentSize(0) {}
 
         CATLASS_HOST_DEVICE
         explicit Params(GM_ADDR mc2InitTiling_, GM_ADDR mc2CcTiling_ = nullptr, uint64_t segmentSize_ = 0)
             : mc2InitTiling(mc2InitTiling_), mc2CcTiling(mc2CcTiling_), segmentSize(segmentSize_)
-        {
-        }
+        {}
     };
 
     CATLASS_DEVICE
-    HcclComm()
-    {
-    }
+    HcclComm() {}
 
     CATLASS_DEVICE
-    HcclComm(Params const &params)
-    {
-        Init(params);
-    }
+    HcclComm(Params const& params) { Init(params); }
 
     CATLASS_DEVICE
-    void Init(Params const &params)
+    void Init(Params const& params)
     {
         auto hcclContext = AscendC::GetHcclContext<AscendC::HCCL_GROUP_ID_0>();
-        hccl_.Init(hcclContext, reinterpret_cast<__gm__ void *>(params.mc2InitTiling));
+        hccl_.Init(hcclContext, reinterpret_cast<__gm__ void*>(params.mc2InitTiling));
         if (params.mc2CcTiling != nullptr) {
-            hccl_.SetCcTiling(reinterpret_cast<__gm__ void *>(params.mc2CcTiling));
+            hccl_.SetCcTiling(reinterpret_cast<__gm__ void*>(params.mc2CcTiling));
         }
 
         rankId_ = hccl_.GetRankId();
@@ -117,19 +108,20 @@ public:
     }
 
     CATLASS_DEVICE
-    void CrossRankSync() {
+    void CrossRankSync()
+    {
         uint64_t flagOffset = (segmentSize_ - MB_SIZE) / sizeof(int32_t);
-        auto syncCounter = reinterpret_cast<__gm__ int32_t *>(ptrArr_[rankId_]) + flagOffset;
-        auto syncBase = reinterpret_cast<__gm__ int32_t *>(ptrArr_[rankId_]) + flagOffset + 2048;
+        auto syncCounter = reinterpret_cast<__gm__ int32_t*>(ptrArr_[rankId_]) + flagOffset;
+        auto syncBase = reinterpret_cast<__gm__ int32_t*>(ptrArr_[rankId_]) + flagOffset + 2048;
         int32_t count = LoadElement(syncBase) + 1;
         int32_t vectorId = AscendC::GetBlockIdx();
         int32_t vectorNum = AscendC::GetBlockNum() * AscendC::GetTaskRation();
-        for(int i = vectorId; i < rankSize_; i += vectorNum) {
-            auto syncRemote = reinterpret_cast<__gm__ int32_t *>(ptrArr_[i]) + flagOffset + rankId_ * 16;
+        for (int i = vectorId; i < rankSize_; i += vectorNum) {
+            auto syncRemote = reinterpret_cast<__gm__ int32_t*>(ptrArr_[i]) + flagOffset + rankId_ * 16;
             StoreElement(syncRemote, count);
-            Dcci(reinterpret_cast<__gm__ uint8_t *>(syncRemote));
+            Dcci(reinterpret_cast<__gm__ uint8_t*>(syncRemote));
         }
-        for(int i = vectorId; i < rankSize_; i += vectorNum) {
+        for (int i = vectorId; i < rankSize_; i += vectorNum) {
             auto syncCheck = syncCounter + i * 16;
             WaitUntilEqualForBarrier(syncCheck, count);
         }
@@ -139,28 +131,16 @@ public:
     }
 
     CATLASS_DEVICE
-    auto GetPeerMem() const
-    {
-        return ptrArr_[rankId_];
-    }
+    auto GetPeerMem() const { return ptrArr_[rankId_]; }
 
     CATLASS_DEVICE
-    auto GetPeerMem(int32_t rankId) const
-    {
-        return ptrArr_[rankId];
-    }
+    auto GetPeerMem(int32_t rankId) const { return ptrArr_[rankId]; }
 
     CATLASS_DEVICE
-    auto GetRankIdx() const
-    {
-        return rankId_;
-    }
+    auto GetRankIdx() const { return rankId_; }
 
     CATLASS_DEVICE
-    auto GetRankSize() const
-    {
-        return rankSize_;
-    }
+    auto GetRankSize() const { return rankSize_; }
 
 private:
     AscendC::Hccl<AscendC::HCCL_SERVER_TYPE_AICPU> hccl_{};

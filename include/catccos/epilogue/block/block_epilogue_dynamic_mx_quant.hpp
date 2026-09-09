@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -18,35 +19,36 @@
 
 #include "catccos/epilogue/dispatch_policy.hpp"
 
-
 namespace Catccos::Epilogue::Block {
 
 namespace mx_quant_detail {
 
 // ---- Shared constants ----
 constexpr uint16_t FP8_E8M0_NAN = 0x00ff;
-constexpr int32_t  NEG_ZERO     = 0x80000000;
-constexpr int32_t  FP32_BIAS    = 127;
-constexpr int32_t  FP32_BIAS_NEG = -127;
-constexpr int32_t  NEG_ONE      = -1;
-constexpr float    FOUR         = 4.0f;
-constexpr float    ONE_FOURTH   = 0.25f;
-constexpr int16_t  SHR_NUM_FP32 = 23;
+constexpr int32_t NEG_ZERO = 0x80000000;
+constexpr int32_t FP32_BIAS = 127;
+constexpr int32_t FP32_BIAS_NEG = -127;
+constexpr int32_t NEG_ONE = -1;
+constexpr float FOUR = 4.0f;
+constexpr float ONE_FOURTH = 0.25f;
+constexpr int16_t SHR_NUM_FP32 = 23;
 
 // ---- Type traits: maps ElementC → calc types and constants ----
 // bf16 path: operate directly on uint16_t
 // half path: cast to float, operate on uint32_t (matches ops-nn intCalcType)
-template <typename T> struct MxQuantTraits;
-template <> struct MxQuantTraits<bfloat16_t> {
-    using CalcType    = bfloat16_t;
+template <typename T>
+struct MxQuantTraits;
+template <>
+struct MxQuantTraits<bfloat16_t> {
+    using CalcType = bfloat16_t;
     using IntCalcType = uint16_t;
-    static constexpr uint32_t VF_LEN     = 256 / sizeof(uint16_t);  // 128
-    static constexpr IntCalcType EXP_MASK  = 0x7F80;
-    static constexpr IntCalcType ABS_MASK  = 0x7FFF;
-    static constexpr IntCalcType EXP_BIAS  = 0x7F00;
+    static constexpr uint32_t VF_LEN = 256 / sizeof(uint16_t); // 128
+    static constexpr IntCalcType EXP_MASK = 0x7F80;
+    static constexpr IntCalcType ABS_MASK = 0x7FFF;
+    static constexpr IntCalcType EXP_BIAS = 0x7F00;
     static constexpr IntCalcType NAN_SCALE = 0x7F81;
     static constexpr IntCalcType SPECIAL_EXP = 0x0040;
-    static constexpr int16_t     SHR_NUM   = 7;
+    static constexpr int16_t SHR_NUM = 7;
     // Target emax fields (in bf16 exponent field format)
     static constexpr IntCalcType FP4_E2M1_EMAX = 0x0100;
     static constexpr IntCalcType FP4_E1M2_EMAX = 0x0000;
@@ -54,16 +56,17 @@ template <> struct MxQuantTraits<bfloat16_t> {
     static constexpr IntCalcType FP8_E5M2_EMAX = 0x0780;
 };
 
-template <> struct MxQuantTraits<half> {
-    using CalcType    = float;
+template <>
+struct MxQuantTraits<half> {
+    using CalcType = float;
     using IntCalcType = uint32_t;
-    static constexpr uint32_t VF_LEN     = 256 / sizeof(uint32_t);  // 64
-    static constexpr IntCalcType EXP_MASK  = 0x7F800000;
-    static constexpr IntCalcType ABS_MASK  = 0x7FFFFFFF;
-    static constexpr IntCalcType EXP_BIAS  = 0x7F000000;
+    static constexpr uint32_t VF_LEN = 256 / sizeof(uint32_t); // 64
+    static constexpr IntCalcType EXP_MASK = 0x7F800000;
+    static constexpr IntCalcType ABS_MASK = 0x7FFFFFFF;
+    static constexpr IntCalcType EXP_BIAS = 0x7F000000;
     static constexpr IntCalcType NAN_SCALE = 0x7F810000;
     static constexpr IntCalcType SPECIAL_EXP = 0x00400000;
-    static constexpr int16_t     SHR_NUM   = 23;
+    static constexpr int16_t SHR_NUM = 23;
     static constexpr IntCalcType FP4_E2M1_EMAX = 0x01000000;
     static constexpr IntCalcType FP4_E1M2_EMAX = 0x00000000;
     static constexpr IntCalcType FP8_E4M3_EMAX = 0x04000000;
@@ -75,16 +78,22 @@ __aicore__ inline constexpr IntCalcType GetTargetEmaxField()
 {
     if constexpr (std::is_same_v<DstType, float4_e2m1x2_t>) {
         return MxQuantTraits<bfloat16_t>::FP4_E2M1_EMAX; // placeholder, overridden by caller
-    } else { return 0; }
+    } else {
+        return 0;
+    }
 }
 
 template <typename DstType>
 __aicore__ inline constexpr bool IsFp4Type()
-{ return std::is_same_v<DstType, float4_e2m1x2_t> || std::is_same_v<DstType, float4_e1m2x2_t>; }
+{
+    return std::is_same_v<DstType, float4_e2m1x2_t> || std::is_same_v<DstType, float4_e1m2x2_t>;
+}
 
 template <typename DstType>
 __aicore__ inline constexpr bool IsFp8Type()
-{ return std::is_same_v<DstType, float8_e4m3_t> || std::is_same_v<DstType, float8_e5m2_t>; }
+{
+    return std::is_same_v<DstType, float8_e4m3_t> || std::is_same_v<DstType, float8_e5m2_t>;
+}
 
 // ---- CalcElement: inner (float path only, handles FP4 truncation + neg-zero) ----
 // Ported from ops-nn dynamic_mx_quant_common.h
@@ -132,12 +141,11 @@ __aicore__ inline void CalcElementInner(RegFloat& in, RegInt32& maxEle, MaskT ma
     AscendC::MicroAPI::Copy((AscendC::MicroAPI::RegTensor<int32_t>&)regIn, negZero, zeroMask);
 }
 
-
 // ---- CalcElement: outer (multiply by 1/scale, quantize, pack to uint8) ----
-template <AscendC::RoundMode roundMode, typename OutType, typename CalcType, typename IntCalcType,
-          typename RegCalc, typename RegICT, typename RegU8, typename MaskT>
-__aicore__ inline void CalcElementQuant(
-    RegCalc& in, RegICT& scaleReprocal, RegICT& maxEle, RegU8& out, MaskT mask)
+template <
+    AscendC::RoundMode roundMode, typename OutType, typename CalcType, typename IntCalcType, typename RegCalc,
+    typename RegICT, typename RegU8, typename MaskT>
+__aicore__ inline void CalcElementQuant(RegCalc& in, RegICT& scaleReprocal, RegICT& maxEle, RegU8& out, MaskT mask)
 {
     // Cast template-deduced types to Reg::RegTensor for correct Reg:: API dispatch
     auto& regIn = reinterpret_cast<AscendC::MicroAPI::RegTensor<CalcType>&>(in);
@@ -158,7 +166,8 @@ __aicore__ inline void CalcElementQuant(
         CalcElementInner<roundMode, OutType>(regIn, (AscendC::MicroAPI::RegTensor<int32_t>&)regMaxEle, mask);
         AscendC::MicroAPI::RegTensor<bfloat16_t> bf16Val;
         AscendC::MicroAPI::Cast<bfloat16_t, float, castFp32ToBf16>(bf16Val, regIn, mask);
-        AscendC::MicroAPI::Pack((AscendC::MicroAPI::RegTensor<uint16_t>&)bf16Val, (AscendC::MicroAPI::RegTensor<uint32_t>&)bf16Val);
+        AscendC::MicroAPI::Pack(
+            (AscendC::MicroAPI::RegTensor<uint16_t>&)bf16Val, (AscendC::MicroAPI::RegTensor<uint32_t>&)bf16Val);
         AscendC::MicroAPI::RegTensor<OutType> y;
         AscendC::MicroAPI::Cast<OutType, bfloat16_t, castTrait>(y, bf16Val, mask);
         AscendC::MicroAPI::RegTensor<uint16_t> yU16;
@@ -173,7 +182,6 @@ __aicore__ inline void CalcElementQuant(
     }
 }
 
+} // namespace mx_quant_detail
 
-}  // namespace mx_quant_detail
-
-}  // namespace Catccos::Epilogue::Block
+} // namespace Catccos::Epilogue::Block

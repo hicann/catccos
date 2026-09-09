@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -38,10 +39,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD, uint32_t M0,
-          uint32_t N0, uint32_t K0>
-struct Ascend950GroupedMatmulAllToAllVConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD, uint32_t M0,
+    uint32_t N0, uint32_t K0>
+struct Ascend950GroupedMatmulAllToAllVConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
     static constexpr bool enableUnitFlag = true;
@@ -52,17 +53,16 @@ struct Ascend950GroupedMatmulAllToAllVConfig
     static constexpr uint32_t l1BStages = 2;
     static constexpr uint32_t l0AStages = 2;
     static constexpr uint32_t l0BStages = 2;
-    using MmadDispatchPolicy =
-        Catlass::Gemm::MmadPingpong<ArchTag, enableUnitFlag, useHF32, l0CStages, enableL1Resident, l1AStages, l1BStages,
-                                    l0AStages, l0BStages>;
+    using MmadDispatchPolicy = Catlass::Gemm::MmadPingpong<
+        ArchTag, enableUnitFlag, useHF32, l0CStages, enableL1Resident, l1AStages, l1BStages, l0AStages, l0BStages>;
 
     using L1TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<K0>>;
     using L0TileShape = tla::Shape<tla::Int<M0>, tla::Int<N0>, tla::Int<64>>;
 
     using TileCopy =
         Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                         ElementB, ElementD, void, TileCopy>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementD, void, TileCopy>;
 
     static constexpr uint32_t TP_SIZE_LIMITS = 1;
     static constexpr uint32_t EP_SIZE_LIMITS = 8;
@@ -80,8 +80,8 @@ struct Ascend950GroupedMatmulAllToAllVConfig
     using RemoteDstType = DType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
@@ -89,8 +89,8 @@ struct Ascend950GroupedMatmulAllToAllVConfig
         Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
     using ProblemShape = DGemm::AllToAllVAllGatherProblemShape;
-    using Kernel = DGemm::Kernel::GroupedMatmulAllToAllVTla<ProblemShape, BlockMmad, BlockComm, BlockMmadScheduler,
-                                                            BlockCommScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::GroupedMatmulAllToAllVTla<
+        ProblemShape, BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
@@ -104,4 +104,4 @@ template <class ElementA, class LayoutA, class ElementB, class LayoutB, class El
 using Ascend950GroupedMatmulAllToAllVConfig_M0_256 =
     Ascend950GroupedMatmulAllToAllVConfig<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, 256, 128, 256>;
 
-#endif  // ASCEND950_GROUPED_MATMUL_ALLTOALLV_DEVICE_H
+#endif // ASCEND950_GROUPED_MATMUL_ALLTOALLV_DEVICE_H

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -36,12 +37,10 @@ using LayoutC = Catlass::layout::RowMajor;
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchMatmulAllReduceWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -49,11 +48,16 @@ static void LaunchMatmulAllReduceWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape
-        };
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -70,11 +74,8 @@ static void LaunchMatmulAllReduceWithConfig(
 }
 
 void LaunchMatmulAllReduceBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     if (cocTiling.m0 == 128) {
@@ -88,13 +89,10 @@ void LaunchMatmulAllReduceBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -102,11 +100,17 @@ static void LaunchAllGatherMatmulWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, workSpace, symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape
-        };
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            workSpace,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -119,11 +123,8 @@ static void LaunchAllGatherMatmulWithConfig(
 }
 
 void LaunchAllGatherMatmulBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulWithConfig<AllGatherMatmulConfig_M0_128>(
@@ -136,14 +137,11 @@ void LaunchAllGatherMatmulBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulRemoteReadWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -151,11 +149,16 @@ static void LaunchAllGatherMatmulRemoteReadWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape
-        };
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -168,11 +171,8 @@ static void LaunchAllGatherMatmulRemoteReadWithConfig(
 }
 
 void LaunchAllGatherMatmulRemoteReadBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     if (cocTiling.m0 == 128) {
         LaunchAllGatherMatmulRemoteReadWithConfig<AllGatherMatmulRemoteReadConfig_M0_128>(
@@ -185,12 +185,10 @@ void LaunchAllGatherMatmulRemoteReadBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchMatmulReduceScatterWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -198,11 +196,16 @@ static void LaunchMatmulReduceScatterWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape
-        };
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -219,11 +222,8 @@ static void LaunchMatmulReduceScatterWithConfig(
 }
 
 void LaunchMatmulReduceScatterBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     if (cocTiling.m0 == 128) {
@@ -237,12 +237,10 @@ void LaunchMatmulReduceScatterBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulWithGatherResultWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -264,14 +262,19 @@ static void LaunchAllGatherMatmulWithGatherResultWithConfig(
 
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), rankSize,
+            static_cast<uint32_t>(shmem_my_pe()),
+            rankSize,
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
             kernelParams.customPtrs[0],
             symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape,
-            copyGatherABlockShape, copyGatherATileShape
-        };
+            commCoreSplit,
+            commBlockShape,
+            commTileShape,
+            copyGatherABlockShape,
+            copyGatherATileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -284,11 +287,8 @@ static void LaunchAllGatherMatmulWithGatherResultWithConfig(
 }
 
 void LaunchAllGatherMatmulWithGatherResultBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     if (cocTiling.m0 == 128) {
@@ -302,12 +302,10 @@ void LaunchAllGatherMatmulWithGatherResultBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchGroupedMatmulAllToAllVWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -315,14 +313,20 @@ static void LaunchGroupedMatmulAllToAllVWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            cocTiling.epSize, cocTiling.expertNum,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
-            kernelParams.customPtrs[0], kernelParams.customPtrs[1],
+            cocTiling.epSize,
+            cocTiling.expertNum,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            kernelParams.customPtrs[0],
+            kernelParams.customPtrs[1],
             symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape
-        };
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -339,11 +343,8 @@ static void LaunchGroupedMatmulAllToAllVWithConfig(
 }
 
 void LaunchGroupedMatmulAllToAllVBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     if (cocTiling.m0 == 128) {
@@ -357,26 +358,29 @@ void LaunchGroupedMatmulAllToAllVBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllToAllVGroupedMatmulWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord gemmShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, RoundUp(cocTiling.k, cocTiling.k0)};
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.k0};
         typename DeviceOp::Arguments args{
             gemmShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            cocTiling.epSize, cocTiling.expertNum,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
-            kernelParams.customPtrs[0], kernelParams.customPtrs[1],
+            cocTiling.epSize,
+            cocTiling.expertNum,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            kernelParams.customPtrs[0],
+            kernelParams.customPtrs[1],
             symmetricPtr,
-            commBlockShape, commTileShape
-        };
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -389,11 +393,8 @@ static void LaunchAllToAllVGroupedMatmulWithConfig(
 }
 
 void LaunchAllToAllVGroupedMatmulBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     if (cocTiling.m0 == 128) {
@@ -408,12 +409,10 @@ void LaunchAllToAllVGroupedMatmulBF16(
 #ifdef RDMA_TRANSPORT
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllGatherMatmulRdmaWithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
@@ -421,11 +420,16 @@ static void LaunchAllGatherMatmulRdmaWithConfig(
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
             cocTiling.commInterval,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC, symmetricPtr,
-            commCoreSplit, commBlockShape, commTileShape
-        };
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -438,11 +442,8 @@ static void LaunchAllGatherMatmulRdmaWithConfig(
 }
 
 void LaunchAllGatherMatmulRdmaBF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
     if (cocTiling.m0 == 128) {
@@ -457,27 +458,28 @@ void LaunchAllGatherMatmulRdmaBF16(
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
 static void LaunchAllToAllVGMMV2WithConfig(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
-    auto launch = [&](auto &&deviceOp) {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.k0};
         typename DeviceOp::Arguments args{
             problemShape,
-            static_cast<uint32_t>(shmem_my_pe()), static_cast<uint32_t>(shmem_n_pes()),
-            cocTiling.epSize, cocTiling.expertNum,
-            kernelParams.ptrA, kernelParams.ptrB, kernelParams.ptrC,
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.epSize,
+            cocTiling.expertNum,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
             kernelParams.customPtrs[0],
             workSpace,
             symmetricPtr,
-            commBlockShape, commTileShape
-        };
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -490,11 +492,8 @@ static void LaunchAllToAllVGMMV2WithConfig(
 }
 
 void LaunchAllToAllVGMMV2BF16(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     if (cocTiling.m0 == 128) {
         LaunchAllToAllVGMMV2WithConfig<AllToAllVGMMV2Config_M0_128>(

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -13,8 +14,8 @@
 
 namespace Catccos::detail {
 
-enum class CopyDirect {Put, Get};
-enum class CopyTransport {Mte, Rdma, Udma};
+enum class CopyDirect { Put, Get };
+enum class CopyTransport { Mte, Rdma, Udma };
 
 } // namespace Catccos::detail
 

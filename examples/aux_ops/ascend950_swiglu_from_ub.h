@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -21,64 +22,56 @@
 #include "catlass/matrix_coord.hpp"
 #include "kernel_operator.h"
 
-namespace Catccos::DGemm::Kernel
-{
+namespace Catccos::DGemm::Kernel {
 
-struct Ascend950AicUbSyncState
-{
+struct Ascend950AicUbSyncState {
     bool outstanding{false};
 };
 
 template <class SwigluKernel>
-struct Ascend950AicWaitUbFree
-{
-    Ascend950AicUbSyncState *state{nullptr};
+struct Ascend950AicWaitUbFree {
+    Ascend950AicUbSyncState* state{nullptr};
 
     CATLASS_DEVICE Ascend950AicWaitUbFree() = default;
 
     CATLASS_DEVICE
-    explicit Ascend950AicWaitUbFree(Ascend950AicUbSyncState &state_) : state(&state_) {}
+    explicit Ascend950AicWaitUbFree(Ascend950AicUbSyncState& state_) : state(&state_) {}
 
     CATLASS_DEVICE
     void operator()() const
     {
-        if (state != nullptr && !state->outstanding)
-        {
+        if (state != nullptr && !state->outstanding) {
             return;
         }
         AscendC::CrossCoreWaitFlag<SwigluKernel::kUbSyncMode, PIPE_FIX>(SwigluKernel::kAivDoneFlag);
-        if (state != nullptr)
-        {
+        if (state != nullptr) {
             state->outstanding = false;
         }
     }
 };
 
 template <class SwigluKernel>
-struct Ascend950AicNotifyUbReady
-{
-    Ascend950AicUbSyncState *state{nullptr};
+struct Ascend950AicNotifyUbReady {
+    Ascend950AicUbSyncState* state{nullptr};
 
     CATLASS_DEVICE Ascend950AicNotifyUbReady() = default;
 
     CATLASS_DEVICE
-    explicit Ascend950AicNotifyUbReady(Ascend950AicUbSyncState &state_) : state(&state_) {}
+    explicit Ascend950AicNotifyUbReady(Ascend950AicUbSyncState& state_) : state(&state_) {}
 
     CATLASS_DEVICE
     void operator()() const
     {
         AscendC::CrossCoreSetFlag<SwigluKernel::kUbSyncMode, PIPE_FIX>(SwigluKernel::kAicReadyFlag);
-        if (state != nullptr)
-        {
+        if (state != nullptr) {
             state->outstanding = true;
         }
     }
 };
 
 template <class ArchTag_, class SwigluBlock_, class BlockScheduler_, uint32_t UbTileM_, uint32_t UbTileN_>
-class Ascend950SwigluFromUbKernel
-{
-   public:
+class Ascend950SwigluFromUbKernel {
+public:
     using ArchTag = ArchTag_;
     using SwigluBlock = SwigluBlock_;
     using BlockScheduler = BlockScheduler_;
@@ -96,11 +89,10 @@ class Ascend950SwigluFromUbKernel
         ((UB_TILE_N + kElementPerBlock - 1) / kElementPerBlock) * kElementPerBlock;
     static constexpr uint32_t kUbTileElem = UB_TILE_M * kUbTileNAlign;
 
-    struct Params
-    {
+    struct Params {
         uint32_t problemCount;
         Catlass::MatrixCoord problemShape;
-        __gm__ ElementD *ptrD;
+        __gm__ ElementD* ptrD;
         GM_ADDR ptrGroupList;
         Callback notifyCallback;
         uint32_t syncInterval;
@@ -109,30 +101,29 @@ class Ascend950SwigluFromUbKernel
         Params() = default;
 
         CATLASS_DEVICE
-        Params(uint32_t problemCount_, Catlass::MatrixCoord problemShape_, GM_ADDR ptrD_, GM_ADDR ptrGroupList_,
-               const Callback &notifyCallback_, uint32_t syncInterval_)
+        Params(
+            uint32_t problemCount_, Catlass::MatrixCoord problemShape_, GM_ADDR ptrD_, GM_ADDR ptrGroupList_,
+            const Callback& notifyCallback_, uint32_t syncInterval_)
             : problemCount(problemCount_),
               problemShape(problemShape_),
-              ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)),
+              ptrD(reinterpret_cast<__gm__ ElementD*>(ptrD_)),
               ptrGroupList(ptrGroupList_),
               notifyCallback(notifyCallback_),
               syncInterval(syncInterval_)
-        {
-        }
+        {}
     };
 
     CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    void operator()(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
-        if (AscendC::GetSubBlockIdx() != 0)
-        {
+        if (AscendC::GetSubBlockIdx() != 0) {
             return;
         }
 
         AscendC::GlobalTensor<ElementD> gmD;
         gmD.SetGlobalBuffer(params.ptrD);
         AscendC::GlobalTensor<int32_t> groupList;
-        groupList.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.ptrGroupList));
+        groupList.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(params.ptrGroupList));
 
         BlockScheduler blockScheduler;
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
@@ -141,8 +132,7 @@ class Ascend950SwigluFromUbKernel
         int64_t gmGroupOffsetD = 0;
         uint32_t startCoreIdx = 0;
 
-        for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx)
-        {
+        for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
             uint32_t currentM = groupList(groupIdx);
             Catlass::GemmCoord inGroupProblemShape{currentM, nOut, 1};
 
@@ -150,13 +140,11 @@ class Ascend950SwigluFromUbKernel
             uint32_t coreLoops = blockScheduler.GetCoreLoops();
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
-            if (startLoopIdx < coreLoops)
-            {
+            if (startLoopIdx < coreLoops) {
             }
 
             bool firstTile = true;
-            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum)
-            {
+            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
                 Catlass::GemmCoord blockCoord = blockScheduler.GetBlockCoord(loopIdx);
                 Catlass::GemmCoord actualBlockShape = blockScheduler.GetActualBlockShape(blockCoord);
                 Catlass::MatrixCoord tileOffset{blockCoord.m() * UB_TILE_M, blockCoord.n() * UB_TILE_N};
@@ -171,22 +159,22 @@ class Ascend950SwigluFromUbKernel
             gmGroupOffsetD += static_cast<int64_t>(currentM) * nOut;
             startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
 
-            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == params.problemCount - 1)
-            {
+            if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == params.problemCount - 1) {
                 AscendC::PipeBarrier<PIPE_MTE3>();
                 params.notifyCallback();
             }
         }
     }
 
-   private:
+private:
     CATLASS_DEVICE
-    void ComputeUbTile(Catlass::Arch::Resource<ArchTag> resource, AscendC::GlobalTensor<ElementD> &gmD,
-                       int64_t gmGroupOffsetD, Catlass::MatrixCoord const &tileOffset,
-                       Catlass::MatrixCoord const &actualTileShape, uint32_t nOut)
+    void ComputeUbTile(
+        Catlass::Arch::Resource<ArchTag> resource, AscendC::GlobalTensor<ElementD>& gmD, int64_t gmGroupOffsetD,
+        Catlass::MatrixCoord const& tileOffset, Catlass::MatrixCoord const& actualTileShape, uint32_t nOut)
     {
-        static_assert(std::is_same_v<ElementC, ElementD>,
-                      "Direct UB SwiGLU currently requires identical BF16 input and output types");
+        static_assert(
+            std::is_same_v<ElementC, ElementD>,
+            "Direct UB SwiGLU currently requires identical BF16 input and output types");
 
         auto ubGate = resource.ubBuf.template GetBufferByByte<ElementC>(0);
         auto ubUp = resource.ubBuf.template GetBufferByByte<ElementC>(kUbTileElem * sizeof(ElementC));
@@ -200,8 +188,7 @@ class Ascend950SwigluFromUbKernel
         AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
         AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
         AscendC::DataCopyExtParams copyParams{1, static_cast<uint32_t>(tileN * sizeof(ElementD)), 0, 0, 0};
-        for (uint32_t row = 0; row < actualTileShape.row(); ++row)
-        {
+        for (uint32_t row = 0; row < actualTileShape.row(); ++row) {
             uint32_t ubOffset = row * kUbTileNAlign;
             int64_t gmDOffset =
                 gmGroupOffsetD + static_cast<int64_t>(tileOffset.row() + row) * nOut + tileOffset.column();
@@ -211,11 +198,11 @@ class Ascend950SwigluFromUbKernel
     }
 };
 
-template <class ArchTag_, class SwigluBlock_, class ElementD_, class ElementScale_, class BlockScheduler_,
-          uint32_t UbTileM_, uint32_t UbTileN_>
-class Ascend950SwigluMxQuantFromUbKernel
-{
-   public:
+template <
+    class ArchTag_, class SwigluBlock_, class ElementD_, class ElementScale_, class BlockScheduler_, uint32_t UbTileM_,
+    uint32_t UbTileN_>
+class Ascend950SwigluMxQuantFromUbKernel {
+public:
     using ArchTag = ArchTag_;
     using SwigluBlock = SwigluBlock_;
     using ElementC = typename SwigluBlock::ElementC;
@@ -245,37 +232,35 @@ class Ascend950SwigluMxQuantFromUbKernel
     static_assert(2 * kUbPlaneBytes <= 256 * 1024, "SwiGLU gate/up input planes exceed the physical Ascend950 UB");
     static_assert(kReadyStride * sizeof(int32_t) == 64, "SwiGLU readiness counters must occupy separate cache lines");
 
-    struct Params
-    {
+    struct Params {
         uint32_t problemCount;
         Catlass::MatrixCoord problemShape;
-        __gm__ ElementC *ptrBf16;
-        __gm__ ElementD *ptrD;
-        __gm__ ElementScale *ptrScale;
+        __gm__ ElementC* ptrBf16;
+        __gm__ ElementD* ptrD;
+        __gm__ ElementScale* ptrScale;
         GM_ADDR ptrGroupList;
-        __gm__ int32_t *ptrReady;
+        __gm__ int32_t* ptrReady;
 
         CATLASS_DEVICE Params() = default;
 
         CATLASS_DEVICE
-        Params(uint32_t problemCount_, Catlass::MatrixCoord problemShape_, GM_ADDR ptrBf16_, GM_ADDR ptrD_,
-               GM_ADDR ptrScale_, GM_ADDR ptrGroupList_, GM_ADDR ptrReady_)
+        Params(
+            uint32_t problemCount_, Catlass::MatrixCoord problemShape_, GM_ADDR ptrBf16_, GM_ADDR ptrD_,
+            GM_ADDR ptrScale_, GM_ADDR ptrGroupList_, GM_ADDR ptrReady_)
             : problemCount(problemCount_),
               problemShape(problemShape_),
-              ptrBf16(reinterpret_cast<__gm__ ElementC *>(ptrBf16_)),
-              ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)),
-              ptrScale(reinterpret_cast<__gm__ ElementScale *>(ptrScale_)),
+              ptrBf16(reinterpret_cast<__gm__ ElementC*>(ptrBf16_)),
+              ptrD(reinterpret_cast<__gm__ ElementD*>(ptrD_)),
+              ptrScale(reinterpret_cast<__gm__ ElementScale*>(ptrScale_)),
               ptrGroupList(ptrGroupList_),
-              ptrReady(reinterpret_cast<__gm__ int32_t *>(ptrReady_))
-        {
-        }
+              ptrReady(reinterpret_cast<__gm__ int32_t*>(ptrReady_))
+        {}
     };
 
     CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    void operator()(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
-        if (AscendC::GetSubBlockIdx() != 0)
-        {
+        if (AscendC::GetSubBlockIdx() != 0) {
             return;
         }
 
@@ -284,12 +269,11 @@ class Ascend950SwigluMxQuantFromUbKernel
         AscendC::GlobalTensor<ElementScale> gmScale;
         gmScale.SetGlobalBuffer(params.ptrScale);
         AscendC::GlobalTensor<int32_t> groupList;
-        groupList.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.ptrGroupList));
+        groupList.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(params.ptrGroupList));
 
         typename BlockMxQuant::Params tileQuantParams{UB_TILE_N};
         BlockMxQuant tileMxQuant(resource, tileQuantParams);
-        if constexpr (kUseTileWideMxQuant)
-        {
+        if constexpr (kUseTileWideMxQuant) {
             tileMxQuant.InitBlockLoop();
         }
 
@@ -303,29 +287,27 @@ class Ascend950SwigluMxQuantFromUbKernel
         uint32_t startCoreIdx = 0;
         (void)params.ptrBf16;
 
-        for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx)
-        {
+        for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
             uint32_t currentM = groupList(groupIdx);
             Catlass::GemmCoord inGroupProblemShape{currentM, nOut, 1};
             blockScheduler.Update(inGroupProblemShape, Catlass::MakeCoord(UB_TILE_M, UB_TILE_N));
             uint32_t coreLoops = blockScheduler.GetCoreLoops();
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
-            if (startLoopIdx < coreLoops)
-            {
+            if (startLoopIdx < coreLoops) {
             }
 
             bool firstTile = true;
-            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum)
-            {
+            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
                 Catlass::GemmCoord blockCoord = blockScheduler.GetBlockCoord(loopIdx);
                 Catlass::GemmCoord actualBlockShape = blockScheduler.GetActualBlockShape(blockCoord);
                 Catlass::MatrixCoord tileOffset{blockCoord.m() * UB_TILE_M, blockCoord.n() * UB_TILE_N};
                 Catlass::MatrixCoord actualTileShape{actualBlockShape.m(), actualBlockShape.n()};
 
                 AscendC::CrossCoreWaitFlag<kUbSyncMode, PIPE_V>(kAicReadyFlag);
-                ComputeUbTile(resource, gmD, gmScale, gmGroupOffsetD, gmGroupOffsetScale, tileOffset, actualTileShape,
-                              nOut, scaleN, tileMxQuant);
+                ComputeUbTile(
+                    resource, gmD, gmScale, gmGroupOffsetD, gmGroupOffsetScale, tileOffset, actualTileShape, nOut,
+                    scaleN, tileMxQuant);
                 // Publish this tile only after both quant data and scale MTE3
                 // stores are globally visible. GMM2 waits on the exact expert
                 // tile count and no longer needs a batched cross-core barrier.
@@ -340,18 +322,18 @@ class Ascend950SwigluMxQuantFromUbKernel
             gmGroupOffsetScale += static_cast<int64_t>(currentM) * scaleN;
             startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
         }
-        if constexpr (kUseTileWideMxQuant)
-        {
+        if constexpr (kUseTileWideMxQuant) {
             tileMxQuant.FinalizeBlockLoop();
         }
     }
 
-   private:
+private:
     CATLASS_DEVICE
-    void ComputeUbTile(Catlass::Arch::Resource<ArchTag> resource, AscendC::GlobalTensor<ElementD> &gmD,
-                       AscendC::GlobalTensor<ElementScale> &gmScale, int64_t gmGroupOffsetD, int64_t gmGroupOffsetScale,
-                       Catlass::MatrixCoord const &tileOffset, Catlass::MatrixCoord const &actualTileShape,
-                       uint32_t nOut, uint32_t scaleN, BlockMxQuant &tileMxQuant)
+    void ComputeUbTile(
+        Catlass::Arch::Resource<ArchTag> resource, AscendC::GlobalTensor<ElementD>& gmD,
+        AscendC::GlobalTensor<ElementScale>& gmScale, int64_t gmGroupOffsetD, int64_t gmGroupOffsetScale,
+        Catlass::MatrixCoord const& tileOffset, Catlass::MatrixCoord const& actualTileShape, uint32_t nOut,
+        uint32_t scaleN, BlockMxQuant& tileMxQuant)
     {
         uint16_t tileM = static_cast<uint16_t>(actualTileShape.row());
         uint32_t tileN = static_cast<uint32_t>(actualTileShape.column());
@@ -376,23 +358,20 @@ class Ascend950SwigluMxQuantFromUbKernel
 
         auto quantLayout = Catlass::layout::RowMajor(actualTileShape.row(), nOut);
         auto scaleLayout = Catlass::layout::RowMajor(actualTileShape.row(), scaleN);
-        if constexpr (kUseTileWideMxQuant)
-        {
-            tileMxQuant.QuantFromUb2D(ubOut, gmD[gmOffset], quantLayout, gmScale[gmScaleOffset], scaleLayout,
-                                      actualTileShape);
-        }
-        else
-        {
+        if constexpr (kUseTileWideMxQuant) {
+            tileMxQuant.QuantFromUb2D(
+                ubOut, gmD[gmOffset], quantLayout, gmScale[gmScaleOffset], scaleLayout, actualTileShape);
+        } else {
             typename BlockMxQuant::Params quantParams{tileN};
             BlockMxQuant rowMxQuant(resource, quantParams);
             rowMxQuant.InitBlockLoop();
-            rowMxQuant.QuantFromUb(ubOut, gmD[gmOffset], quantLayout, gmScale[gmScaleOffset], scaleLayout,
-                                   actualTileShape);
+            rowMxQuant.QuantFromUb(
+                ubOut, gmD[gmOffset], quantLayout, gmScale[gmScaleOffset], scaleLayout, actualTileShape);
             rowMxQuant.FinalizeBlockLoop();
         }
     }
 };
 
-}  // namespace Catccos::DGemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_EXAMPLES_AUX_OPS_ASCEND950_SWIGLU_FROM_UB_H
+#endif // CATCCOS_EXAMPLES_AUX_OPS_ASCEND950_SWIGLU_FROM_UB_H

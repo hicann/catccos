@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -28,30 +29,18 @@
 
 namespace Catlass::Epilogue::Block {
 
-using Catlass::MatrixCoord;
+using Catccos::Comm::AtlasA2PerTensorDequant;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 using Catlass::Epilogue::Block::BlockEpilogue;
 using Catlass::Gemm::GemmType;
-using Catccos::Comm::AtlasA2PerTensorDequant;
 
 template <
-    uint32_t UB_STAGES_,
-    class CType_,
-    class ScaleType_,
-    class DType_,
-    class TileRowBroadcastMul_,
-    class TileCopy_,
-    class EpilogueTileSwizzle_
->
-class BlockEpilogue <
-    AtlasA2PerTensorDequant<UB_STAGES_>,
-    CType_,
-    ScaleType_,
-    DType_,
-    TileRowBroadcastMul_,
-    TileCopy_,
-    EpilogueTileSwizzle_
-> {
+    uint32_t UB_STAGES_, class CType_, class ScaleType_, class DType_, class TileRowBroadcastMul_, class TileCopy_,
+    class EpilogueTileSwizzle_>
+class BlockEpilogue<
+    AtlasA2PerTensorDequant<UB_STAGES_>, CType_, ScaleType_, DType_, TileRowBroadcastMul_, TileCopy_,
+    EpilogueTileSwizzle_> {
 public:
     using DispatchPolicy = AtlasA2PerTensorDequant<UB_STAGES_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
@@ -69,13 +58,11 @@ public:
     static_assert(
         std::is_same_v<ElementC, int32_t> && (std::is_same_v<ElementD, half> || std::is_same_v<ElementD, bfloat16_t>) &&
             std::is_same_v<ElementScale, ElementD>,
-        "The element type template parameters of BlockEpilogue are wrong"
-    );
+        "The element type template parameters of BlockEpilogue are wrong");
     static_assert(
         std::is_same_v<LayoutC, layout::RowMajor> && std::is_same_v<LayoutScale, layout::VectorLayout> &&
-        std::is_same_v<LayoutD, layout::RowMajor>,
-        "The layout template parameters of BlockEpilogue are wrong"
-    );
+            std::is_same_v<LayoutD, layout::RowMajor>,
+        "The layout template parameters of BlockEpilogue are wrong");
 
     // Tile compute ops
     using TileRowBroadcastMul = TileRowBroadcastMul_;
@@ -90,18 +77,16 @@ public:
     using TileShape = typename TileRowBroadcastMul::TileShape;
 
     static_assert(
-        (UB_STAGES * (TileShape::COUNT * sizeof(ElementC) + TileShape::COLUMN * sizeof(ElementScale)
-                + TileShape::COUNT * sizeof(ElementD))
-            + (TileShape::COUNT + TileShape::COLUMN + TileShape::COUNT + TileShape::ROW) * sizeof(float)
-            + TileShape::ROW * BYTE_PER_BLK)
-        <= ArchTag::UB_SIZE,
-        "TileShape is too large to fit in UB"
-    );
+        (UB_STAGES * (TileShape::COUNT * sizeof(ElementC) + TileShape::COLUMN * sizeof(ElementScale) +
+                      TileShape::COUNT * sizeof(ElementD)) +
+         (TileShape::COUNT + TileShape::COLUMN + TileShape::COUNT + TileShape::ROW) * sizeof(float) +
+         TileShape::ROW * BYTE_PER_BLK) <= ArchTag::UB_SIZE,
+        "TileShape is too large to fit in UB");
 
     struct Params {
-        __gm__ ElementScale *ptrScale{nullptr};
+        __gm__ ElementScale* ptrScale{nullptr};
         LayoutScale layoutScale{};
-        __gm__ ElementD *ptrD{nullptr};
+        __gm__ ElementD* ptrD{nullptr};
         LayoutD layoutD{};
 
         CATLASS_DEVICE
@@ -109,14 +94,14 @@ public:
 
         CATLASS_DEVICE
         Params(
-            __gm__ ElementScale *ptrScale_, LayoutScale const &layoutScale_,
-            __gm__ ElementD *ptrD_, LayoutD const &layoutD_
-        ) : ptrScale(ptrScale_), layoutScale(layoutScale_),
-            ptrD(ptrD_), layoutD(layoutD_) {}
+            __gm__ ElementScale* ptrScale_, LayoutScale const& layoutScale_, __gm__ ElementD* ptrD_,
+            LayoutD const& layoutD_)
+            : ptrScale(ptrScale_), layoutScale(layoutScale_), ptrD(ptrD_), layoutD(layoutD_)
+        {}
     };
 
     CATLASS_DEVICE
-    BlockEpilogue(Arch::Resource<ArchTag> const &resource, Params const &params = Params{}) : params(params)
+    BlockEpilogue(Arch::Resource<ArchTag> const& resource, Params const& params = Params{}) : params(params)
     {
         size_t ubOffset = 0;
         int32_t eventVMTE2 = 0;
@@ -163,19 +148,12 @@ public:
     }
 
     CATLASS_DEVICE
-    void UpdateParams(Params const &params_)
-    {
-        params = params_;
-    }
+    void UpdateParams(Params const& params_) { params = params_; }
 
     CATLASS_DEVICE
-    void operator() (
-        GemmCoord const &blockShapeMNK,
-        GemmCoord const &blockCoordMNK,
-        GemmCoord const &actualBlockShapeMNK,
-        AscendC::GlobalTensor<ElementC> const &gmBlockC,
-        LayoutC const &layoutBlockC, Callback &&callback = Callback{}
-    )
+    void operator()(
+        GemmCoord const& blockShapeMNK, GemmCoord const& blockCoordMNK, GemmCoord const& actualBlockShapeMNK,
+        AscendC::GlobalTensor<ElementC> const& gmBlockC, LayoutC const& layoutBlockC, Callback&& callback = Callback{})
     {
         if (actualBlockShapeMNK.k() == 0) {
             return;
@@ -206,7 +184,7 @@ public:
             auto gmTileC = gmBlockC[layoutBlockC.GetOffset(tileOffsetInBlock)];
             auto layoutGmTileC = layoutBlockC.GetTileLayout(actualTileShape);
 
-            auto &ubC = ubCList[ubListId];
+            auto& ubC = ubCList[ubListId];
             LayoutC layoutUbC{actualTileShape, ubTileStride};
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventUbCVMTE2List[ubListId]);
@@ -219,7 +197,7 @@ public:
             auto gmTileScale = gmScale[params.layoutScale.GetOffset(scaleTileOffset)];
             auto layoutGmTileScale = params.layoutScale.GetTileLayout(scaleTileShape);
 
-            auto &ubScale = ubScaleList[ubListId];
+            auto& ubScale = ubScaleList[ubListId];
             auto layoutUbScale = LayoutScale::template MakeLayoutInUb<ElementScale>(scaleTileShape);
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventUbScaleVMTE2List[ubListId]);
@@ -237,7 +215,7 @@ public:
             AscendC::PipeBarrier<PIPE_V>();
             tileRowBroadcastMul(ubMul, ubCFp32, ubScaleFp32);
 
-            auto &ubD = ubDList[ubListId];
+            auto& ubD = ubDList[ubListId];
             LayoutD layoutUbD{actualTileShape, ubTileStride};
 
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(eventUbDMTE3VList[ubListId]);
@@ -283,23 +261,11 @@ private:
 };
 
 template <
-    uint32_t UB_STAGES_,
-    class CType_,
-    class LayoutScale_,
-    class DType_,
-    class TileRowBroadcastMul_,
-    class TileCopy_,
-    class EpilogueTileSwizzle_
->
-class BlockEpilogue <
-    AtlasA2PerTensorDequant<UB_STAGES_>,
-    CType_,
-    GemmType<float, LayoutScale_>,
-    DType_,
-    TileRowBroadcastMul_,
-    TileCopy_,
-    EpilogueTileSwizzle_
-> {
+    uint32_t UB_STAGES_, class CType_, class LayoutScale_, class DType_, class TileRowBroadcastMul_, class TileCopy_,
+    class EpilogueTileSwizzle_>
+class BlockEpilogue<
+    AtlasA2PerTensorDequant<UB_STAGES_>, CType_, GemmType<float, LayoutScale_>, DType_, TileRowBroadcastMul_, TileCopy_,
+    EpilogueTileSwizzle_> {
 public:
     using DispatchPolicy = AtlasA2PerTensorDequant<UB_STAGES_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
@@ -316,13 +282,11 @@ public:
     // Check data infos
     static_assert(
         std::is_same_v<ElementC, int32_t> && (std::is_same_v<ElementD, half> || std::is_same_v<ElementD, bfloat16_t>),
-        "The element type template parameters of BlockEpilogue are wrong"
-    );
+        "The element type template parameters of BlockEpilogue are wrong");
     static_assert(
         std::is_same_v<LayoutC, layout::RowMajor> && std::is_same_v<LayoutScale, layout::VectorLayout> &&
             std::is_same_v<LayoutD, layout::RowMajor>,
-        "The layout template parameters of BlockEpilogue are wrong"
-    );
+        "The layout template parameters of BlockEpilogue are wrong");
 
     // Tile compute ops
     using TileRowBroadcastMul = TileRowBroadcastMul_;
@@ -337,18 +301,15 @@ public:
     using TileShape = typename TileRowBroadcastMul::TileShape;
 
     static_assert(
-        (UB_STAGES * (TileShape::COUNT * sizeof(ElementC) + TileShape::COLUMN * sizeof(ElementScale)
-            + TileShape::COUNT * sizeof(ElementD))
-            + (TileShape::COUNT + TileShape::COUNT) * sizeof(float)
-            + TileShape::ROW * BYTE_PER_BLK)
-        <= ArchTag::UB_SIZE,
-        "TileShape is too large to fit in UB"
-    );
+        (UB_STAGES * (TileShape::COUNT * sizeof(ElementC) + TileShape::COLUMN * sizeof(ElementScale) +
+                      TileShape::COUNT * sizeof(ElementD)) +
+         (TileShape::COUNT + TileShape::COUNT) * sizeof(float) + TileShape::ROW * BYTE_PER_BLK) <= ArchTag::UB_SIZE,
+        "TileShape is too large to fit in UB");
 
     struct Params {
-        __gm__ ElementScale *ptrScale{nullptr};
+        __gm__ ElementScale* ptrScale{nullptr};
         LayoutScale layoutScale{};
-        __gm__ ElementD *ptrD{nullptr};
+        __gm__ ElementD* ptrD{nullptr};
         LayoutD layoutD{};
 
         CATLASS_DEVICE
@@ -356,14 +317,14 @@ public:
 
         CATLASS_DEVICE
         Params(
-            __gm__ ElementScale *ptrScale_, LayoutScale const &layoutScale_,
-            __gm__ ElementD *ptrD_, LayoutD const &layoutD_
-        ) : ptrScale(ptrScale_), layoutScale(layoutScale_),
-            ptrD(ptrD_), layoutD(layoutD_) {}
+            __gm__ ElementScale* ptrScale_, LayoutScale const& layoutScale_, __gm__ ElementD* ptrD_,
+            LayoutD const& layoutD_)
+            : ptrScale(ptrScale_), layoutScale(layoutScale_), ptrD(ptrD_), layoutD(layoutD_)
+        {}
     };
 
     CATLASS_DEVICE
-    BlockEpilogue(Arch::Resource<ArchTag> const &resource, Params const &params = Params{}) : params(params)
+    BlockEpilogue(Arch::Resource<ArchTag> const& resource, Params const& params = Params{}) : params(params)
     {
         size_t ubOffset = 0;
         int32_t eventVMTE2 = 0;
@@ -396,7 +357,6 @@ public:
         ubOffset += TileShape::COUNT * sizeof(float);
         ubMul = resource.ubBuf.template GetBufferByByte<float>(ubOffset);
         ubOffset += TileShape::COUNT * sizeof(float);
-
     }
 
     CATLASS_DEVICE
@@ -410,19 +370,12 @@ public:
     }
 
     CATLASS_DEVICE
-    void UpdateParams(Params const &params_)
-    {
-        params = params_;
-    }
+    void UpdateParams(Params const& params_) { params = params_; }
 
     CATLASS_DEVICE
-    void operator() (
-        GemmCoord const &blockShapeMNK,
-        GemmCoord const &blockCoordMNK,
-        GemmCoord const &actualBlockShapeMNK,
-        AscendC::GlobalTensor<ElementC> const &gmBlockC,
-        LayoutC const &layoutBlockC, Callback &&callback = Callback{}
-    )
+    void operator()(
+        GemmCoord const& blockShapeMNK, GemmCoord const& blockCoordMNK, GemmCoord const& actualBlockShapeMNK,
+        AscendC::GlobalTensor<ElementC> const& gmBlockC, LayoutC const& layoutBlockC, Callback&& callback = Callback{})
     {
         if (actualBlockShapeMNK.k() == 0) {
             return;
@@ -453,7 +406,7 @@ public:
             auto gmTileC = gmBlockC[layoutBlockC.GetOffset(tileOffsetInBlock)];
             auto layoutGmTileC = layoutBlockC.GetTileLayout(actualTileShape);
 
-            auto &ubC = ubCList[ubListId];
+            auto& ubC = ubCList[ubListId];
             LayoutC layoutUbC{actualTileShape, ubTileStride};
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventUbCVMTE2List[ubListId]);
@@ -466,7 +419,7 @@ public:
             auto gmTileScale = gmScale[params.layoutScale.GetOffset(scaleTileOffset)];
             auto layoutGmTileScale = params.layoutScale.GetTileLayout(scaleTileShape);
 
-            auto &ubScale = ubScaleList[ubListId];
+            auto& ubScale = ubScaleList[ubListId];
             auto layoutUbScale = LayoutScale::template MakeLayoutInUb<ElementScale>(scaleTileShape);
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventUbScaleVMTE2List[ubListId]);
@@ -481,7 +434,7 @@ public:
             tileRowBroadcastMul(ubMul, ubCFp32, ubScale);
             AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(eventUbScaleVMTE2List[ubListId]);
 
-            auto &ubD = ubDList[ubListId];
+            auto& ubD = ubDList[ubListId];
             LayoutD layoutUbD{actualTileShape, ubTileStride};
 
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(eventUbDMTE3VList[ubListId]);
@@ -526,6 +479,6 @@ private:
     CopyUbToGmD copyUbToGmD;
 };
 
-}  // namespace Catlass::Epilogue::Block
+} // namespace Catlass::Epilogue::Block
 
-#endif  // CATLASS_EPILOGUE_BLOCK_PER_TENSOR_DEQUANT_HPP
+#endif // CATLASS_EPILOGUE_BLOCK_PER_TENSOR_DEQUANT_HPP

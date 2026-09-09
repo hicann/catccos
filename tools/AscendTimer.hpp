@@ -1,3 +1,4 @@
+
 #ifndef ASCEND_TIMER_COMMON_H
 #define ASCEND_TIMER_COMMON_H
 
@@ -18,27 +19,24 @@
 //        CSV 输出中自动出现 AIV_COMM_0, AIV_COMM_1, ...
 // ============================================================================
 
-namespace AscendTimer
-{
+namespace AscendTimer {
 
 // ======================== 固定计时项（整轮只记录一次） ========================
 //   典型用途：整个 Kernel 的总耗时
 //   添加格式：在列表末尾加一行  X(YOUR_NAME)
 #define ASCEND_TIMER_FIXED_LIST \
-    X(KERNEL_TIMING_IDX)    \
-    //继续添加
+    X(KERNEL_TIMING_IDX)        \
+    // 继续添加
 
-enum class FixedTiming : int
-{
-    #define X(name) name,
+enum class FixedTiming : int {
+#define X(name) name,
     ASCEND_TIMER_FIXED_LIST
-    #undef X
-    FIXED_TIMING_COUNT           // 哨兵，勿删
+#undef X
+        FIXED_TIMING_COUNT // 哨兵，勿删
 };
 
 #define X(name) name = FixedTiming::name,
-inline constexpr FixedTiming ASCEND_TIMER_FIXED_LIST
-    FIXED_TIMING_ALIAS_COUNT = FixedTiming::FIXED_TIMING_COUNT;
+inline constexpr FixedTiming ASCEND_TIMER_FIXED_LIST FIXED_TIMING_ALIAS_COUNT = FixedTiming::FIXED_TIMING_COUNT;
 #undef X
 inline constexpr int FIXED_TIMING_COUNT = static_cast<int>(FixedTiming::FIXED_TIMING_COUNT);
 
@@ -50,24 +48,23 @@ inline constexpr int FIXED_TIMING_COUNT = static_cast<int>(FixedTiming::FIXED_TI
 //     X(AIC)     → kernel 中 timer.Tik(AIC) / timer.Tok(AIC)，CSV 列名 AIC_0, AIC_1, ...
 //     X(AIV_RS)  → kernel 中 timer.Tik(AIV_RS) / timer.Tok(AIV_RS)，CSV 列名 AIV_RS_0, ...
 #define ASCEND_TIMER_DYNAMIC_LIST \
-    X(AIC)    \
-    X(AIV)    \
-    X(AIV_RS) \
-    X(AIV_AG) \
-    X(AIV_LOCAL_COPY) \
-    //继续添加
+    X(AIC)                        \
+    X(AIV)                        \
+    X(AIV_RS)                     \
+    X(AIV_AG)                     \
+    X(AIV_LOCAL_COPY)             \
+    // 继续添加
 
-enum class DynamicTimingType : int
-{
-    #define X(name) name,
+enum class DynamicTimingType : int {
+#define X(name) name,
     ASCEND_TIMER_DYNAMIC_LIST
-    #undef X
-    DYNAMIC_TYPE_COUNT_ENUM      // 哨兵，勿删
+#undef X
+        DYNAMIC_TYPE_COUNT_ENUM // 哨兵，勿删
 };
 
 #define X(name) name = DynamicTimingType::name,
-inline constexpr DynamicTimingType ASCEND_TIMER_DYNAMIC_LIST
-    DYNAMIC_TIMING_ALIAS_COUNT = DynamicTimingType::DYNAMIC_TYPE_COUNT_ENUM;
+inline constexpr DynamicTimingType ASCEND_TIMER_DYNAMIC_LIST DYNAMIC_TIMING_ALIAS_COUNT =
+    DynamicTimingType::DYNAMIC_TYPE_COUNT_ENUM;
 #undef X
 inline constexpr int DYNAMIC_TYPE_COUNT_ENUM = static_cast<int>(DynamicTimingType::DYNAMIC_TYPE_COUNT_ENUM);
 
@@ -81,9 +78,10 @@ inline constexpr int MAX_DYNAMIC_ITER = 150;
 
 // CPU端：对齐相关常量（128字节(16元素)对齐，避免多核写一个cache line）
 // 每核原始计数器数 = 固定项*2(START/END) + 动态类型*最大迭代*2(START/END)
-inline constexpr int N_TIMING_COUNTER_PER_CORE = FIXED_TIMING_COUNT * 2 + DYNAMIC_TYPE_COUNT_ENUM * MAX_DYNAMIC_ITER * 2;
+inline constexpr int N_TIMING_COUNTER_PER_CORE =
+    FIXED_TIMING_COUNT * 2 + DYNAMIC_TYPE_COUNT_ENUM * MAX_DYNAMIC_ITER * 2;
 inline constexpr int N_TIMING_COUNTER_PER_CORE_ALIGN = (N_TIMING_COUNTER_PER_CORE + 15) / 16 * 16;
-inline constexpr int N_CORE_COUNT = BLOCK_NUM * 3;                         // GetCoreNum 不可用时的兼容 fallback
+inline constexpr int N_CORE_COUNT = BLOCK_NUM * 3; // GetCoreNum 不可用时的兼容 fallback
 inline constexpr int N_TIMING_COUNTER = N_TIMING_COUNTER_PER_CORE_ALIGN * N_CORE_COUNT;
 
 inline int GetTimerCoreCount(int platformCoreNum)
@@ -119,14 +117,12 @@ inline int GetTotalBufferSize(int platformCoreNum)
 // ============================================================================
 #ifdef ENABLE_TIMER
 #define TIMER_BLOCK(code) \
-    do                    \
-    {                     \
-        code ;            \
+    do {                  \
+        code;             \
     } while (0)
 #else
 #define TIMER_BLOCK(code) \
-    do                    \
-    {                     \
+    do {                  \
     } while (0)
 #endif
 

@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -37,10 +38,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct Ascend950AllToAllVGroupedMatmulConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct Ascend950AllToAllVGroupedMatmulConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
     constexpr static uint32_t PRELOAD_STAGES = 1;
@@ -60,8 +61,8 @@ struct Ascend950AllToAllVGroupedMatmulConfig
 
     using TileCopy =
         Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                         ElementB, ElementC, void, TileCopy>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementC, void, TileCopy>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -71,8 +72,8 @@ struct Ascend950AllToAllVGroupedMatmulConfig
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      COPY_DIRECT, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, COPY_DIRECT, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using BlockComm =
@@ -88,8 +89,8 @@ struct Ascend950AllToAllVGroupedMatmulConfig
 
     using ProblemShape = DGemm::AllToAllVAllGatherProblemShape;
 
-    using Kernel = DGemm::Kernel::Ascend950AllToAllVGroupedMatmul<ProblemShape, BlockMmad, BlockComm,
-                                                                  BlockMmadScheduler, BlockScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::Ascend950AllToAllVGroupedMatmul<
+        ProblemShape, BlockMmad, BlockComm, BlockMmadScheduler, BlockScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };

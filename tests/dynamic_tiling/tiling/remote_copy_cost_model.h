@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -15,8 +16,7 @@
 
 #include "cost_model.h"
 
-struct RemoteCopyWindow
-{
+struct RemoteCopyWindow {
     uint64_t rows = 0;
     uint64_t columns = 0;
     uint64_t blockRows = 0;
@@ -35,11 +35,11 @@ struct RemoteCopyWindow
     uint32_t singleCoreOstd = 0;
 };
 
-double EstimateRemoteCopyWindowTime(RemoteCopyWindow const &window, CostModelHardwareConfig const &hardware);
+double EstimateRemoteCopyWindowTime(RemoteCopyWindow const& window, CostModelHardwareConfig const& hardware);
 
 double ApplyCommBlockM64Penalty(double cost, uint32_t commBlockM);
 
-double SimulateDoubleBufferPipeline(std::vector<double> const &producerTimes, std::vector<double> const &consumerTimes,
-                                    uint32_t stageCount);
+double SimulateDoubleBufferPipeline(
+    std::vector<double> const& producerTimes, std::vector<double> const& consumerTimes, uint32_t stageCount);
 
-#endif  // REMOTE_COPY_COST_MODEL_H
+#endif // REMOTE_COPY_COST_MODEL_H

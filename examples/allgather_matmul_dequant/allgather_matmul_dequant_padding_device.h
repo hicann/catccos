@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -39,8 +40,9 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
-          class ElementScale, class LayoutScale, uint32_t M0, uint32_t N0, uint32_t K0>
+template <
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
+    class ElementScale, class LayoutScale, uint32_t M0, uint32_t N0, uint32_t K0>
 CATLASS_DEVICE void AllGatherMatmulDequantPaddingImpl(
     Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape, GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB,
     LayoutB& layoutB, GM_ADDR gmD, LayoutD& layoutD, GM_ADDR gmScale, LayoutScale& layoutScale, uint32_t commInterval,
@@ -70,13 +72,13 @@ CATLASS_DEVICE void AllGatherMatmulDequantPaddingImpl(
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileSchedulerForAllgather = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockComm = Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy,
-                                             TileSchedulerForAllgather>;
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileSchedulerForAllgather>;
 
     constexpr uint32_t ubStages = 2;
     using EpilogueDispatchPolicy = Catccos::Comm::AtlasA2PerTensorDequant<ubStages>;
@@ -93,9 +95,8 @@ CATLASS_DEVICE void AllGatherMatmulDequantPaddingImpl(
     using BlockMmad =
         DGemm::Block::FixpipeBlockMmad<MmadDispatchPolicy, L1TileShape, L0TileShape, AType, ActualTypeB, DType>;
 
-    using AllGatherMatmulKernel =
-        DGemm::Kernel::AllGatherDequantMatmul<GlobalPaddingB, BlockMmad, BlockComm, BlockSchedulerForAllgather,
-                                              CommBlockScheduler, WORKSPACE_STAGES>;
+    using AllGatherMatmulKernel = DGemm::Kernel::AllGatherDequantMatmul<
+        GlobalPaddingB, BlockMmad, BlockComm, BlockSchedulerForAllgather, CommBlockScheduler, WORKSPACE_STAGES>;
 
     uint32_t rank = shmem_my_pe();
     uint32_t rankSize = shmem_n_pes();
@@ -117,39 +118,42 @@ CATLASS_DEVICE void AllGatherMatmulDequantPaddingImpl(
     matmulCommKernel(params);
 }
 
-template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
-          class ElementScale, class LayoutScale>
+template <
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
+    class ElementScale, class LayoutScale>
 CATLASS_DEVICE void AllGatherMatmulDequantPaddingImpl_M0_256(
     Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape, GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB,
     LayoutB& layoutB, GM_ADDR gmD, LayoutD& layoutD, GM_ADDR gmScale, LayoutScale& layoutScale, uint32_t commInterval,
     Catlass::MatrixCoord& commCoreSplit, Catlass::MatrixCoord& commBlockShape, Catlass::MatrixCoord& commTileShape,
     GM_ADDR gmWorkSpace, GM_ADDR symmetricPtr)
 {
-    AllGatherMatmulDequantPaddingImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale,
-                                      LayoutScale, 256, 128, 256>(
+    AllGatherMatmulDequantPaddingImpl<
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale, LayoutScale, 256, 128, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmD, layoutD, gmScale, layoutScale, commInterval,
         commCoreSplit, commBlockShape, commTileShape, gmWorkSpace, symmetricPtr);
 }
 
-template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
-          class ElementScale, class LayoutScale>
+template <
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
+    class ElementScale, class LayoutScale>
 CATLASS_DEVICE void AllGatherMatmulDequantPaddingImpl_M0_128(
     Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape, GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB,
     LayoutB& layoutB, GM_ADDR gmD, LayoutD& layoutD, GM_ADDR gmScale, LayoutScale& layoutScale, uint32_t commInterval,
     Catlass::MatrixCoord& commCoreSplit, Catlass::MatrixCoord& commBlockShape, Catlass::MatrixCoord& commTileShape,
     GM_ADDR gmWorkSpace, GM_ADDR symmetricPtr)
 {
-    AllGatherMatmulDequantPaddingImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale,
-                                      LayoutScale, 128, 256, 256>(
+    AllGatherMatmulDequantPaddingImpl<
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale, LayoutScale, 128, 256, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmD, layoutD, gmScale, layoutScale, commInterval,
         commCoreSplit, commBlockShape, commTileShape, gmWorkSpace, symmetricPtr);
 }
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD,
-          class ElementScale, class LayoutScale>
-CATLASS_GLOBAL void AllGatherMatmulDequantPadding(uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD,
-                                                  GM_ADDR gmScale, GM_ADDR gmWorkSpace, GM_ADDR symmetricPtr,
-                                                  CocTilingParams cocTiling)
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD, class ElementScale,
+    class LayoutScale>
+CATLASS_GLOBAL void AllGatherMatmulDequantPadding(
+    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD, GM_ADDR gmScale, GM_ADDR gmWorkSpace,
+    GM_ADDR symmetricPtr, CocTilingParams cocTiling)
 {
     AscendC::SetSyncBaseAddr(fftsAddr);
 
@@ -177,45 +181,36 @@ CATLASS_GLOBAL void AllGatherMatmulDequantPadding(uint64_t fftsAddr, GM_ADDR gmA
     Catlass::MatrixCoord commTileShape{commTileM / 2, k0};
 
     uint32_t strideA;
-    if constexpr (std::is_same_v<LayoutA, Catlass::layout::RowMajor>)
-    {
+    if constexpr (std::is_same_v<LayoutA, Catlass::layout::RowMajor>) {
         strideA = k;
-    }
-    else if constexpr (std::is_same_v<LayoutA, Catlass::layout::ColumnMajor>)
-    {
+    } else if constexpr (std::is_same_v<LayoutA, Catlass::layout::ColumnMajor>) {
         strideA = m;
     }
 
     uint32_t strideB;
-    if constexpr (std::is_same_v<LayoutB, Catlass::layout::RowMajor>)
-    {
+    if constexpr (std::is_same_v<LayoutB, Catlass::layout::RowMajor>) {
         strideB = n;
-    }
-    else if constexpr (std::is_same_v<LayoutB, Catlass::layout::ColumnMajor>)
-    {
+    } else if constexpr (std::is_same_v<LayoutB, Catlass::layout::ColumnMajor>) {
         strideB = k;
     }
 
     // Block level, Define the layout of each input matrix
-    LayoutA layoutA{m, k};             //->AG(rank_sz)-> {m*rank_sz, k}
-    LayoutB layoutB{k, n};             // weight
-    LayoutD layoutD{m * rankSize, n};  // c->dequant(s1{m*rank_sz}, s2{n}, {m*rank_sz, n})-> half({m*rank_sz, n})
-    LayoutScale layoutScale{n};        // perChannleScale
+    LayoutA layoutA{m, k};            //->AG(rank_sz)-> {m*rank_sz, k}
+    LayoutB layoutB{k, n};            // weight
+    LayoutD layoutD{m * rankSize, n}; // c->dequant(s1{m*rank_sz}, s2{n}, {m*rank_sz, n})-> half({m*rank_sz, n})
+    LayoutScale layoutScale{n};       // perChannleScale
 
-    if (m0 == 128)
-    {
-        AllGatherMatmulDequantPaddingImpl_M0_128<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD,
-                                                 ElementScale, LayoutScale>(
+    if (m0 == 128) {
+        AllGatherMatmulDequantPaddingImpl_M0_128<
+            ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale, LayoutScale>(
             problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmD, layoutD, gmScale, layoutScale, commInterval,
             commCoreSplit, commBlockShape, commTileShape, gmWorkSpace, symmetricPtr);
-    }
-    else
-    {
-        AllGatherMatmulDequantPaddingImpl_M0_256<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD,
-                                                 ElementScale, LayoutScale>(
+    } else {
+        AllGatherMatmulDequantPaddingImpl_M0_256<
+            ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale, LayoutScale>(
             problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmD, layoutD, gmScale, layoutScale, commInterval,
             commCoreSplit, commBlockShape, commTileShape, gmWorkSpace, symmetricPtr);
     }
 }
 
-#endif  // ALLGATHER_MATMUL_DEQUANT_PADDING_KERNEL_H
+#endif // ALLGATHER_MATMUL_DEQUANT_PADDING_KERNEL_H

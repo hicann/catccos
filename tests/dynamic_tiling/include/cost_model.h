@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -17,16 +18,14 @@
 
 #include "info.h"
 
-enum class CostModelStatus
-{
+enum class CostModelStatus {
     SUCCESS,
     UNSUPPORTED,
     INVALID_ARGUMENT,
     NO_VALID_CANDIDATE,
 };
 
-enum class CostModelHardwareType
-{
+enum class CostModelHardwareType {
     A2,
     A3,
     A5,
@@ -34,14 +33,12 @@ enum class CostModelHardwareType
 
 CostModelHardwareType GetCostModelHardwareType(CocCommType type);
 
-struct MTECacheConfig
-{
+struct MTECacheConfig {
     double readRttNs;
     double requestIntervalNs;
 };
 
-struct CostModelHardwareConfig
-{
+struct CostModelHardwareConfig {
     uint32_t coreNum = 20;
     double writeRttNs = 123.0;
     double remoteReadScheduleNs = 20.0;
@@ -62,8 +59,7 @@ struct CostModelHardwareConfig
     double fullCoreHitEfficiency = 0.8;
 };
 
-struct CostModelTiling
-{
+struct CostModelTiling {
     uint32_t m0 = 0;
     uint32_t k0 = 0;
     uint32_t n0 = 0;
@@ -74,14 +70,12 @@ struct CostModelTiling
     uint32_t commBlockM = 0;
 };
 
-struct CostModelSplitCandidate
-{
+struct CostModelSplitCandidate {
     uint32_t commNpuSplit;
     uint32_t commDataSplit;
 };
 
-struct CostModelConfig
-{
+struct CostModelConfig {
     std::vector<uint32_t> commIntervalList{1, 2, 4, 6, 8, 10, 12, 14};
     std::vector<uint32_t> commTileList{2, 4, 8, 16, 32, 64};
     std::vector<uint32_t> m0List{128, 256};
@@ -100,15 +94,14 @@ struct CostModelConfig
     bool allGatherBarrierPerLoop = false;
     // Optional runtime AIC core count. 0 keeps the hardware default.
     uint32_t aicCoreNum = 0;
-    std::function<bool(CostModelTiling const &)> tilingValidator;
+    std::function<bool(CostModelTiling const&)> tilingValidator;
 
-    bool IsCandidateValid(CostModelTiling const &tiling) const { return !tilingValidator || tilingValidator(tiling); }
+    bool IsCandidateValid(CostModelTiling const& tiling) const { return !tilingValidator || tilingValidator(tiling); }
 };
 
-void ConfigureCostModelConfig(CocCommType type, CostModelConfig &config);
+void ConfigureCostModelConfig(CocCommType type, CostModelConfig& config);
 
-struct CostModelResult
-{
+struct CostModelResult {
     CostModelTiling tiling{};
     double cost = std::numeric_limits<double>::max();
     CostModelStatus status = CostModelStatus::UNSUPPORTED;
@@ -116,30 +109,31 @@ struct CostModelResult
     bool IsSuccess() const { return status == CostModelStatus::SUCCESS; }
 };
 
-CostModelStatus GetA2CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig &hardware);
+CostModelStatus GetA2CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig& hardware);
 
-CostModelStatus GetA3CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig &hardware);
+CostModelStatus GetA3CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig& hardware);
 
-CostModelStatus GetA5CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig &hardware);
+CostModelStatus GetA5CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig& hardware);
 
-CostModelStatus GetCostModelHardwareConfig(CostModelHardwareType hardwareType, CocDataType dataType,
-                                           CostModelHardwareConfig &hardware);
+CostModelStatus GetCostModelHardwareConfig(
+    CostModelHardwareType hardwareType, CocDataType dataType, CostModelHardwareConfig& hardware);
 
-CostModelStatus GetCostModelHardwareConfig(CostModelConfig const &config, CostModelHardwareConfig &hardware);
+CostModelStatus GetCostModelHardwareConfig(CostModelConfig const& config, CostModelHardwareConfig& hardware);
 
-CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t rankSize,
-                                          CostModelConfig const &config = CostModelConfig{});
+CostModelResult SelectReduceScatterTiling(
+    COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config = CostModelConfig{});
 
-CostModelResult SelectAllGatherTiling(COCMatMulInfo const &info, uint32_t rankSize,
-                                      CostModelConfig const &config = CostModelConfig{});
+CostModelResult SelectAllGatherTiling(
+    COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config = CostModelConfig{});
 
-CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSize,
-                                      CostModelConfig const &config = CostModelConfig{});
+CostModelResult SelectAllReduceTiling(
+    COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config = CostModelConfig{});
 
-CostModelResult SelectCostModelTiling(COCMatMulInfo const &info, CocCommType type, uint32_t rankSize,
-                                      CostModelConfig const &config = CostModelConfig{});
+CostModelResult SelectCostModelTiling(
+    COCMatMulInfo const& info, CocCommType type, uint32_t rankSize, CostModelConfig const& config = CostModelConfig{});
 
-bool ApplyCostModel(COCMatMulInfo const &info, CocCommType type, uint32_t rankSize, CocTilingParams &tiling,
-                    CostModelConfig const &config = CostModelConfig{});
+bool ApplyCostModel(
+    COCMatMulInfo const& info, CocCommType type, uint32_t rankSize, CocTilingParams& tiling,
+    CostModelConfig const& config = CostModelConfig{});
 
-#endif  // COST_MODEL_H
+#endif // COST_MODEL_H

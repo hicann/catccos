@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -29,51 +30,42 @@ using namespace Catlass;
 ACLSHMEM_DEVICE void cube_guard()
 {
     using namespace AscendC;
- 
+
 #ifdef __DAV_C220_CUBE__
     LocalTensor<float> result;
     result.address_.logicPos = (uint8_t)TPosition::CO1;
     result.InitBuffer(0, 256);
-    
+
     LocalTensor<half> left;
     left.address_.logicPos = (uint8_t)TPosition::A2;
     left.InitBuffer(0, 256);
- 
+
     LocalTensor<half> right;
     right.address_.logicPos = (uint8_t)TPosition::B2;
     right.InitBuffer(0, 256);
- 
+
     MmadParams param;
     param.m = 16;
     param.n = 16;
     param.k = 16;
- 
+
     Mmad<float, half, half>(result, left, right, param);
 #endif
 }
 
 namespace Catccos::DGemm::Kernel {
 
-template <
-    class MatmulKernel
->
+template <class MatmulKernel>
 struct GmmAllToAllVEmptyCallBack {
     CATLASS_DEVICE
-    void operator()() const
-    {
-    }
+    void operator()() const {}
 
-    MatmulKernel *ptr;
+    MatmulKernel* ptr;
 };
 
 template <
-    class BlockMmad_,
-    class BlockScheduler_,
-    class ElementGroupList_,
-    class LocalCopyBlockEpilogue_,
-    class RemoteCommBlockEpilogue_,
-    class BlockEpilogueScheduler_
->
+    class BlockMmad_, class BlockScheduler_, class ElementGroupList_, class LocalCopyBlockEpilogue_,
+    class RemoteCommBlockEpilogue_, class BlockEpilogueScheduler_>
 class GMMAlltoallvKernel {
 public:
     using BlockMmad = BlockMmad_;
@@ -90,7 +82,7 @@ public:
 
     using LocalCopyBlockEpilogue = LocalCopyBlockEpilogue_;
     using RemoteCommBlockEpilogue = RemoteCommBlockEpilogue_;
-    
+
     using BlockEpilogueScheduler = BlockEpilogueScheduler_;
 
     using LocalCopyParams = typename LocalCopyBlockEpilogue::Params;
@@ -100,9 +92,9 @@ public:
 
     struct Params {
         GemmCoord problemShape;
-        __gm__ ElementA *ptrA;
-        __gm__ ElementB *ptrB;
-        __gm__ ElementC *ptrC;
+        __gm__ ElementA* ptrA;
+        __gm__ ElementB* ptrB;
+        __gm__ ElementC* ptrC;
         LayoutA layoutA;
         LayoutB layoutB;
         LayoutC layoutC;
@@ -125,31 +117,31 @@ public:
 
         CATLASS_DEVICE
         Params(
-            GemmCoord problemShape_,
-            uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_,
-            uint32_t rank_, uint32_t rankSize_,
-            GM_ADDR ptrTokenPerExpert_,
-            GM_ADDR ptrA_, LayoutA layoutA_,
-            GM_ADDR ptrB_, LayoutB layoutB_,
-            GM_ADDR ptrC_, LayoutC layoutC_,
-            GM_ADDR ptrWorkspace_, GM_ADDR symmetricPtr_, 
+            GemmCoord problemShape_, uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_, uint32_t rank_,
+            uint32_t rankSize_, GM_ADDR ptrTokenPerExpert_, GM_ADDR ptrA_, LayoutA layoutA_, GM_ADDR ptrB_,
+            LayoutB layoutB_, GM_ADDR ptrC_, LayoutC layoutC_, GM_ADDR ptrWorkspace_, GM_ADDR symmetricPtr_,
             LocalCopyParams localCopyParams_, RemoteCommParams remoteCommParams_,
-            const Callback &callback_ = Callback{},
-            int32_t syncInterval_ = INT_MAX
-        ) : problemShape(problemShape_),
-            EP(EP_), expertPerRank(expertPerRank_), maxOutputSize(maxOutputSize_),
-            rank(rank_), rankSize(rankSize_),
-            ptrTokenPerExpert(reinterpret_cast<__gm__ int32_t *>(ptrTokenPerExpert_)),
-            ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
-            ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
-            ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
-            ptrWorkspace(ptrWorkspace_), symmetricPtr(symmetricPtr_),
-            localCopyParams(localCopyParams_),
-            remoteCommParams(remoteCommParams_),
-            callback(callback_),
-            syncInterval(syncInterval_)
-        {
-        }
+            const Callback& callback_ = Callback{}, int32_t syncInterval_ = INT_MAX)
+            : problemShape(problemShape_),
+              EP(EP_),
+              expertPerRank(expertPerRank_),
+              maxOutputSize(maxOutputSize_),
+              rank(rank_),
+              rankSize(rankSize_),
+              ptrTokenPerExpert(reinterpret_cast<__gm__ int32_t*>(ptrTokenPerExpert_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
+              layoutA(layoutA_),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
+              layoutB(layoutB_),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
+              layoutC(layoutC_),
+              ptrWorkspace(ptrWorkspace_),
+              symmetricPtr(symmetricPtr_),
+              localCopyParams(localCopyParams_),
+              remoteCommParams(remoteCommParams_),
+              callback(callback_),
+              syncInterval(syncInterval_)
+        {}
     };
 
     struct WorkspaceInfo {
@@ -157,7 +149,8 @@ public:
         GM_ADDR ptrcumsumMM;
 
         CATLASS_DEVICE
-        WorkspaceInfo(const Params & params) {
+        WorkspaceInfo(const Params& params)
+        {
             ptrTempOut = params.ptrWorkspace;
             ptrcumsumMM = params.ptrWorkspace + params.maxOutputSize * params.problemShape.n() * sizeof(ElementC);
         }
@@ -165,30 +158,27 @@ public:
 
     CATLASS_DEVICE
     GMMAlltoallvKernel()
-    {   
+    {
         flagAivFinishCumsum = Catlass::Arch::CrossCoreFlag(0);
         flagAivFinishStore = Catlass::Arch::CrossCoreFlag(4);
-        
     }
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource);
+    CATLASS_DEVICE void operator()(Params const& params, Catlass::Arch::Resource<ArchTag> resource);
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIC>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
         WorkspaceInfo workspaceInfo(params);
 
         AscendC::GlobalTensor<ElementA> gmA;
-        gmA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrA));
+        gmA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrA));
         AscendC::GlobalTensor<ElementB> gmB;
         gmB.SetGlobalBuffer(params.ptrB);
         AscendC::GlobalTensor<ElementC> gmWorkspace;
-        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrWorkspace));
+        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC*>(params.ptrWorkspace));
 
         AscendC::GlobalTensor<int32_t> tokenPerExpert;
         tokenPerExpert.SetGlobalBuffer(params.ptrTokenPerExpert);
@@ -225,7 +215,7 @@ public:
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
             if (groupIdx % params.syncInterval == 0) {
-                params.callback();     // GMM2等swigluquant-2
+                params.callback(); // GMM2等swigluquant-2
             }
 
             for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
@@ -243,11 +233,8 @@ public:
                 int64_t gmOffsetC = layoutC.GetOffset(offsetC);
                 if (currentM > 0) {
                     blockMmad(
-                            gmA[gmGroupOffsetA + gmOffsetA], layoutA,
-                            gmB[gmGroupOffsetB + gmOffsetB], layoutB,
-                            gmWorkspace[gmGroupOffsetC + gmOffsetC], layoutC,
-                            actualBlockShape
-                        );
+                        gmA[gmGroupOffsetA + gmOffsetA], layoutA, gmB[gmGroupOffsetB + gmOffsetB], layoutB,
+                        gmWorkspace[gmGroupOffsetC + gmOffsetC], layoutC, actualBlockShape);
                 }
             }
             if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
@@ -266,13 +253,12 @@ public:
     }
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIV>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         BlockScheduler blockScheduler;
         int32_t syncLoopIdx = 0;
         uint32_t startCoreIdx = 0;
-        uint32_t coreIdx = get_block_idx() + get_subblockid() * get_block_num(); 
+        uint32_t coreIdx = get_block_idx() + get_subblockid() * get_block_num();
         uint32_t coreNum = get_block_num() * get_subblockdim();
         uint32_t aicCoreNum = coreNum / 2;
         uint32_t aicCoreIdx = get_block_idx();
@@ -284,34 +270,25 @@ public:
         WorkspaceInfo workspaceInfo(params);
 
         AscendC::GlobalTensor<ElementC> gmWorkspace;
-        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrWorkspace));
+        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC*>(params.ptrWorkspace));
         AscendC::GlobalTensor<ElementC> gmC;
-        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrC));
+        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC*>(params.ptrC));
         AscendC::GlobalTensor<int32_t> tokenPerExpert;
         tokenPerExpert.SetGlobalBuffer(params.ptrTokenPerExpert);
         AscendC::GlobalTensor<int32_t> cumsumMM;
         cumsumMM.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(workspaceInfo.ptrcumsumMM));
         AscendC::GlobalTensor<ElementC> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.symmetricPtr));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.symmetricPtr));
         BlockEpilogueScheduler blockEpilogueScheduler(
-            params.rank,
-            params.rankSize,
-            params.expertPerRank,
-            params.EP,
-            params.problemShape,
-            coreIdx,
-            coreNum,
-            tokenPerExpert,
-            cumsumMM,
-            resource
-        );
+            params.rank, params.rankSize, params.expertPerRank, params.EP, params.problemShape, coreIdx, coreNum,
+            tokenPerExpert, cumsumMM, resource);
 
         uint32_t commLoops = blockEpilogueScheduler.GetCommLoops();
         auto remapperSrc = blockEpilogueScheduler.GetRemapperSrc();
         for (int32_t localExpertIdx = 0; localExpertIdx < params.expertPerRank; ++localExpertIdx) {
             blockEpilogueScheduler.UpdateLocalExpertIdx(localExpertIdx);
-            AscendC::CrossCoreWaitFlag<0x2>(1); // AIV等AIC，等待GMM2完成
-            AscendC::SyncAll<true>(); // 等所有的AIC核都执行完
+            AscendC::CrossCoreWaitFlag<0x2>(1);                         // AIV等AIC，等待GMM2完成
+            AscendC::SyncAll<true>();                                   // 等所有的AIC核都执行完
             for (int32_t commIdx = 0; commIdx < commLoops; commIdx++) { // 每个core负责一个dstEP
                 auto blockOffset = blockEpilogueScheduler.GetBlockOffset(commIdx);
                 auto blockOffsetSrc = remapperSrc(blockOffset); // 获取src地址
@@ -324,19 +301,13 @@ public:
                 auto gmBlockDst = gmSymmetric[params.layoutC.GetOffset(blockOffsetDst)];
 
                 auto actualBlockShape = blockEpilogueScheduler.RemapActualBlockShape(blockOffset, remapperSrc);
-                
+
                 auto layoutBlockSrc = params.layoutC.GetTileLayout(actualBlockShape);
                 auto layoutBlockDst = params.layoutC.GetTileLayout(actualBlockShape);
 
                 remoteCommBlockEpilogue.InitBlockLoop();
                 remoteCommBlockEpilogue(
-                    gmBlockSrc,
-                    layoutBlockSrc,
-                    gmBlockDst,
-                    layoutBlockDst,
-                    actualBlockShape,
-                    dstEpIdx
-                );
+                    gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualBlockShape, dstEpIdx);
                 remoteCommBlockEpilogue.FinalizeBlockLoop();
 
                 blockEpilogueScheduler.UpdateSrcPrevSum(actualBlockShape.row()); // 维护当前`dst`的起始位置
@@ -345,7 +316,7 @@ public:
         }
 
         shmemx_barrier_all_vec(); // 等所有的AIV核都执行完再进行搬运
-        
+
         // ========= 搬运shmem到C矩阵 start =========
         if (params.ptrC != nullptr) {
             uint32_t rowsToCopy = params.problemShape.m() / coreNum;
@@ -365,13 +336,7 @@ public:
                 auto layoutBlockDst = params.layoutC.GetTileLayout(actualBlockShape);
 
                 localCopyBlockEpilogue.InitBlockLoop();
-                localCopyBlockEpilogue(
-                    blockSrc, 
-                    layoutBlockSrc,
-                    blockDst, 
-                    layoutBlockDst,
-                    actualBlockShape
-                );
+                localCopyBlockEpilogue(blockSrc, layoutBlockSrc, blockDst, layoutBlockDst, actualBlockShape);
                 localCopyBlockEpilogue.FinalizeBlockLoop();
             }
             shmemx_barrier_all_vec();
@@ -383,6 +348,6 @@ private:
     Catlass::Arch::CrossCoreFlag flagAivFinishCumsum;
     Catlass::Arch::CrossCoreFlag flagAivFinishStore;
 };
-}
+} // namespace Catccos::DGemm::Kernel
 
 #endif

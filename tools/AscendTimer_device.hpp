@@ -1,3 +1,4 @@
+
 /*
  * 昇腾 NPU 设备端高精度打点计时器 (AscendTimerDevice)
  * 作用：用于在 AIC/AIV 算子执行期间，精确记录各阶段的 System Cycle 并写回 Global Memory。
@@ -19,18 +20,17 @@ struct AccumulateTag_ {};
 typedef struct OverwriteTag_ Overwrite;
 struct OverwriteTag_ {};
 
-class AscendTimerDevice
-{
+class AscendTimerDevice {
 public:
     // ========== 2. 成员变量 ==========
-    GM_ADDR t_addr;                                                 // 指向全局计时缓冲区的 GM 地址 (Host 侧分配)
-    int64_t start_cycle;                                            // 基础计时段的起点 (GetSystemCycle)
-    int64_t dynamic_start_cycles[AscendTimer::DYNAMIC_TYPE_COUNT];  // 每个动态类型的专属起点数组
-    int16_t iter_counters[AscendTimer::DYNAMIC_TYPE_COUNT];         // 记录各动态类型当前的迭代次数
+    GM_ADDR t_addr;      // 指向全局计时缓冲区的 GM 地址 (Host 侧分配)
+    int64_t start_cycle; // 基础计时段的起点 (GetSystemCycle)
+    int64_t dynamic_start_cycles[AscendTimer::DYNAMIC_TYPE_COUNT]; // 每个动态类型的专属起点数组
+    int16_t iter_counters[AscendTimer::DYNAMIC_TYPE_COUNT];        // 记录各动态类型当前的迭代次数
 
     // 用于 start/end 存储的索引
-    int32_t last_timing_idx;                                        // 最近一次 Tik 计算的 timing_idx
-    bool type_valid[AscendTimer::DYNAMIC_TYPE_COUNT];               // 校验配对
+    int32_t last_timing_idx;                          // 最近一次 Tik 计算的 timing_idx
+    bool type_valid[AscendTimer::DYNAMIC_TYPE_COUNT]; // 校验配对
 
     // 核心身份标识
     int block_id;   // 当前 Block 索引
@@ -59,7 +59,7 @@ public:
         for (int i = 0; i < AscendTimer::DYNAMIC_TYPE_COUNT; i++) {
             iter_counters[i] = 0;
             dynamic_start_cycles[i] = 0;
-            type_valid[i] = false;  // 初始化每个类型的有效位
+            type_valid[i] = false; // 初始化每个类型的有效位
         }
     }
 
@@ -69,7 +69,7 @@ public:
     }
 
     // ========== 4. 拷贝构造 ==========
-    __aicore__ inline AscendTimerDevice(const AscendTimerDevice &other)
+    __aicore__ inline AscendTimerDevice(const AscendTimerDevice& other)
     {
         t_addr = other.t_addr;
         start_cycle = other.start_cycle;
@@ -97,14 +97,11 @@ public:
         last_timing_idx = 0;
 
         // 异构核心身份计算
-        if ASCEND_IS_AIV
-        {
+        if ASCEND_IS_AIV {
             group_id = group_id / r;
             subblockid = AscendC::GetSubBlockIdx();
             core_id = group_id * 3 + subblockid + 1;
-        }
-        else
-        {
+        } else {
             subblockid = 0;
             core_id = group_id * 3;
         }
@@ -142,21 +139,15 @@ public:
         int32_t adjusted_idx = calculate_index(timing_idx);
         if (adjusted_idx > 0 || timing_idx == 0) {
             AscendC::GlobalTensor<int64_t> timeTensor;
-            timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
-            timeTensor(adjusted_idx) = 0;       // 清空 start 槽位
-            timeTensor(adjusted_idx + 1) = 0;   // 清空 end 槽位
+            timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
+            timeTensor(adjusted_idx) = 0;     // 清空 start 槽位
+            timeTensor(adjusted_idx + 1) = 0; // 清空 end 槽位
         }
     }
 
-    __aicore__ __inline__ void zero(AscendTimer::FixedTiming timing_idx)
-    {
-        zero(static_cast<int32_t>(timing_idx));
-    }
+    __aicore__ __inline__ void zero(AscendTimer::FixedTiming timing_idx) { zero(static_cast<int32_t>(timing_idx)); }
 
-    __aicore__ __inline__ void zero()
-    {
-        zero(AscendTimer::KERNEL_TIMING_IDX);
-    }
+    __aicore__ __inline__ void zero() { zero(AscendTimer::KERNEL_TIMING_IDX); }
 
     __aicore__ __inline__ void zeroDynamicActualIterAll()
     {
@@ -167,10 +158,11 @@ public:
 
         for (int type = 0; type < AscendTimer::DYNAMIC_TYPE_COUNT; ++type) {
             int32_t idx = coreOffset + type;
-            if (idx >= total_buffer_size) break;
+            if (idx >= total_buffer_size)
+                break;
 
             AscendC::GlobalTensor<int64_t> iterTensor;
-            iterTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+            iterTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
             iterTensor(idx) = 0;
         }
     }
@@ -182,10 +174,7 @@ public:
         start_cycle = AscendC::GetSystemCycle();
     }
 
-    __aicore__ __inline__ void Tik(int64_t start)
-    {
-        start_cycle = start;
-    }
+    __aicore__ __inline__ void Tik(int64_t start) { start_cycle = start; }
 
     // 动态类型 Tik
     __aicore__ __inline__ void Tik(AscendTimer::DynamicTimingType type)
@@ -202,7 +191,7 @@ public:
         int32_t adjusted_idx = calculate_index(timing_idx);
         if (adjusted_idx > 0 || timing_idx == 0) {
             AscendC::GlobalTensor<int64_t> timeTensor;
-            timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+            timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
             timeTensor(adjusted_idx) = start_ts;
         }
         dynamic_start_cycles[(int)type] = start_ts;
@@ -223,7 +212,7 @@ public:
         }
 
         AscendC::GlobalTensor<int64_t> timeTensor;
-        timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+        timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
 
         if constexpr (std::is_same_v<ModeTag, Accumulate>) {
             int64_t current_start = timeTensor(adjusted_idx);
@@ -260,7 +249,8 @@ public:
     template <typename ModeTag = Overwrite>
     __aicore__ __inline__ void Tok(AscendTimer::DynamicTimingType type)
     {
-        if (!type_valid[(int)type]) return;
+        if (!type_valid[(int)type])
+            return;
 
         AscendC::PipeBarrier<PIPE_ALL>();
         int64_t end_cycle = AscendC::GetSystemCycle();
@@ -278,9 +268,9 @@ public:
             int32_t adjusted_idx = calculate_index(timing_idx);
             if (adjusted_idx > 0 || timing_idx == 0) {
                 AscendC::GlobalTensor<int64_t> timeTensor;
-                timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+                timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
                 if (current_iter == 0) {
-                    timeTensor(adjusted_idx)     = 0;       // 强行把起点设为 0
+                    timeTensor(adjusted_idx) = 0;           // 强行把起点设为 0
                     timeTensor(adjusted_idx + 1) = elapsed; // 终点直接填本次耗时
                 } else {
                     int64_t current_sum = timeTensor(adjusted_idx + 1);
@@ -292,7 +282,7 @@ public:
             int32_t iter_idx = timing_counter_size + core_id * AscendTimer::DYNAMIC_ITER_PER_CORE_ALIGN + (int)type;
             if (iter_idx < total_buffer_size) {
                 AscendC::GlobalTensor<int64_t> iterTensor;
-                iterTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+                iterTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
                 iterTensor(iter_idx) = -(current_iter + 1);
             }
         } else {
@@ -300,7 +290,7 @@ public:
             int32_t adjusted_idx = calculate_index(timing_idx);
             if (adjusted_idx > 0 || timing_idx == 0) {
                 AscendC::GlobalTensor<int64_t> timeTensor;
-                timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+                timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
                 timeTensor(adjusted_idx + 1) = end_cycle;
             }
 
@@ -308,7 +298,7 @@ public:
             int32_t iter_idx = timing_counter_size + core_id * AscendTimer::DYNAMIC_ITER_PER_CORE_ALIGN + (int)type;
             if (iter_idx < total_buffer_size) {
                 AscendC::GlobalTensor<int64_t> iterTensor;
-                iterTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+                iterTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
                 iterTensor(iter_idx) = current_iter + 1;
             }
         }
@@ -319,8 +309,9 @@ public:
     // ========== 10. 调试信息 ==========
     __aicore__ __inline__ void print()
     {
-        AscendC::printf("AscendTimer: core_id=%d, block_id=%d, group_id=%d, subblockid=%d, t_addr=%p\n",
-                        core_id, block_id, group_id, subblockid, t_addr);
+        AscendC::printf(
+            "AscendTimer: core_id=%d, block_id=%d, group_id=%d, subblockid=%d, t_addr=%p\n", core_id, block_id,
+            group_id, subblockid, t_addr);
     }
 
 private:
@@ -329,15 +320,14 @@ private:
     // 计算当前核心在 Global Memory 中的实际偏移量
     __aicore__ __inline__ int32_t calculate_index(int32_t idx)
     {
-        if (idx * 2 >= AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN) return 0;
+        if (idx * 2 >= AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN)
+            return 0;
 
         int32_t base_element_offset = 0;
-        if ASCEND_IS_AIV
-        {
-            base_element_offset = group_id * AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN * 3 + AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN * (1 + subblockid);
-        }
-        else
-        {
+        if ASCEND_IS_AIV {
+            base_element_offset = group_id * AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN * 3 +
+                                  AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN * (1 + subblockid);
+        } else {
             base_element_offset = group_id * AscendTimer::N_TIMING_COUNTER_PER_CORE_ALIGN * 3;
         }
 
@@ -349,7 +339,7 @@ private:
     {
         int32_t adjusted_idx = calculate_index(idx);
         AscendC::GlobalTensor<int64_t> timeTensor;
-        timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+        timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
         timeTensor(adjusted_idx) += time;
     }
 
@@ -357,7 +347,7 @@ private:
     {
         int32_t adjusted_idx = calculate_index(idx);
         AscendC::GlobalTensor<int64_t> timeTensor;
-        timeTensor.SetGlobalBuffer((__gm__ int64_t *)t_addr);
+        timeTensor.SetGlobalBuffer((__gm__ int64_t*)t_addr);
         timeTensor(adjusted_idx) = time;
     }
 };

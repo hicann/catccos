@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -31,7 +32,7 @@ constexpr int64_t FLAG_UNIT_INT_NUM = 4;
 constexpr int64_t SYNC_UNIT_SIZE = FLAG_UNIT_INT_NUM * sizeof(int64_t);
 
 CATLASS_DEVICE
-void SetRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t flag)
+void SetRankFlag(__ubuf__ int32_t* ctrlFlagsUB, __gm__ int32_t* buff, int64_t flag)
 {
     AscendC::SetFlag<AscendC::HardEvent::MTE3_S>(EVENT_ID2);
     AscendC::WaitFlag<AscendC::HardEvent::MTE3_S>(EVENT_ID2);
@@ -39,7 +40,7 @@ void SetRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t fl
     AscendC::WaitFlag<AscendC::HardEvent::MTE2_S>(EVENT_ID2);
 
     AscendC::GlobalTensor<int64_t> gmTensor;
-    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t *>(buff), FLAG_UNIT_INT_NUM);
+    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(buff), FLAG_UNIT_INT_NUM);
 
     AscendC::LocalTensor<int64_t> ubTensor;
     AscendC::TBuffAddr ubAddr;
@@ -56,7 +57,7 @@ void SetRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t fl
 }
 
 CATLASS_DEVICE
-void SetRemoteRankFlag(__gm__ int32_t *buff, int64_t flag, uint32_t peerIdx)
+void SetRemoteRankFlag(__gm__ int32_t* buff, int64_t flag, uint32_t peerIdx)
 {
     AscendC::LocalTensor<uint32_t> ubLocal32;
     ubLocal32.address_.logicPos = static_cast<uint8_t>(AscendC::TPosition::VECOUT);
@@ -68,14 +69,16 @@ void SetRemoteRankFlag(__gm__ int32_t *buff, int64_t flag, uint32_t peerIdx)
     ubLocal64.address_.dataLen = UB_ALIGN_SIZE;
 
     AscendC::GlobalTensor<int64_t> gmTensor;
-    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t *>(buff), FLAG_UNIT_INT_NUM);
+    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(buff), FLAG_UNIT_INT_NUM);
 
-    auto ptr = shmem_ptr((__gm__ void *)gmTensor.GetPhyAddr(), peerIdx);
-    aclshmemi_roce_write((__gm__ uint8_t*)ptr, (__gm__ uint8_t*)(gmTensor.GetPhyAddr()), peerIdx, 0, FLAG_UNIT_INT_NUM, ubLocal64, ubLocal32, 0);
+    auto ptr = shmem_ptr((__gm__ void*)gmTensor.GetPhyAddr(), peerIdx);
+    aclshmemi_roce_write(
+        (__gm__ uint8_t*)ptr, (__gm__ uint8_t*)(gmTensor.GetPhyAddr()), peerIdx, 0, FLAG_UNIT_INT_NUM, ubLocal64,
+        ubLocal32, 0);
 }
 
 CATLASS_DEVICE
-void CheckRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t flag)
+void CheckRankFlag(__ubuf__ int32_t* ctrlFlagsUB, __gm__ int32_t* buff, int64_t flag)
 {
     AscendC::LocalTensor<int64_t> ubTensor;
     AscendC::TBuffAddr ubAddr;
@@ -83,7 +86,7 @@ void CheckRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t 
     ubAddr.bufferAddr = reinterpret_cast<int64_t>(ctrlFlagsUB);
     ubTensor.SetAddr(ubAddr);
     AscendC::GlobalTensor<int64_t> gmTensor;
-    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t *>(buff));
+    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(buff));
     bool isSync = false;
     do {
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -98,7 +101,7 @@ void CheckRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t 
 }
 
 CATLASS_DEVICE
-void CheckRemoteRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t flag, uint32_t peerIdx)
+void CheckRemoteRankFlag(__ubuf__ int32_t* ctrlFlagsUB, __gm__ int32_t* buff, int64_t flag, uint32_t peerIdx)
 {
     AscendC::LocalTensor<uint32_t> ubLocal32;
     ubLocal32.address_.logicPos = static_cast<uint8_t>(AscendC::TPosition::VECOUT);
@@ -116,13 +119,15 @@ void CheckRemoteRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, in
     ubTensor.SetAddr(ubAddr);
 
     AscendC::GlobalTensor<int64_t> gmTensor;
-    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t *>(buff));
+    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(buff));
 
     bool isSync = false;
     do {
         AscendC::PipeBarrier<PIPE_ALL>();
-        auto ptr = shmem_ptr((__gm__ void *)gmTensor.GetPhyAddr(), peerIdx);
-        aclshmemi_roce_read((__gm__ uint8_t*)(gmTensor.GetPhyAddr()), (__gm__ uint8_t*)ptr, peerIdx, 0, FLAG_UNIT_INT_NUM, ubLocal64, ubLocal32, 0);
+        auto ptr = shmem_ptr((__gm__ void*)gmTensor.GetPhyAddr(), peerIdx);
+        aclshmemi_roce_read(
+            (__gm__ uint8_t*)(gmTensor.GetPhyAddr()), (__gm__ uint8_t*)ptr, peerIdx, 0, FLAG_UNIT_INT_NUM, ubLocal64,
+            ubLocal32, 0);
         AscendC::PipeBarrier<PIPE_ALL>();
         AscendC::DataCopy(ubTensor, gmTensor, FLAG_UNIT_INT_NUM);
         AscendC::SetFlag<AscendC::HardEvent::MTE2_S>(EVENT_ID3);
@@ -135,15 +140,16 @@ void CheckRemoteRankFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, in
 }
 
 CATLASS_DEVICE
-void CheckRankOverFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int64_t flag)
+void CheckRankOverFlag(__ubuf__ int32_t* ctrlFlagsUB, __gm__ int32_t* buff, int64_t flag)
 {
     AscendC::LocalTensor<int64_t> ubTensor;
     AscendC::TBuffAddr ubAddr;
     ubAddr.logicPos = static_cast<uint8_t>(AscendC::TPosition::VECIN);
-    ubAddr.bufferAddr = reinterpret_cast<int64_t>(ctrlFlagsUB);;
+    ubAddr.bufferAddr = reinterpret_cast<int64_t>(ctrlFlagsUB);
+    ;
     ubTensor.SetAddr(ubAddr);
     AscendC::GlobalTensor<int64_t> gmTensor;
-    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t *>(buff));
+    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(buff));
     bool isSync = false;
     do {
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -154,33 +160,37 @@ void CheckRankOverFlag(__ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff, int6
         if (v >= flag) {
             isSync = true;
         }
-    } while(!isSync);
+    } while (!isSync);
 }
 
 CATLASS_DEVICE
-void CrossRankSync(int32_t flagIdx, int64_t flagData, int32_t rank, int32_t rankSize,
-    __ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff)
+void CrossRankSync(
+    int32_t flagIdx, int64_t flagData, int32_t rank, int32_t rankSize, __ubuf__ int32_t* ctrlFlagsUB,
+    __gm__ int32_t* buff)
 {
     AscendC::PipeBarrier<PIPE_ALL>();
     int32_t aivIdx = AscendC::GetSubBlockIdx();
     int32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
     // write check
     if (aivIdx == 0 && coreIdx == rank) {
-        GM_ADDR syncAddr = (GM_ADDR)buff + IPC_BUFF_MAX_SIZE + FLAG_NUM * SYNC_UNIT_SIZE * coreIdx + flagIdx * SYNC_UNIT_SIZE;
-        SetRankFlag(ctrlFlagsUB, (__gm__ int32_t *)syncAddr, flagData);
+        GM_ADDR syncAddr =
+            (GM_ADDR)buff + IPC_BUFF_MAX_SIZE + FLAG_NUM * SYNC_UNIT_SIZE * coreIdx + flagIdx * SYNC_UNIT_SIZE;
+        SetRankFlag(ctrlFlagsUB, (__gm__ int32_t*)syncAddr, flagData);
         for (uint32_t rankIdx = 0; rankIdx < rankSize; rankIdx++) {
-            if (rankIdx == rank) continue;
-            SetRemoteRankFlag((__gm__ int32_t *)syncAddr, flagData, rankIdx);
+            if (rankIdx == rank)
+                continue;
+            SetRemoteRankFlag((__gm__ int32_t*)syncAddr, flagData, rankIdx);
         }
     } else if (aivIdx == 0 && coreIdx < rankSize) {
-        GM_ADDR syncAddr = (GM_ADDR)buff + IPC_BUFF_MAX_SIZE + FLAG_NUM * SYNC_UNIT_SIZE * coreIdx + flagIdx * SYNC_UNIT_SIZE;
-        CheckRankFlag(ctrlFlagsUB, (__gm__ int32_t *)syncAddr, flagData);
+        GM_ADDR syncAddr =
+            (GM_ADDR)buff + IPC_BUFF_MAX_SIZE + FLAG_NUM * SYNC_UNIT_SIZE * coreIdx + flagIdx * SYNC_UNIT_SIZE;
+        CheckRankFlag(ctrlFlagsUB, (__gm__ int32_t*)syncAddr, flagData);
     }
     AscendC::PipeBarrier<PIPE_ALL>();
 }
 
 CATLASS_DEVICE
-void ResetFlags(int32_t numFlags, int32_t rank, int32_t rankSize, __ubuf__ int32_t *ctrlFlagsUB, __gm__ int32_t *buff)
+void ResetFlags(int32_t numFlags, int32_t rank, int32_t rankSize, __ubuf__ int32_t* ctrlFlagsUB, __gm__ int32_t* buff)
 {
     for (int32_t flagIdx = 0; flagIdx < numFlags; flagIdx++) {
         CrossRankSync(flagIdx, 0, rank, rankSize, ctrlFlagsUB, buff);

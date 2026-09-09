@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -13,8 +14,7 @@
 #include <cmath>
 #include <limits>
 
-namespace
-{
+namespace {
 
 constexpr double BYTES_PER_GB = 1024.0 * 1024.0 * 1024.0;
 constexpr double BITS_PER_BYTE = 8.0;
@@ -32,19 +32,17 @@ uint64_t CeilDiv(uint64_t dividend, uint64_t divisor)
     return dividend / divisor + static_cast<uint64_t>(dividend % divisor != 0);
 }
 
-}  // namespace
+} // namespace
 
-double EstimateRemoteCopyWindowTime(RemoteCopyWindow const &window, CostModelHardwareConfig const &hardware)
+double EstimateRemoteCopyWindowTime(RemoteCopyWindow const& window, CostModelHardwareConfig const& hardware)
 {
     uint32_t elementBits = window.elementBits > 0 ? window.elementBits : hardware.communicationElementBits;
-    if (window.rows == 0 || window.columns == 0 || window.taskRankCount == 0)
-    {
+    if (window.rows == 0 || window.columns == 0 || window.taskRankCount == 0) {
         return 0.0;
     }
     if (window.blockRows == 0 || window.blockColumns == 0 || window.tileRows == 0 || window.tileColumns == 0 ||
         window.activeCoreNum == 0 || elementBits == 0 || hardware.remoteReadRequestBytes == 0 ||
-        hardware.hccsBandwidth <= 0.0)
-    {
+        hardware.hccsBandwidth <= 0.0) {
         return std::numeric_limits<double>::infinity();
     }
 
@@ -53,12 +51,9 @@ double EstimateRemoteCopyWindowTime(RemoteCopyWindow const &window, CostModelHar
     uint64_t blocksPerRank = blockRows * blockColumns;
     uint32_t peerCoreNum = window.activeCoreNum / window.taskRankCount;
     uint64_t blockRounds;
-    if (peerCoreNum > 0)
-    {
+    if (peerCoreNum > 0) {
         blockRounds = CeilDiv(blocksPerRank, peerCoreNum);
-    }
-    else
-    {
+    } else {
         blockRounds = CeilDiv(blocksPerRank * window.taskRankCount, window.activeCoreNum);
         peerCoreNum = 1;
     }
@@ -68,8 +63,7 @@ double EstimateRemoteCopyWindowTime(RemoteCopyWindow const &window, CostModelHar
     uint64_t pingPongRounds = CeilDiv(rowTilesPerBlock, UB_STAGES) * columnTilesPerBlock;
     double scheduleRounds = static_cast<double>(pingPongRounds);
     double scheduleSequenceCount = static_cast<double>(blockRounds);
-    if (window.continuousBlockStream)
-    {
+    if (window.continuousBlockStream) {
         scheduleRounds *= blockRounds;
         scheduleSequenceCount = 1.0;
     }
@@ -83,29 +77,26 @@ double EstimateRemoteCopyWindowTime(RemoteCopyWindow const &window, CostModelHar
     double singleCoreOstd =
         window.singleCoreOstd > 0 ? window.singleCoreOstd : static_cast<double>(CeilDiv(tileBits, requestBits));
     double peerOstd = singleCoreOstd * peerCoreNum;
-    double effectiveOstd = (hardware.hccsBandwidth * BYTES_PER_GB / NS_PER_SECOND * hardware.remoteReadRttNs /
-                            hardware.remoteReadRequestBytes);
+    double effectiveOstd =
+        (hardware.hccsBandwidth * BYTES_PER_GB / NS_PER_SECOND * hardware.remoteReadRttNs /
+         hardware.remoteReadRequestBytes);
     effectiveOstd = std::max(1.0, effectiveOstd);
 
     double writeTimeNs = 4.0 + 2.0 * singleCoreOstd + hardware.writeRttNs;
     double scheduleNs = hardware.remoteReadScheduleNs;
     double rttNs = hardware.remoteReadRttNs;
     double blockTimeNs;
-    if (2.0 * peerOstd <= effectiveOstd)
-    {
+    if (2.0 * peerOstd <= effectiveOstd) {
         blockTimeNs =
             ((rttNs + singleCoreOstd * scheduleNs + writeTimeNs) * scheduleRounds + singleCoreOstd * scheduleNs);
-    }
-    else if (peerOstd < effectiveOstd)
-    {
+    } else if (peerOstd < effectiveOstd) {
         double extraNs = (2.0 * peerOstd - effectiveOstd) * scheduleNs;
-        blockTimeNs = ((rttNs + singleCoreOstd * scheduleNs + writeTimeNs +
-                        REMOTE_READ_TRANSITION_EXTRA_SCHEDULE_WEIGHT * extraNs) *
-                           scheduleRounds +
-                       rttNs - (effectiveOstd / peerCoreNum - singleCoreOstd) * scheduleNs);
-    }
-    else
-    {
+        blockTimeNs =
+            ((rttNs + singleCoreOstd * scheduleNs + writeTimeNs +
+              REMOTE_READ_TRANSITION_EXTRA_SCHEDULE_WEIGHT * extraNs) *
+                 scheduleRounds +
+             rttNs - (effectiveOstd / peerCoreNum - singleCoreOstd) * scheduleNs);
+    } else {
         double requestCount = 2.0 * peerOstd * scheduleRounds;
         double waveCount = std::ceil(requestCount / effectiveOstd);
         double tailOstd = requestCount - (waveCount - 1.0) * effectiveOstd;
@@ -123,21 +114,18 @@ double ApplyCommBlockM64Penalty(double cost, uint32_t commBlockM)
     return commBlockM == PENALTY_COMM_BLOCK_M_64 ? cost * COMM_BLOCK_M_64_PENALTY_RATIO : cost;
 }
 
-double SimulateDoubleBufferPipeline(std::vector<double> const &producerTimes, std::vector<double> const &consumerTimes,
-                                    uint32_t stageCount)
+double SimulateDoubleBufferPipeline(
+    std::vector<double> const& producerTimes, std::vector<double> const& consumerTimes, uint32_t stageCount)
 {
-    if (stageCount == 0 || producerTimes.size() != consumerTimes.size())
-    {
+    if (stageCount == 0 || producerTimes.size() != consumerTimes.size()) {
         return std::numeric_limits<double>::infinity();
     }
     std::vector<double> consumerFinish(consumerTimes.size(), 0.0);
     double producerDone = 0.0;
     double consumerDone = 0.0;
-    for (size_t i = 0; i < producerTimes.size(); ++i)
-    {
+    for (size_t i = 0; i < producerTimes.size(); ++i) {
         double producerStart = producerDone;
-        if (i >= stageCount)
-        {
+        if (i >= stageCount) {
             producerStart = std::max(producerStart, consumerFinish[i - stageCount]);
         }
         double producerFinish = producerStart + producerTimes[i];

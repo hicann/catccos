@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -15,10 +16,7 @@
 
 namespace Catccos::Comm::Block {
 
-template <
-    class DispatchPolicy,
-    class... Args
->
+template <class DispatchPolicy, class... Args>
 class CommBlock {
     static_assert(DEPENDENT_FALSE<DispatchPolicy>, "Could not find an epilogue specialization");
 };

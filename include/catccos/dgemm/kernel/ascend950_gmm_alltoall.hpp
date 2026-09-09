@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -27,31 +28,28 @@
 #include "shmem.h"
 #include "tla/tensor.hpp"
 
-namespace Catccos::DGemm::Kernel
-{
+namespace Catccos::DGemm::Kernel {
 
 template <class ArchTag_, class TensorSrc_, class TensorDst_, uint32_t TargetUbIdx_>
-struct CopyL0CToTargetUbTla
-{
+struct CopyL0CToTargetUbTla {
     using ArchTag = ArchTag_;
     using TensorSrc = TensorSrc_;
     using TensorDst = TensorDst_;
     using ElementSrc = typename TensorSrc::Element;
     using ElementDst = typename TensorDst::Element;
 
-    static constexpr auto kQuantMode =
-        Catlass::Gemm::Tile::CopyL0CToDstQuantMode<ArchTag, ElementSrc, ElementDst,
-                                                   Catlass::Gemm::Tile::ScaleGranularity::NO_QUANT>::VALUE;
+    static constexpr auto kQuantMode = Catlass::Gemm::Tile::CopyL0CToDstQuantMode<
+        ArchTag, ElementSrc, ElementDst, Catlass::Gemm::Tile::ScaleGranularity::NO_QUANT>::VALUE;
 
     template <class DstTensor, class SrcTensor>
-    CATLASS_DEVICE void operator()(DstTensor const &dstTensor, SrcTensor const &srcTensor, uint8_t unitFlag = 0)
+    CATLASS_DEVICE void operator()(DstTensor const& dstTensor, SrcTensor const& srcTensor, uint8_t unitFlag = 0)
     {
-        static_assert(std::is_same_v<ArchTag, Catlass::Arch::Ascend950>,
-                      "Target UB copy is only implemented for Ascend950");
-        static_assert(tla::detail::isRowMajor<typename DstTensor::Layout>::value &&
-                          SrcTensor::position == AscendC::TPosition::CO1 &&
-                          DstTensor::position == AscendC::TPosition::VECCALC,
-                      "Source must be L0C and destination must be row-major VECCALC UB");
+        static_assert(
+            std::is_same_v<ArchTag, Catlass::Arch::Ascend950>, "Target UB copy is only implemented for Ascend950");
+        static_assert(
+            tla::detail::isRowMajor<typename DstTensor::Layout>::value &&
+                SrcTensor::position == AscendC::TPosition::CO1 && DstTensor::position == AscendC::TPosition::VECCALC,
+            "Source must be L0C and destination must be row-major VECCALC UB");
 
         AscendC::FixpipeParamsC310<AscendC::CO2Layout::ROW_MAJOR> intriParams;
         intriParams.nSize = tla::get<1>(dstTensor.originShape());
@@ -65,48 +63,48 @@ struct CopyL0CToTargetUbTla
 
         auto dstOffset = dstTensor.layout()(dstTensor.coord());
         auto srcOffset = srcTensor.layout()(srcTensor.coord());
-        AscendC::Fixpipe<ElementDst, ElementSrc, CFG_ROW_MAJOR_UB>(dstTensor.data()[dstOffset],
-                                                                   srcTensor.data()[srcOffset], intriParams);
+        AscendC::Fixpipe<ElementDst, ElementSrc, CFG_ROW_MAJOR_UB>(
+            dstTensor.data()[dstOffset], srcTensor.data()[srcOffset], intriParams);
     }
 };
 
-template <class ArchTag, class ElementA, class LayoutTagA, class ElementB, class LayoutTagB, class ElementC,
-          class LayoutTagC, uint32_t TargetUbIdx, class ElementBias = void>
+template <
+    class ArchTag, class ElementA, class LayoutTagA, class ElementB, class LayoutTagB, class ElementC, class LayoutTagC,
+    uint32_t TargetUbIdx, class ElementBias = void>
 struct PackedTileCopyTlaToTargetUb
-    : public Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB, ElementC,
-                                                    LayoutTagC, ElementBias>
-{
-    using Base = Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB, ElementC,
-                                                        LayoutTagC, ElementBias>;
+    : public Catlass::Gemm::Tile::PackedTileCopyTla<
+          ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB, ElementC, LayoutTagC, ElementBias> {
+    using Base = Catlass::Gemm::Tile::PackedTileCopyTla<
+        ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB, ElementC, LayoutTagC, ElementBias>;
     using TensorL0C = typename Base::TensorL0C;
 
     template <class TensorC>
     using CopyL0CToDst = CopyL0CToTargetUbTla<ArchTag, TensorL0C, TensorC, TargetUbIdx>;
 };
 
-template <class ArchTag, class ElementA, class LayoutTagA, class ElementB, class LayoutTagB, class ElementMxScaleA,
-          class LayoutMxScaleA, class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutTagC,
-          uint32_t TargetUbIdx, class ElementBias = void>
+template <
+    class ArchTag, class ElementA, class LayoutTagA, class ElementB, class LayoutTagB, class ElementMxScaleA,
+    class LayoutMxScaleA, class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutTagC,
+    uint32_t TargetUbIdx, class ElementBias = void>
 struct PackedMxTileCopyTlaToTargetUb
-    : public Catlass::Gemm::Tile::PackedMxTileCopyTla<ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB,
-                                                      ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB, LayoutMxScaleB,
-                                                      ElementC, LayoutTagC, ElementBias>
-{
-    using Base = Catlass::Gemm::Tile::PackedMxTileCopyTla<ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB,
-                                                          ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB,
-                                                          LayoutMxScaleB, ElementC, LayoutTagC, ElementBias>;
+    : public Catlass::Gemm::Tile::PackedMxTileCopyTla<
+          ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB, ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB,
+          LayoutMxScaleB, ElementC, LayoutTagC, ElementBias> {
+    using Base = Catlass::Gemm::Tile::PackedMxTileCopyTla<
+        ArchTag, ElementA, LayoutTagA, ElementB, LayoutTagB, ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB,
+        LayoutMxScaleB, ElementC, LayoutTagC, ElementBias>;
     using TensorL0C = typename Base::TensorL0C;
 
     template <class TensorC>
     using CopyL0CToDst = CopyL0CToTargetUbTla<ArchTag, TensorL0C, TensorC, TargetUbIdx>;
 };
 
-template <class BlockMmadToUb_, class BlockScheduler_, class MetadataScheduler_, uint32_t ReadinessTileM_,
-          uint32_t ReadinessTileN_, uint32_t UbCapacityBytes_ = Catlass::Arch::Ascend950::UB_SIZE,
-          bool WorldBarrierAtEnd_ = true>
-class Ascend950GmmAllToAllKernel
-{
-   public:
+template <
+    class BlockMmadToUb_, class BlockScheduler_, class MetadataScheduler_, uint32_t ReadinessTileM_,
+    uint32_t ReadinessTileN_, uint32_t UbCapacityBytes_ = Catlass::Arch::Ascend950::UB_SIZE,
+    bool WorldBarrierAtEnd_ = true>
+class Ascend950GmmAllToAllKernel {
+public:
     using BlockMmadToUb = BlockMmadToUb_;
     using BlockScheduler = BlockScheduler_;
     using MetadataScheduler = MetadataScheduler_;
@@ -141,85 +139,83 @@ class Ascend950GmmAllToAllKernel
     static constexpr uint16_t kDispatchUbFreeFlag = 2;
     static constexpr uint16_t kAiv1RouteOffset = 16;
 
-    static_assert(std::is_same_v<ArchTag, Catlass::Arch::Ascend950>,
-                  "Direct GMM2 target-UB path is only implemented for Ascend950");
-    static_assert(std::is_same_v<LayoutC, Catlass::layout::RowMajor>,
-                  "Direct GMM2 combine currently requires row-major output");
-    static_assert(2 * kUbTileBytes <= kUbCapacityBytes,
-                  "GMM2 target-UB ping-pong buffers exceed Ascend950 UB capacity");
+    static_assert(
+        std::is_same_v<ArchTag, Catlass::Arch::Ascend950>,
+        "Direct GMM2 target-UB path is only implemented for Ascend950");
+    static_assert(
+        std::is_same_v<LayoutC, Catlass::layout::RowMajor>, "Direct GMM2 combine currently requires row-major output");
+    static_assert(
+        2 * kUbTileBytes <= kUbCapacityBytes, "GMM2 target-UB ping-pong buffers exceed Ascend950 UB capacity");
     static_assert(kReadinessTileM > 0 && kReadinessTileN > 0, "SwiGLU readiness tile shape must be non-zero");
-    static_assert(kReadinessStride * sizeof(int32_t) == 64,
-                  "SwiGLU readiness counters must occupy separate cache lines");
+    static_assert(
+        kReadinessStride * sizeof(int32_t) == 64, "SwiGLU readiness counters must occupy separate cache lines");
 
-    struct Params
-    {
+    struct Params {
         Catlass::GemmCoord problemShape;
         int32_t EP;
         int32_t expertPerRank;
         uint32_t maxOutputSize;
         uint32_t rank;
         uint32_t rankSize;
-        __gm__ int32_t *ptrTokenPerExpert;
-        __gm__ int32_t *ptrCumsumMM;
-        __gm__ ElementA *ptrA;
+        __gm__ int32_t* ptrTokenPerExpert;
+        __gm__ int32_t* ptrCumsumMM;
+        __gm__ ElementA* ptrA;
         LayoutA layoutA;
-        __gm__ ElementB *ptrB;
+        __gm__ ElementB* ptrB;
         LayoutB layoutB;
-        __gm__ ElementScaleA *ptrScaleA;
-        __gm__ ElementScaleB *ptrScaleB;
+        __gm__ ElementScaleA* ptrScaleA;
+        __gm__ ElementScaleB* ptrScaleB;
         GM_ADDR ptrWorkspace;
-        __gm__ int32_t *ptrSwigluReady;
+        __gm__ int32_t* ptrSwigluReady;
         GM_ADDR symmetricPtr;
 
         CATLASS_HOST_DEVICE
         Params() = default;
 
         CATLASS_HOST_DEVICE
-        Params(Catlass::GemmCoord problemShape_, uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_,
-               uint32_t rank_, uint32_t rankSize_, GM_ADDR ptrTokenPerExpert_, GM_ADDR ptrCumsumMM_, GM_ADDR ptrA_,
-               LayoutA layoutA_, GM_ADDR ptrB_, LayoutB layoutB_, GM_ADDR ptrScaleA_, GM_ADDR ptrScaleB_,
-               GM_ADDR ptrWorkspace_, GM_ADDR ptrSwigluReady_, GM_ADDR symmetricPtr_)
+        Params(
+            Catlass::GemmCoord problemShape_, uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_,
+            uint32_t rank_, uint32_t rankSize_, GM_ADDR ptrTokenPerExpert_, GM_ADDR ptrCumsumMM_, GM_ADDR ptrA_,
+            LayoutA layoutA_, GM_ADDR ptrB_, LayoutB layoutB_, GM_ADDR ptrScaleA_, GM_ADDR ptrScaleB_,
+            GM_ADDR ptrWorkspace_, GM_ADDR ptrSwigluReady_, GM_ADDR symmetricPtr_)
             : problemShape(problemShape_),
               EP(EP_),
               expertPerRank(expertPerRank_),
               maxOutputSize(maxOutputSize_),
               rank(rank_),
               rankSize(rankSize_),
-              ptrTokenPerExpert(reinterpret_cast<__gm__ int32_t *>(ptrTokenPerExpert_)),
-              ptrCumsumMM(reinterpret_cast<__gm__ int32_t *>(ptrCumsumMM_)),
-              ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)),
+              ptrTokenPerExpert(reinterpret_cast<__gm__ int32_t*>(ptrTokenPerExpert_)),
+              ptrCumsumMM(reinterpret_cast<__gm__ int32_t*>(ptrCumsumMM_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
               layoutA(layoutA_),
-              ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
               layoutB(layoutB_),
-              ptrScaleA(reinterpret_cast<__gm__ ElementScaleA *>(ptrScaleA_)),
-              ptrScaleB(reinterpret_cast<__gm__ ElementScaleB *>(ptrScaleB_)),
+              ptrScaleA(reinterpret_cast<__gm__ ElementScaleA*>(ptrScaleA_)),
+              ptrScaleB(reinterpret_cast<__gm__ ElementScaleB*>(ptrScaleB_)),
               ptrWorkspace(ptrWorkspace_),
-              ptrSwigluReady(reinterpret_cast<__gm__ int32_t *>(ptrSwigluReady_)),
+              ptrSwigluReady(reinterpret_cast<__gm__ int32_t*>(ptrSwigluReady_)),
               symmetricPtr(symmetricPtr_)
-        {
-        }
+        {}
     };
 
-    struct WorkspaceInfo
-    {
+    struct WorkspaceInfo {
         GM_ADDR ptrDstExpertOffset;
-        __gm__ int32_t *ptrCumsumMM;
+        __gm__ int32_t* ptrCumsumMM;
 
         CATLASS_DEVICE
-        explicit WorkspaceInfo(Params const &params)
+        explicit WorkspaceInfo(Params const& params)
             : ptrDstExpertOffset(params.ptrWorkspace), ptrCumsumMM(params.ptrCumsumMM)
-        {
-        }
+        {}
     };
 
     CATLASS_DEVICE
     Ascend950GmmAllToAllKernel() = default;
 
     template <int32_t CoreType = g_coreType>
-    CATLASS_DEVICE void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource);
+    CATLASS_DEVICE void operator()(Params const& params, Catlass::Arch::Resource<ArchTag> resource);
 
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         WaitForDispatchUbFree();
 
@@ -253,16 +249,15 @@ class Ascend950GmmAllToAllKernel
         int64_t gmGroupOffsetScaleA = 0;
         int64_t gmGroupOffsetScaleB = 0;
 
-        for (uint32_t groupIdx = 0; groupIdx < static_cast<uint32_t>(params.expertPerRank); ++groupIdx)
-        {
+        for (uint32_t groupIdx = 0; groupIdx < static_cast<uint32_t>(params.expertPerRank); ++groupIdx) {
             uint32_t currentM = cumsumMM((params.EP - 1) * params.expertPerRank + groupIdx);
             Catlass::GemmCoord groupProblem{currentM, params.problemShape.n(), params.problemShape.k()};
 
             LayoutA layoutTagA = params.layoutA.GetTileLayout(groupProblem.GetCoordMK());
             auto tensorA =
                 tla::MakeTensor(gmA[gmGroupOffsetA], tla::MakeLayoutFromTag(layoutTagA), Catlass::Arch::PositionGM{});
-            auto tensorB = tla::MakeTensor(gmB[gmGroupOffsetB], tla::MakeLayoutFromTag(params.layoutB),
-                                           Catlass::Arch::PositionGM{});
+            auto tensorB = tla::MakeTensor(
+                gmB[gmGroupOffsetB], tla::MakeLayoutFromTag(params.layoutB), Catlass::Arch::PositionGM{});
             uint32_t scaleK = RoundUp<2>(CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(groupProblem.k()));
             auto layoutScaleA = tla::MakeMxScaleLayout<ElementScaleA, LayoutA, false>(currentM, scaleK);
             auto layoutScaleB = tla::MakeMxScaleLayout<ElementScaleB, LayoutB, true>(scaleK, groupProblem.n());
@@ -275,16 +270,13 @@ class Ascend950GmmAllToAllKernel
             uint32_t coreLoops = blockScheduler.GetCoreLoops();
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
-            if (startLoopIdx < coreLoops)
-            {
+            if (startLoopIdx < coreLoops) {
                 WaitForSwigluReady(params, groupIdx, currentM);
             }
 
-            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum)
-            {
+            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
                 uint32_t pingPong = producedTiles & 1U;
-                if (producedTiles >= 2)
-                {
+                if (producedTiles >= 2) {
                     WaitForAiv1Free(pingPong);
                 }
 
@@ -293,10 +285,12 @@ class Ascend950GmmAllToAllKernel
                 Catlass::MatrixCoord offsetA{blockCoord.m() * kTileM, blockCoord.k() * kTileK};
                 Catlass::MatrixCoord offsetB{blockCoord.k() * kTileK, blockCoord.n() * kTileN};
 
-                auto tensorBlockA = GetTile(tensorA, tla::MakeCoord(offsetA.row(), offsetA.column()),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
-                auto tensorBlockB = GetTile(tensorB, tla::MakeCoord(offsetB.row(), offsetB.column()),
-                                            tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
+                auto tensorBlockA = GetTile(
+                    tensorA, tla::MakeCoord(offsetA.row(), offsetA.column()),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
+                auto tensorBlockB = GetTile(
+                    tensorB, tla::MakeCoord(offsetB.row(), offsetB.column()),
+                    tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
                 auto tensorBlockScaleA = GetTile(
                     tensorScaleA, tla::MakeCoord(offsetA.row(), offsetA.column() / Catlass::MX_SCALE_GROUP_NUM),
                     tla::MakeShape(actualBlockShape.m(), CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k())));
@@ -307,8 +301,8 @@ class Ascend950GmmAllToAllKernel
                 auto tensorBlockC =
                     GetTile(tensorUb, tla::MakeCoord(0, 0), tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
 
-                blockMmad(tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape, tensorBlockScaleA,
-                          tensorBlockScaleB);
+                blockMmad(
+                    tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape, tensorBlockScaleA, tensorBlockScaleB);
                 NotifyAiv1Ready(pingPong);
                 ++producedTiles;
             }
@@ -320,55 +314,46 @@ class Ascend950GmmAllToAllKernel
             startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
         }
 
-        if (producedTiles == 1)
-        {
+        if (producedTiles == 1) {
             WaitForAiv1Free(0);
-        }
-        else if (producedTiles >= 2)
-        {
+        } else if (producedTiles >= 2) {
             WaitForAiv1Free(0);
             WaitForAiv1Free(1);
         }
     }
 
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         WorkspaceInfo workspaceInfo(params);
         AscendC::GlobalTensor<int32_t> cumsumMM;
         cumsumMM.SetGlobalBuffer(workspaceInfo.ptrCumsumMM);
         AscendC::GlobalTensor<int32_t> dstExpertOffset;
-        dstExpertOffset.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(workspaceInfo.ptrDstExpertOffset));
+        dstExpertOffset.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(workspaceInfo.ptrDstExpertOffset));
 
-        if (AscendC::GetSubBlockIdx() == 1)
-        {
+        if (AscendC::GetSubBlockIdx() == 1) {
             ConsumeTiles(params, cumsumMM, dstExpertOffset, resource);
         }
-        if constexpr (kWorldBarrierAtEnd)
-        {
+        if constexpr (kWorldBarrierAtEnd) {
             aclshmemx_barrier_all_vec();
-        }
-        else
-        {
+        } else {
             // The fused caller performs the only required world barrier immediately
             // before unpermute. Here it only needs to align local AIV0/AIV1 cores.
             AscendC::SyncAll<true>();
         }
     }
 
-   private:
+private:
     CATLASS_DEVICE
-    static void WaitForSwigluReady(Params const &params, uint32_t groupIdx, uint32_t currentM)
+    static void WaitForSwigluReady(Params const& params, uint32_t groupIdx, uint32_t currentM)
     {
         uint32_t tileRows = CeilDiv(currentM, kReadinessTileM);
         uint32_t tileColumns = CeilDiv(params.problemShape.k(), kReadinessTileN);
         int32_t readyTarget = static_cast<int32_t>(tileRows * tileColumns);
-        __gm__ int32_t *ready = params.ptrSwigluReady + groupIdx * kReadinessStride;
-        while (AscendC::ReadGmByPassDCache(ready) != readyTarget)
-        {
+        __gm__ int32_t* ready = params.ptrSwigluReady + groupIdx * kReadinessStride;
+        while (AscendC::ReadGmByPassDCache(ready) != readyTarget) {
             int64_t start = AscendC::GetSystemCycle();
-            while (AscendC::GetSystemCycle() - start < 100)
-            {
+            while (AscendC::GetSystemCycle() - start < 100) {
             }
         }
     }
@@ -404,8 +389,9 @@ class Ascend950GmmAllToAllKernel
     }
 
     CATLASS_DEVICE
-    static void ConsumeTiles(Params const &params, AscendC::GlobalTensor<int32_t> &cumsumMM,
-                             AscendC::GlobalTensor<int32_t> &dstExpertOffset, Catlass::Arch::Resource<ArchTag> resource)
+    static void ConsumeTiles(
+        Params const& params, AscendC::GlobalTensor<int32_t>& cumsumMM, AscendC::GlobalTensor<int32_t>& dstExpertOffset,
+        Catlass::Arch::Resource<ArchTag> resource)
     {
         BlockScheduler blockScheduler;
         auto ubFirst = resource.ubBuf.template GetBufferByByte<ElementC>(0);
@@ -416,16 +402,14 @@ class Ascend950GmmAllToAllKernel
         uint32_t startCoreIdx = 0;
         uint32_t consumedTiles = 0;
 
-        for (uint32_t groupIdx = 0; groupIdx < static_cast<uint32_t>(params.expertPerRank); ++groupIdx)
-        {
+        for (uint32_t groupIdx = 0; groupIdx < static_cast<uint32_t>(params.expertPerRank); ++groupIdx) {
             uint32_t currentM = cumsumMM((params.EP - 1) * params.expertPerRank + groupIdx);
             Catlass::GemmCoord groupProblem{currentM, params.problemShape.n(), params.problemShape.k()};
             blockScheduler.Update(groupProblem, Catlass::MakeCoord(kTileM, kTileN));
             uint32_t coreLoops = blockScheduler.GetCoreLoops();
             uint32_t startLoopIdx = ((coreIdx < startCoreIdx) ? (coreIdx + coreNum) : coreIdx) - startCoreIdx;
 
-            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum)
-            {
+            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
                 uint32_t pingPong = consumedTiles & 1U;
                 Catlass::GemmCoord blockCoord = blockScheduler.GetBlockCoord(loopIdx);
                 Catlass::GemmCoord actualBlockShape = blockScheduler.GetActualBlockShape(blockCoord);
@@ -443,10 +427,10 @@ class Ascend950GmmAllToAllKernel
     }
 
     CATLASS_DEVICE
-    static void SendTileToPeers(Params const &params, uint32_t groupIdx, uint32_t mLoc, uint32_t nLoc,
-                                Catlass::GemmCoord const &actualBlockShape,
-                                AscendC::LocalTensor<ElementC> const &ubTile, AscendC::GlobalTensor<int32_t> &cumsumMM,
-                                AscendC::GlobalTensor<int32_t> &dstExpertOffset)
+    static void SendTileToPeers(
+        Params const& params, uint32_t groupIdx, uint32_t mLoc, uint32_t nLoc,
+        Catlass::GemmCoord const& actualBlockShape, AscendC::LocalTensor<ElementC> const& ubTile,
+        AscendC::GlobalTensor<int32_t>& cumsumMM, AscendC::GlobalTensor<int32_t>& dstExpertOffset)
     {
         uint32_t tileStart = mLoc;
         uint32_t tileEnd = tileStart + actualBlockShape.m();
@@ -454,14 +438,12 @@ class Ascend950GmmAllToAllKernel
 
         AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
         AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
-        for (uint32_t dstRank = 0; dstRank < params.rankSize; ++dstRank)
-        {
+        for (uint32_t dstRank = 0; dstRank < params.rankSize; ++dstRank) {
             uint32_t rankStart = dstRank == 0 ? 0 : cumsumMM((dstRank - 1) * params.expertPerRank + groupIdx);
             uint32_t rankEnd = cumsumMM(dstRank * params.expertPerRank + groupIdx);
             uint32_t copyStart = tla::max(tileStart, rankStart);
             uint32_t copyEnd = tla::min(tileEnd, rankEnd);
-            if (copyStart >= copyEnd)
-            {
+            if (copyStart >= copyEnd) {
                 continue;
             }
 
@@ -469,9 +451,9 @@ class Ascend950GmmAllToAllKernel
             uint32_t ubRow = copyStart - tileStart;
             uint32_t dstRow = dstExpertOffset(dstRank * params.expertPerRank + groupIdx) + copyStart - rankStart;
 
-            __gm__ void *remotePtr = aclshmem_ptr(params.symmetricPtr, dstRank);
+            __gm__ void* remotePtr = aclshmem_ptr(params.symmetricPtr, dstRank);
             AscendC::GlobalTensor<ElementC> remoteOutput;
-            remoteOutput.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(remotePtr));
+            remoteOutput.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC*>(remotePtr));
             int64_t remoteOffset = static_cast<int64_t>(dstRow) * params.problemShape.n() + nLoc;
 
             uint32_t rowBytes = actualN * sizeof(ElementC);
@@ -485,6 +467,6 @@ class Ascend950GmmAllToAllKernel
     }
 };
 
-}  // namespace Catccos::DGemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_DGEMM_KERNEL_ASCEND950_GMM_ALLTOALL_HPP
+#endif // CATCCOS_DGEMM_KERNEL_ASCEND950_GMM_ALLTOALL_HPP

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -27,8 +28,7 @@ const std::vector<std::vector<uint32_t>> allParams = {vCommInterval, vCommTileM,
 
 uint32_t GetTilingK0(CocCommType type)
 {
-    switch (type)
-    {
+    switch (type) {
         case ASCEND950_FP4_MX_ALLGATHER_MATMUL:
         case ASCEND950_FP4_MX_GROUPED_MATMUL_ALLTOALLV:
         case ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL:
@@ -39,33 +39,27 @@ uint32_t GetTilingK0(CocCommType type)
     }
 }
 
-void GetParamFromSearchSpace(std::vector<uint32_t> &curParams, std::vector<std::vector<uint32_t>> &results, int pos)
+void GetParamFromSearchSpace(std::vector<uint32_t>& curParams, std::vector<std::vector<uint32_t>>& results, int pos)
 {
-    if (pos == allParams.size())
-    {
-        for (int i = 0; i < vCommSplitNpuDataPair.size(); i++)
-        {
+    if (pos == allParams.size()) {
+        for (int i = 0; i < vCommSplitNpuDataPair.size(); i++) {
             std::vector<uint32_t> tmpParams(curParams.begin(), curParams.end());
             tmpParams.push_back(vCommSplitNpuDataPair[i].first);
             tmpParams.push_back(vCommSplitNpuDataPair[i].second);
             results.push_back(tmpParams);
         }
-    }
-    else
-    {
-        for (int i = 0; i < allParams[pos].size(); i++)
-        {
+    } else {
+        for (int i = 0; i < allParams[pos].size(); i++) {
             curParams[pos] = allParams[pos][i];
             GetParamFromSearchSpace(curParams, results, pos + 1);
         }
     }
 }
 
-void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t, const std::string &opName, int rankSize)
+void GetTilings(std::vector<CocTilingParams>& tilings, CocTilingParams& t, const std::string& opName, int rankSize)
 {
     auto op = OperatorRegistry::Instance().CreateOperator(opName);
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator " << opName << " not found!" << std::endl;
         return;
     }
@@ -73,8 +67,7 @@ void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t, const
     std::vector<uint32_t> curParams(allParams.size(), 0);
     std::vector<std::vector<uint32_t>> allTilings;
     GetParamFromSearchSpace(curParams, allTilings, 0);
-    for (const auto &tiling : allTilings)
-    {
+    for (const auto& tiling : allTilings) {
         uint32_t idx = 0;
         t.commInterval = tiling[idx++];
         t.commTileM = tiling[idx++];
@@ -85,7 +78,8 @@ void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t, const
         t.commNpuSplit = tiling[idx++];
         t.commDataSplit = tiling[idx++];
 
-        if (!op->CheckCocTilingParams(rankSize, t)) continue;
+        if (!op->CheckCocTilingParams(rankSize, t))
+            continue;
 
         tilings.push_back(t);
     }
@@ -94,8 +88,7 @@ void GetTilings(std::vector<CocTilingParams> &tilings, CocTilingParams &t, const
 bool CreateTilingFile(const std::string filename)
 {
     std::ofstream outFile(filename, std::ios::out);
-    if (!outFile.is_open())
-    {
+    if (!outFile.is_open()) {
         std::cerr << "Open file failed." << std::endl;
         return false;
     }
@@ -105,18 +98,17 @@ bool CreateTilingFile(const std::string filename)
     return true;
 }
 
-bool WriteTilingInfos(std::string opName, std::vector<CocTilingParams> &cocTilings, const std::string filename,
-                      int transA = 0, int transB = 1)
+bool WriteTilingInfos(
+    std::string opName, std::vector<CocTilingParams>& cocTilings, const std::string filename, int transA = 0,
+    int transB = 1)
 {
     std::ofstream outputFile(filename, std::ios::out | std::ios::app);
-    if (!outputFile)
-    {
+    if (!outputFile) {
         ERROR_LOG("Open file failed. path = %s, error = %s", filename.c_str(), strerror(errno));
         return false;
     }
 
-    for (CocTilingParams cocTiling : cocTilings)
-    {
+    for (CocTilingParams cocTiling : cocTilings) {
         outputFile << opName << "," << cocTiling.m << "," << cocTiling.k << "," << cocTiling.n << "," << transA << ","
                    << transB << "," << cocTiling.m0 << "," << cocTiling.commInterval << "," << cocTiling.commTileM
                    << "," << cocTiling.commBlockM << "," << cocTiling.commNpuSplit << "," << cocTiling.commDataSplit
@@ -126,4 +118,4 @@ bool WriteTilingInfos(std::string opName, std::vector<CocTilingParams> &cocTilin
     return true;
 }
 
-#endif  // TILING_H
+#endif // TILING_H

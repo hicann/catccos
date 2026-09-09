@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,61 +24,35 @@ public:
         GM_ADDR ptrSymmetric;
 
         CATLASS_HOST_DEVICE
-        Params() : ptrSymmetric(nullptr)
-        {
-        }
+        Params() : ptrSymmetric(nullptr) {}
 
         CATLASS_HOST_DEVICE
-        explicit Params(GM_ADDR ptrSymmetric_) : ptrSymmetric(ptrSymmetric_)
-        {
-        }
+        explicit Params(GM_ADDR ptrSymmetric_) : ptrSymmetric(ptrSymmetric_) {}
     };
 
     CATLASS_DEVICE
-    ShmemComm()
-    {
-    }
+    ShmemComm() {}
 
     CATLASS_DEVICE
-    ShmemComm(Params const &params_) : params(params_)
-    {
-    }
+    ShmemComm(Params const& params_) : params(params_) {}
 
     CATLASS_DEVICE
-    void Init(Params const &params_)
-    {
-        params = params_;
-    }
+    void Init(Params const& params_) { params = params_; }
 
     CATLASS_DEVICE
-    void CrossRankSync()
-    {
-        aclshmemx_barrier_all_vec();
-    }
+    void CrossRankSync() { aclshmemx_barrier_all_vec(); }
 
     CATLASS_DEVICE
-    auto GetPeerMem() const
-    {
-        return params.ptrSymmetric;
-    }
+    auto GetPeerMem() const { return params.ptrSymmetric; }
 
     CATLASS_DEVICE
-    auto GetPeerMem(int32_t rankId) const
-    {
-        return shmem_ptr(params.ptrSymmetric, rankId);
-    }
+    auto GetPeerMem(int32_t rankId) const { return shmem_ptr(params.ptrSymmetric, rankId); }
 
     CATLASS_DEVICE
-    auto GetRankIdx() const
-    {
-        return shmem_my_pe();
-    }
+    auto GetRankIdx() const { return shmem_my_pe(); }
 
     CATLASS_DEVICE
-    auto GetRankSize() const
-    {
-        return shmem_n_pes();
-    }
+    auto GetRankSize() const { return shmem_n_pes(); }
 
 private:
     Params params;

@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -34,14 +35,14 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
-          uint32_t M0, uint32_t N0, uint32_t K0>
-CATLASS_DEVICE void AllGatherMatmulHcclImpl(Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape,
-                                            GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB, LayoutB& layoutB, GM_ADDR gmC,
-                                            LayoutC& layoutC, uint32_t commInterval,
-                                            Catlass::MatrixCoord& commCoreSplit, Catlass::MatrixCoord& commBlockShape,
-                                            Catlass::MatrixCoord& commTileShape, GM_ADDR mc2InitTiling,
-                                            GM_ADDR mc2CcTiling, uint64_t segmentSize)
+template <
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
+    uint32_t M0, uint32_t N0, uint32_t K0>
+CATLASS_DEVICE void AllGatherMatmulHcclImpl(
+    Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape, GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB,
+    LayoutB& layoutB, GM_ADDR gmC, LayoutC& layoutC, uint32_t commInterval, Catlass::MatrixCoord& commCoreSplit,
+    Catlass::MatrixCoord& commBlockShape, Catlass::MatrixCoord& commTileShape, GM_ADDR mc2InitTiling,
+    GM_ADDR mc2CcTiling, uint64_t segmentSize)
 {
     constexpr bool ENABLE_UNIT_FLAG = true;
     using MmadDispatchPolicy = Catlass::Gemm::MmadAtlasA2Pingpong<ENABLE_UNIT_FLAG>;
@@ -64,8 +65,8 @@ CATLASS_DEVICE void AllGatherMatmulHcclImpl(Catlass::GemmCoord& problemShape, Ca
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using AllGatherDispatch = Comm::AtlasA2CommLocalCopy<2, IS_DYNAMIC>;
@@ -74,8 +75,8 @@ CATLASS_DEVICE void AllGatherMatmulHcclImpl(Catlass::GemmCoord& problemShape, Ca
 
     using CommBackend = Arch::HcclComm<16>;
 
-    using AllGatherMatmulKernel = DGemm::Kernel::AllGatherMatmul<void, BlockMmad, BlockAllGather, BlockMmadScheduler,
-                                                                 BlockScheduler, CommBackend, 2>;
+    using AllGatherMatmulKernel = DGemm::Kernel::AllGatherMatmul<
+        void, BlockMmad, BlockAllGather, BlockMmadScheduler, BlockScheduler, CommBackend, 2>;
 
     typename TileRemoteCopy::Params tileParams{commTileShape};
 
@@ -105,13 +106,11 @@ CATLASS_DEVICE void AllGatherMatmulHcclImpl(Catlass::GemmCoord& problemShape, Ca
 }
 
 template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
-CATLASS_DEVICE void AllGatherMatmulHcclImpl_M0_256(Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape,
-                                                   GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB, LayoutB& layoutB,
-                                                   GM_ADDR gmC, LayoutC& layoutC, uint32_t commInterval,
-                                                   Catlass::MatrixCoord& commCoreSplit,
-                                                   Catlass::MatrixCoord& commBlockShape,
-                                                   Catlass::MatrixCoord& commTileShape, GM_ADDR mc2InitTiling,
-                                                   GM_ADDR mc2CcTiling, uint64_t segmentSize)
+CATLASS_DEVICE void AllGatherMatmulHcclImpl_M0_256(
+    Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape, GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB,
+    LayoutB& layoutB, GM_ADDR gmC, LayoutC& layoutC, uint32_t commInterval, Catlass::MatrixCoord& commCoreSplit,
+    Catlass::MatrixCoord& commBlockShape, Catlass::MatrixCoord& commTileShape, GM_ADDR mc2InitTiling,
+    GM_ADDR mc2CcTiling, uint64_t segmentSize)
 {
     AllGatherMatmulHcclImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmC, layoutC, commInterval, commCoreSplit,
@@ -119,21 +118,19 @@ CATLASS_DEVICE void AllGatherMatmulHcclImpl_M0_256(Catlass::GemmCoord& problemSh
 }
 
 template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
-CATLASS_DEVICE void AllGatherMatmulHcclImpl_M0_128(Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape,
-                                                   GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB, LayoutB& layoutB,
-                                                   GM_ADDR gmC, LayoutC& layoutC, uint32_t commInterval,
-                                                   Catlass::MatrixCoord& commCoreSplit,
-                                                   Catlass::MatrixCoord& commBlockShape,
-                                                   Catlass::MatrixCoord& commTileShape, GM_ADDR mc2InitTiling,
-                                                   GM_ADDR mc2CcTiling, uint64_t segmentSize)
+CATLASS_DEVICE void AllGatherMatmulHcclImpl_M0_128(
+    Catlass::GemmCoord& problemShape, Catlass::GemmCoord& l1TileShape, GM_ADDR gmA, LayoutA& layoutA, GM_ADDR gmB,
+    LayoutB& layoutB, GM_ADDR gmC, LayoutC& layoutC, uint32_t commInterval, Catlass::MatrixCoord& commCoreSplit,
+    Catlass::MatrixCoord& commBlockShape, Catlass::MatrixCoord& commTileShape, GM_ADDR mc2InitTiling,
+    GM_ADDR mc2CcTiling, uint64_t segmentSize)
 {
     AllGatherMatmulHcclImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 128, 256, 256>(
         problemShape, l1TileShape, gmA, layoutA, gmB, layoutB, gmC, layoutC, commInterval, commCoreSplit,
         commBlockShape, commTileShape, mc2InitTiling, mc2CcTiling, segmentSize);
 }
 
-extern "C" __aicore__ __global__ void all_gather_matmul_hccl(GM_ADDR a, GM_ADDR b, GM_ADDR c, GM_ADDR workspace,
-                                                             GM_ADDR tiling)
+extern "C" __aicore__ __global__ void all_gather_matmul_hccl(
+    GM_ADDR a, GM_ADDR b, GM_ADDR c, GM_ADDR workspace, GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
     REGISTER_TILING_DEFAULT(AllGatherMatmulHcclTiling);
@@ -177,14 +174,11 @@ extern "C" __aicore__ __global__ void all_gather_matmul_hccl(GM_ADDR a, GM_ADDR 
     LayoutB layoutB{k, n};
     LayoutC layoutC{m * rankSize, n, n};
 
-    if (m0 == 128)
-    {
+    if (m0 == 128) {
         AllGatherMatmulHcclImpl_M0_128<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>(
             problemShape, l1TileShape, a, layoutA, b, layoutB, c, layoutC, commInterval, commCoreSplit, commBlockShape,
             commTileShape, mc2InitTiling, mc2CcTiling, segmentSize);
-    }
-    else
-    {
+    } else {
         AllGatherMatmulHcclImpl_M0_256<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>(
             problemShape, l1TileShape, a, layoutA, b, layoutB, c, layoutC, commInterval, commCoreSplit, commBlockShape,
             commTileShape, mc2InitTiling, mc2CcTiling, segmentSize);

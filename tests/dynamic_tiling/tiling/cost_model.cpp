@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -9,20 +10,18 @@
  */
 #include "cost_model.h"
 
-namespace
-{
+namespace {
 
 constexpr double A5_FP8_CUBE_FLOPS_PER_US = 27000000.0;
 constexpr double A5_FP4_CUBE_FLOPS_PER_US = 54000000.0;
 constexpr uint32_t MX_SCALE_GROUP_SIZE = 32;
 constexpr uint32_t MX_SCALE_ELEMENT_BITS = 8;
 
-}  // namespace
+} // namespace
 
 CostModelHardwareType GetCostModelHardwareType(CocCommType type)
 {
-    switch (type)
-    {
+    switch (type) {
         case ASCEND950_ALLGATHER_MATMUL:
         case ASCEND950_MATMUL_REDUCE_SCATTER:
         case ASCEND950_GROUPED_MATMUL_ALLTOALLV:
@@ -45,7 +44,7 @@ CostModelHardwareType GetCostModelHardwareType(CocCommType type)
     }
 }
 
-void ConfigureCostModelConfig(CocCommType type, CostModelConfig &config)
+void ConfigureCostModelConfig(CocCommType type, CostModelConfig& config)
 {
     config.hardwareType = GetCostModelHardwareType(type);
     config.inputElementBits = 0;
@@ -58,8 +57,7 @@ void ConfigureCostModelConfig(CocCommType type, CostModelConfig &config)
     config.useMxMteShape = false;
     config.allGatherBarrierPerLoop = false;
 
-    switch (type)
-    {
+    switch (type) {
         case ALLGATHER_MATMUL:
         case ALLGATHER_MATMUL_WITH_GATHER_RESULT:
         case ALLGATHER_MATMUL_RDMA:
@@ -117,13 +115,12 @@ void ConfigureCostModelConfig(CocCommType type, CostModelConfig &config)
     }
 }
 
-CostModelResult SelectCostModelTiling(COCMatMulInfo const &info, CocCommType type, uint32_t rankSize,
-                                      CostModelConfig const &config)
+CostModelResult SelectCostModelTiling(
+    COCMatMulInfo const& info, CocCommType type, uint32_t rankSize, CostModelConfig const& config)
 {
     auto resolvedConfig = config;
     ConfigureCostModelConfig(type, resolvedConfig);
-    switch (type)
-    {
+    switch (type) {
         case MATMUL_REDUCE_SCATTER:
         case ASCEND950_MATMUL_REDUCE_SCATTER:
         case MATMUL_DEQUANT_REDUCE_SCATTER_WRITE:
@@ -149,12 +146,12 @@ CostModelResult SelectCostModelTiling(COCMatMulInfo const &info, CocCommType typ
     }
 }
 
-bool ApplyCostModel(COCMatMulInfo const &info, CocCommType type, uint32_t rankSize, CocTilingParams &tiling,
-                    CostModelConfig const &config)
+bool ApplyCostModel(
+    COCMatMulInfo const& info, CocCommType type, uint32_t rankSize, CocTilingParams& tiling,
+    CostModelConfig const& config)
 {
     auto result = SelectCostModelTiling(info, type, rankSize, config);
-    if (!result.IsSuccess() || !config.IsCandidateValid(result.tiling))
-    {
+    if (!result.IsSuccess() || !config.IsCandidateValid(result.tiling)) {
         return false;
     }
 

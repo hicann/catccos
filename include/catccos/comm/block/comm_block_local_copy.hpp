@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -25,27 +26,15 @@
 
 namespace Catccos::Comm::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 template <
-    class ArchTag_,
-    uint32_t UB_STAGES_,
-    bool IsDynamic_,
-    class SrcType_,
-    class DstType_,
-    class BlockShape_,
-    class TileRemoteCopy_,
-    class TileSwizzle_
->
-class CommBlock <
-    AtlasCommLocalCopy<ArchTag_, UB_STAGES_, IsDynamic_>,
-    SrcType_,
-    DstType_,
-    BlockShape_,
-    TileRemoteCopy_,
-    TileSwizzle_
-> {
+    class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_, class SrcType_, class DstType_, class BlockShape_,
+    class TileRemoteCopy_, class TileSwizzle_>
+class CommBlock<
+    AtlasCommLocalCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_, DstType_, BlockShape_, TileRemoteCopy_,
+    TileSwizzle_> {
 public:
     // Type aliases
     using DispatchPolicy = AtlasCommLocalCopy<ArchTag_, UB_STAGES_, IsDynamic_>;
@@ -88,8 +77,9 @@ public:
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(MatrixCoord blockShape_, const TileParams &tileParams_)
-            : blockShape(blockShape_), tileParams(tileParams_) {}
+        ParamsBase(MatrixCoord blockShape_, const TileParams& tileParams_)
+            : blockShape(blockShape_), tileParams(tileParams_)
+        {}
 
         CATLASS_DEVICE
         MatrixCoord BlockShape() const { return blockShape; }
@@ -100,7 +90,7 @@ public:
     using Params = ParamsBase<IsDynamic>;
 
     CATLASS_DEVICE
-    CommBlock(Catlass::Arch::Resource<ArchTag> &resource, Params const &params) : params(params)
+    CommBlock(Catlass::Arch::Resource<ArchTag>& resource, Params const& params) : params(params)
     {
         size_t ubOffset = 0;
         uint32_t eventUbMte3Mte2Id = 0;
@@ -132,16 +122,12 @@ public:
     }
 
     CATLASS_DEVICE
-    ~CommBlock()
-    {
-    }
+    ~CommBlock() {}
 
     CATLASS_DEVICE
-    void operator() (
-        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const &layoutSrc,
-        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const &layoutDst,
-        MatrixCoord const &actualBlockShape
-    )
+    void operator()(
+        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const& layoutSrc,
+        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const& layoutDst, MatrixCoord const& actualBlockShape)
     {
         if (actualBlockShape.row() == 0) {
             return;
@@ -157,7 +143,7 @@ public:
             auto actualTileShape = tileSwizzle.GetActualTileShape(tileCoord);
             auto tileOffsetInBlock = tileCoord * tileShape;
 
-            auto &ubTile = ubList[ubListId];
+            auto& ubTile = ubList[ubListId];
             LayoutSrc layoutUb{actualTileShape, ubTileStride};
 
             // Get the data and layout of input

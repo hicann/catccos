@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -9,9 +10,9 @@
  */
 #ifndef DISPATCH_GMM_DEQUANT_SWIGLU_KERNEL_H
 #define DISPATCH_GMM_DEQUANT_SWIGLU_KERNEL_H
- 
+
 #include "info.h"
- 
+
 // from catlass
 #include "catlass/catlass.hpp"
 #include "catlass/arch/arch.hpp"
@@ -39,7 +40,7 @@
 #include "catccos/dgemm/block/block_mmad_preload_async_fixpipe.hpp"
 #include "allgather_kernel.h"
 #include "group_dequant_swiglu.h"
- 
+
 #include "catccos/catccos.hpp"
 #include "catccos/comm/comm_dispatch_policy.hpp"
 #include "catccos/comm/tile/tile_remote_chunk_copy.hpp"
@@ -49,28 +50,17 @@
 #include "catccos/comm/block/comm_block_scheduler_alltoallv_gmm.hpp"
 #include "catccos/dgemm/kernel/alltoallv_gmm_dequant_v2.hpp"
 #include "catccos/epilogue/block/block_epilogue_per_token_dequant_swiglu.hpp"
- 
+
 using namespace AscendC;
 using namespace Catccos;
-inline __gm__ struct OpSystemRunCfg g_opSystemRunCfg{Catlass::L2_OFFSET};
- 
-template <
-    class ArchTag,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD
->
-CATLASS_DEVICE
-void DequantSwigluImpl(
-    Catlass::GemmCoord problemShape,
-    GM_ADDR gmC, 
-    GM_ADDR gmPerTokenScale,
-    GM_ADDR gmD,
-    GM_ADDR groupListPtr,
-    uint32_t expertPerRank,
-    const Callback &callback,
-    int32_t syncInterval,
-    Catlass::Arch::Resource<ArchTag> resource
-)
+inline __gm__ struct OpSystemRunCfg g_opSystemRunCfg {
+    Catlass::L2_OFFSET
+};
+
+template <class ArchTag, class ElementC, class LayoutC, class ElementD, class LayoutD>
+CATLASS_DEVICE void DequantSwigluImpl(
+    Catlass::GemmCoord problemShape, GM_ADDR gmC, GM_ADDR gmPerTokenScale, GM_ADDR gmD, GM_ADDR groupListPtr,
+    uint32_t expertPerRank, const Callback& callback, int32_t syncInterval, Catlass::Arch::Resource<ArchTag> resource)
 {
     constexpr uint32_t ubStages = 1;
     using EpilogueDispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<ubStages>;
@@ -89,44 +79,32 @@ void DequantSwigluImpl(
     LayoutC layoutC{problemShape.m(), problemShape.n()};
     Catlass::layout::VectorLayout layoutPerTokenScale{problemShape.m()};
     LayoutD layoutD{problemShape.m(), problemShape.n() / 2};
-    
-    typename DequantSwiglu::Params dequantSwigluParams {
+
+    typename DequantSwiglu::Params dequantSwigluParams{
         expertPerRank,
         problemShape.GetCoordMN(),
-        gmC, layoutC,
-        gmPerTokenScale, layoutPerTokenScale,
-        gmD, layoutD,
+        gmC,
+        layoutC,
+        gmPerTokenScale,
+        layoutPerTokenScale,
+        gmD,
+        layoutD,
         groupListPtr,
         callback,
-        syncInterval
-    };
+        syncInterval};
 
     DequantSwiglu dequantSwiglu;
     dequantSwiglu(dequantSwigluParams, resource);
 }
 
 template <
-    class ArchTag,
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD,
-    uint32_t M0, uint32_t N0, uint32_t K0
->
-CATLASS_DEVICE
-void AllToAllVGmmDequantSwigluImpl(
-    Catlass::GemmCoord problemShape,
-    GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmC, GM_ADDR gmD,
-    GM_ADDR gmScale, GM_ADDR gmPerTokenScale,
-    GM_ADDR tokenPerExpert,
-    GM_ADDR ptrCumsumMM,
-    GM_ADDR gmSymmetric,
-    Catlass::MatrixCoord const &commCoreSplit,
-    Catlass::MatrixCoord const &commBlockShape,
-    Catlass::MatrixCoord const &commTileShape,
-    uint32_t expertPerRank,
-    Catlass::Arch::Resource<ArchTag> resource
-)
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
+    class ElementD, class LayoutD, uint32_t M0, uint32_t N0, uint32_t K0>
+CATLASS_DEVICE void AllToAllVGmmDequantSwigluImpl(
+    Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmC, GM_ADDR gmD, GM_ADDR gmScale,
+    GM_ADDR gmPerTokenScale, GM_ADDR tokenPerExpert, GM_ADDR ptrCumsumMM, GM_ADDR gmSymmetric,
+    Catlass::MatrixCoord const& commCoreSplit, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, Catlass::Arch::Resource<ArchTag> resource)
 {
     // =============== AllToAllv_GMM begin ===============
     constexpr bool enableUnitFlag = false;
@@ -140,25 +118,20 @@ void AllToAllVGmmDequantSwigluImpl(
 
     constexpr bool ENABLE_UNIT_FLAG = true;
     using DispatchPolicy = Catlass::Gemm::MmadAtlasA2PreloadAsyncFixpipe<
-        preloadStages, l1Stages, l0AStages, l0BStages, l0CStages, enableUnitFlag, enableShuffleK
-    >;
+        preloadStages, l1Stages, l0AStages, l0BStages, l0CStages, enableUnitFlag, enableShuffleK>;
     using L1TileShape = Catlass::GemmShape<M0, N0, K0>;
     using L0TileShape = Catlass::GemmShape<M0, N0, 64>;
     using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
     using CType = Catlass::Gemm::GemmType<ElementC, LayoutC>;
     using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;
- 
-    using BlockMmad = DGemm::Block::FixpipeBlockMmad<
-        DispatchPolicy,
-        L1TileShape, L0TileShape, 
-        AType, BType, CType
-    >;
+
+    using BlockMmad = DGemm::Block::FixpipeBlockMmad<DispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType>;
 
     using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<9, 1>;
 
     constexpr bool IS_DYNAMIC = true;
- 
+
     // remote comm
     constexpr uint32_t UB_STAGES = 2;
     constexpr Catccos::detail::CopyDirect COPY_DIRECT = Catccos::detail::CopyDirect::Get;
@@ -170,40 +143,23 @@ void AllToAllVGmmDequantSwigluImpl(
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
     using TileRemoteCopy = Catccos::Comm::Tile::TileRemoteChunkCopy<
-        ArchTag, IS_DYNAMIC, 
-        RemoteSrcType, RemoteDstType, RemotePerTokenScaleUbType, RemotePerTokenScaleType,
-        void, COPY_DIRECT, CopyTransport::Mte>;
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, RemotePerTokenScaleUbType, RemotePerTokenScaleType, void,
+        COPY_DIRECT, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
     using RemoteCommBlock = Comm::Block::CommBlock<
-        RemoteCommDispatch,
-        RemoteSrcType,
-        RemoteDstType,
-        RemotePerTokenScaleType,
-        void,
-        TileRemoteCopy,
-        TileScheduler
-    >;
+        RemoteCommDispatch, RemoteSrcType, RemoteDstType, RemotePerTokenScaleType, void, TileRemoteCopy, TileScheduler>;
 
-    typename TileRemoteCopy::Params tileParams {
-        commTileShape
-    };
+    typename TileRemoteCopy::Params tileParams{commTileShape};
 
-    typename RemoteCommBlock::Params remoteCommParams{
-        commBlockShape, tileParams, problemShape.k()
-    };
-    
+    typename RemoteCommBlock::Params remoteCommParams{commBlockShape, tileParams, problemShape.k()};
+
     // communication scheduler
     using BlockCommScheduler = typename Catlass::Gemm::Block::BlockCommSchedulerAllToAllVGmm;
 
     // kernel level
     using ElementGroupList = int64_t;
     using MatmulKernel = Catccos::DGemm::Kernel::AlltoallvGmmDequantKernel<
-        BlockMmad,
-        BlockScheduler,
-        ElementGroupList,
-        RemoteCommBlock,
-        BlockCommScheduler
-    >;
+        BlockMmad, BlockScheduler, ElementGroupList, RemoteCommBlock, BlockCommScheduler>;
     using AicFinishSync = Catccos::DGemm::Kernel::AicFinishSync<MatmulKernel>;
     using AivWaitSync = Catccos::DGemm::Kernel::AivWaitSync<MatmulKernel>;
 
@@ -220,22 +176,28 @@ void AllToAllVGmmDequantSwigluImpl(
     AicFinishSync aicFinishSync{&mmKernel};
     AivWaitSync aivWaitSync{&mmKernel};
     int32_t syncInterval = expertPerRank - 1;
-    
-    typename MatmulKernel::Params params {
-        problemShape, rankSize, expertPerRank,
-        rankId, rankSize,
-        gmA, layoutA,
-        gmB, layoutB,
-        gmC, layoutC,
-        gmScale, layoutScale,
+
+    typename MatmulKernel::Params params{
+        problemShape,
+        rankSize,
+        expertPerRank,
+        rankId,
+        rankSize,
+        gmA,
+        layoutA,
+        gmB,
+        layoutB,
+        gmC,
+        layoutC,
+        gmScale,
+        layoutScale,
         gmPerTokenScale,
         tokenPerExpert,
         ptrCumsumMM,
         gmSymmetric,
         remoteCommParams,
         MakeCallback(&aicFinishSync),
-        syncInterval
-    };
+        syncInterval};
     mmKernel(params, resource);
 
     // =============== AllToAllv_GMM end ===============
@@ -246,99 +208,47 @@ void AllToAllVGmmDequantSwigluImpl(
         AscendC::GlobalTensor<float> gmPerTokenScaleTensor;
         gmPerTokenScaleTensor.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gmPerTokenScale));
 
-        AscendC::DataCacheCleanAndInvalid<float, 
-            AscendC::CacheLine::SINGLE_CACHE_LINE, AscendC::DcciDst::CACHELINE_OUT>(gmPerTokenScaleTensor);
+        AscendC::DataCacheCleanAndInvalid<
+            float, AscendC::CacheLine::SINGLE_CACHE_LINE, AscendC::DcciDst::CACHELINE_OUT>(gmPerTokenScaleTensor);
 
         auto groupListPtr = ptrCumsumMM + (rankSize - 1) * expertPerRank * sizeof(int32_t);
 
         DequantSwigluImpl<ArchTag, ElementC, LayoutC, ElementD, LayoutD>(
-            problemShape,
-            gmC, gmPerTokenScale, gmD,
-            groupListPtr,
-            expertPerRank,
-            MakeCallback(&aivWaitSync),
-            syncInterval,
-            resource
-        );
+            problemShape, gmC, gmPerTokenScale, gmD, groupListPtr, expertPerRank, MakeCallback(&aivWaitSync),
+            syncInterval, resource);
     }
 
     // =============== DequantSwiglu end ===============
 }
- 
+
 template <
-    class ArchTag,
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD
->
-CATLASS_DEVICE
-void AllToAllVGmmDequantSwigluImpl_M0_256(
-    Catlass::GemmCoord problemShape,
-    GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmC, GM_ADDR gmD,
-    GM_ADDR gmScale, GM_ADDR gmPerTokenScale,
-    GM_ADDR tokenPerExpert,
-    GM_ADDR ptrCumsumMM,
-    GM_ADDR gmSymmetric,
-    Catlass::MatrixCoord const &commCoreSplit,
-    Catlass::MatrixCoord const &commBlockShape,
-    Catlass::MatrixCoord const &commTileShape,
-    uint32_t expertPerRank,
-    Catlass::Arch::Resource<ArchTag> resource
-)
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
+    class ElementD, class LayoutD>
+CATLASS_DEVICE void AllToAllVGmmDequantSwigluImpl_M0_256(
+    Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmC, GM_ADDR gmD, GM_ADDR gmScale,
+    GM_ADDR gmPerTokenScale, GM_ADDR tokenPerExpert, GM_ADDR ptrCumsumMM, GM_ADDR gmSymmetric,
+    Catlass::MatrixCoord const& commCoreSplit, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, Catlass::Arch::Resource<ArchTag> resource)
 {
     AllToAllVGmmDequantSwigluImpl<
-            ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD,
-            256, 128, 256>(
-        problemShape,
-        gmA, gmB, gmC, gmD,
-        gmScale, gmPerTokenScale,
-        tokenPerExpert, ptrCumsumMM,
-        gmSymmetric,
-        commCoreSplit,
-        commBlockShape,
-        commTileShape,
-        expertPerRank,
-        resource
-    );
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD, 256, 128, 256>(
+        problemShape, gmA, gmB, gmC, gmD, gmScale, gmPerTokenScale, tokenPerExpert, ptrCumsumMM, gmSymmetric,
+        commCoreSplit, commBlockShape, commTileShape, expertPerRank, resource);
 }
- 
+
 template <
-    class ArchTag,
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD
->
-CATLASS_DEVICE
-void AllToAllVGmmDequantSwigluImpl_M0_128(
-    Catlass::GemmCoord problemShape,
-    GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmC, GM_ADDR gmD,
-    GM_ADDR gmScale, GM_ADDR gmPerTokenScale,
-    GM_ADDR tokenPerExpert,
-    GM_ADDR ptrCumsumMM,
-    GM_ADDR gmSymmetric,
-    Catlass::MatrixCoord const &commCoreSplit,
-    Catlass::MatrixCoord const &commBlockShape,
-    Catlass::MatrixCoord const &commTileShape,
-    uint32_t expertPerRank,
-    Catlass::Arch::Resource<ArchTag> resource
-)
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
+    class ElementD, class LayoutD>
+CATLASS_DEVICE void AllToAllVGmmDequantSwigluImpl_M0_128(
+    Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmC, GM_ADDR gmD, GM_ADDR gmScale,
+    GM_ADDR gmPerTokenScale, GM_ADDR tokenPerExpert, GM_ADDR ptrCumsumMM, GM_ADDR gmSymmetric,
+    Catlass::MatrixCoord const& commCoreSplit, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, Catlass::Arch::Resource<ArchTag> resource)
 {
     AllToAllVGmmDequantSwigluImpl<
-            ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD,
-            128, 256, 256>(
-        problemShape,
-        gmA, gmB, gmC, gmD,
-        gmScale, gmPerTokenScale,
-        tokenPerExpert, ptrCumsumMM,
-        gmSymmetric,
-        commCoreSplit,
-        commBlockShape,
-        commTileShape,
-        expertPerRank,
-        resource
-    );
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD, 128, 256, 256>(
+        problemShape, gmA, gmB, gmC, gmD, gmScale, gmPerTokenScale, tokenPerExpert, ptrCumsumMM, gmSymmetric,
+        commCoreSplit, commBlockShape, commTileShape, expertPerRank, resource);
 }
 
 CATLASS_DEVICE
@@ -371,7 +281,8 @@ struct WorkspaceInfo {
     GM_ADDR tokensPerExpert;
 
     CATLASS_DEVICE
-    WorkspaceInfo(GM_ADDR ptrLocalWorkspace, GM_ADDR ptrSymmWorkspace, const CocTilingParams &cocTiling) {
+    WorkspaceInfo(GM_ADDR ptrLocalWorkspace, GM_ADDR ptrSymmWorkspace, const CocTilingParams& cocTiling)
+    {
         uint32_t rankId = shmem_my_pe();
         uint32_t rankSize = shmem_n_pes();
         uint32_t maxOutputSize = cocTiling.m * cocTiling.topK * rankSize;
@@ -404,44 +315,30 @@ struct WorkspaceInfo {
 
 #if defined(ENABLE_ASCENDC_DUMP)
 template <
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD
->
-CATLASS_GLOBAL
-void DispatchGmmDequantSwiglu(
-    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD,
-    GM_ADDR gmScale,
-    GM_ADDR gmExpertIdx, GM_ADDR gmWorkSpace,
-    GM_ADDR gmSymmetric, CocTilingParams cocTiling, MoeInitRoutingQuantV2Tiling moeTiling, GM_ADDR dump
-)
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, class ElementD,
+    class LayoutD>
+CATLASS_GLOBAL void DispatchGmmDequantSwiglu(
+    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD, GM_ADDR gmScale, GM_ADDR gmExpertIdx, GM_ADDR gmWorkSpace,
+    GM_ADDR gmSymmetric, CocTilingParams cocTiling, MoeInitRoutingQuantV2Tiling moeTiling, GM_ADDR dump)
 {
     AscendC::InitDump(false, dump, ALL_DUMPSIZE);
 #else
 template <
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD
->
-CATLASS_GLOBAL
-void DispatchGmmDequantSwiglu(
-    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD,
-    GM_ADDR gmScale,
-    GM_ADDR gmExpertIdx, GM_ADDR gmWorkSpace,
-    GM_ADDR gmSymmetric, CocTilingParams cocTiling, MoeInitRoutingQuantV2Tiling moeTiling
-)
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, class ElementD,
+    class LayoutD>
+CATLASS_GLOBAL void DispatchGmmDequantSwiglu(
+    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmD, GM_ADDR gmScale, GM_ADDR gmExpertIdx, GM_ADDR gmWorkSpace,
+    GM_ADDR gmSymmetric, CocTilingParams cocTiling, MoeInitRoutingQuantV2Tiling moeTiling)
 {
 #endif
     AscendC::SetSyncBaseAddr(fftsAddr);
- 
+
     using ArchTag = Catlass::Arch::AtlasA2;
     using WorkspaceInfo = WorkspaceInfo<ElementA, ElementC>;
     using AllGather = AllGather<ArchTag, int32_t>;
 
     AllGather allgather;
- 
+
     uint32_t m = cocTiling.m;
     uint32_t n = cocTiling.n;
     uint32_t k = cocTiling.k;
@@ -457,75 +354,52 @@ void DispatchGmmDequantSwiglu(
     uint32_t expertNum = cocTiling.expertNum;
     uint32_t topK = cocTiling.topK;
     uint32_t expertPerRank = expertNum / epSize;
- 
+
     uint32_t rankIdx = shmem_my_pe();
     uint32_t rankSize = shmem_n_pes();
 
     uint32_t maxOutputSize = cocTiling.m * cocTiling.topK * rankSize;
 
     Catlass::GemmCoord problemShape{m * topK, n, k};
- 
+
     Catlass::MatrixCoord commCoreSplit{commDataSplit, commNpuSplit};
     Catlass::MatrixCoord commBlockShape{commBlockM, UINT_MAX / 2};
     Catlass::MatrixCoord commTileShape{8, k + 512};
 
     WorkspaceInfo workspaceInfo(gmWorkSpace, gmSymmetric, cocTiling);
 
-    auto localTokensPerExpert 
-        = workspaceInfo.tokensPerExpert + rankIdx * epSize * expertPerRank * sizeof(int32_t);
-    
+    auto localTokensPerExpert = workspaceInfo.tokensPerExpert + rankIdx * epSize * expertPerRank * sizeof(int32_t);
+
     // token + scale per line as output
     moe_init_routing_quant_v2<bfloat16_t>(
-        gmA, 
-        gmExpertIdx,
-        nullptr /*moeInitRoutingQuantV2Scale*/,
-        nullptr /*moeInitRoutingQuantV2Offset*/,
-        workspaceInfo.symmetricA,
-        workspaceInfo.expandedRowIdx, localTokensPerExpert,
-        nullptr /*expertTokensBeforeCapacity*/,
-        workspaceInfo.peerPerTokenScale, workspaceInfo.expandedRowIdx,
-        &moeTiling.moeInitRoutingQuantV2TilingData, moeTiling.initRoutingQuantTilingKey
-    );
+        gmA, gmExpertIdx, nullptr /*moeInitRoutingQuantV2Scale*/, nullptr /*moeInitRoutingQuantV2Offset*/,
+        workspaceInfo.symmetricA, workspaceInfo.expandedRowIdx, localTokensPerExpert,
+        nullptr /*expertTokensBeforeCapacity*/, workspaceInfo.peerPerTokenScale, workspaceInfo.expandedRowIdx,
+        &moeTiling.moeInitRoutingQuantV2TilingData, moeTiling.initRoutingQuantTilingKey);
 
     aclshmemx_barrier_all_vec();
 
     Catlass::Arch::Resource<ArchTag> resource;
-    
-    typename AllGather::Params allgatherParams {
-        epSize * expertPerRank,
-        localTokensPerExpert,
-        nullptr,
-        workspaceInfo.tokensPerExpert
-    };
+
+    typename AllGather::Params allgatherParams{
+        epSize * expertPerRank, localTokensPerExpert, nullptr, workspaceInfo.tokensPerExpert};
     allgather(allgatherParams, resource);
 
     BarrierBetweenUpAndDown();
 
     if (m0 == 128) {
         AllToAllVGmmDequantSwigluImpl_M0_128<
-                ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD>(
-            problemShape,
-            workspaceInfo.ptrA, gmB, workspaceInfo.ptrC, gmD,
-            gmScale, workspaceInfo.ptrPerTokenScale,
-            workspaceInfo.tokensPerExpert, workspaceInfo.ptrCumsumMM,
-            workspaceInfo.symmetricA,
-            commCoreSplit, commBlockShape, commTileShape,
-            expertPerRank,
-            resource
-        );
+            ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD>(
+            problemShape, workspaceInfo.ptrA, gmB, workspaceInfo.ptrC, gmD, gmScale, workspaceInfo.ptrPerTokenScale,
+            workspaceInfo.tokensPerExpert, workspaceInfo.ptrCumsumMM, workspaceInfo.symmetricA, commCoreSplit,
+            commBlockShape, commTileShape, expertPerRank, resource);
     } else {
         AllToAllVGmmDequantSwigluImpl_M0_256<
-                ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD>(
-            problemShape,
-            workspaceInfo.ptrA, gmB, workspaceInfo.ptrC, gmD,
-            gmScale, workspaceInfo.ptrPerTokenScale,
-            workspaceInfo.tokensPerExpert, workspaceInfo.ptrCumsumMM,
-            workspaceInfo.symmetricA,
-            commCoreSplit, commBlockShape, commTileShape,
-            expertPerRank,
-            resource
-        );
+            ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD>(
+            problemShape, workspaceInfo.ptrA, gmB, workspaceInfo.ptrC, gmD, gmScale, workspaceInfo.ptrPerTokenScale,
+            workspaceInfo.tokensPerExpert, workspaceInfo.ptrCumsumMM, workspaceInfo.symmetricA, commCoreSplit,
+            commBlockShape, commTileShape, expertPerRank, resource);
     }
 }
- 
+
 #endif // DISPATCH_GMM_DEQUANT_SWIGLU_KERNEL_H

@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,8 +27,7 @@ using ElementMxScaleA = float8_e8m0_t;
 using ElementMxScaleB = float8_e8m0_t;
 using ElementC = half;
 
-namespace
-{
+namespace {
 
 constexpr uint32_t MAX_SWIZZLE_OFFSET = 7;
 
@@ -36,38 +36,36 @@ uint32_t SelectCommInterval(uint32_t m, uint32_t rankSize, uint32_t l1TileM)
     uint32_t chunkM = m / rankSize;
     uint32_t mTiles = (chunkM + l1TileM - 1) / l1TileM;
 
-    if (mTiles <= 4)
-    {
+    if (mTiles <= 4) {
         return 2;
     }
-    if (mTiles <= 8)
-    {
+    if (mTiles <= 8) {
         return (mTiles + 1) / 2;
     }
     return 5;
 }
 
-uint32_t SelectSwizzleOffset(const CocTilingParams &cocTiling)
+uint32_t SelectSwizzleOffset(const CocTilingParams& cocTiling)
 {
     uint32_t chunkM = cocTiling.m / cocTiling.rankSize;
     uint32_t mTiles = (chunkM + cocTiling.m0 - 1) / cocTiling.m0;
     uint32_t tileMPerComm = cocTiling.commInterval < mTiles ? cocTiling.commInterval : mTiles;
 
-    if (tileMPerComm == 0)
-    {
+    if (tileMPerComm == 0) {
         return 1;
     }
     return tileMPerComm > MAX_SWIZZLE_OFFSET ? MAX_SWIZZLE_OFFSET : tileMPerComm;
 }
 
 template <uint32_t SWIZZLE_OFFSET>
-int RunKernel(const CocTilingParams &cocTiling, uint32_t rankId, uint32_t rankSize, uint8_t *aPtr, uint8_t *bPtr,
-              uint8_t *aMxScalePtr, uint8_t *bMxScalePtr, uint8_t *cPtr, uint8_t *gmSymmetric, aclrtStream stream,
-              uint32_t blockNum, uint64_t fftsAddr)
+int RunKernel(
+    const CocTilingParams& cocTiling, uint32_t rankId, uint32_t rankSize, uint8_t* aPtr, uint8_t* bPtr,
+    uint8_t* aMxScalePtr, uint8_t* bMxScalePtr, uint8_t* cPtr, uint8_t* gmSymmetric, aclrtStream stream,
+    uint32_t blockNum, uint64_t fftsAddr)
 {
-    using Config = Ascend950MxFp8AllToAllMatmulSplitKUrmaConfig<ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA,
-                                                                LayoutMxScaleA, ElementMxScaleB, LayoutMxScaleB,
-                                                                ElementC, LayoutC, SWIZZLE_OFFSET>;
+    using Config = Ascend950MxFp8AllToAllMatmulSplitKUrmaConfig<
+        ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB, LayoutMxScaleB,
+        ElementC, LayoutC, SWIZZLE_OFFSET>;
     using DeviceOp = typename Config::Device;
 
     Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
@@ -80,8 +78,7 @@ int RunKernel(const CocTilingParams &cocTiling, uint32_t rankId, uint32_t rankSi
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "Before calling FP8_MX_AllToAll_MM_SplitK_URMA kernel " << std::endl;
-    for (int i = 0; i < 10; i++)
-    {
+    for (int i = 0; i < 10; i++) {
         deviceOp.Run(stream, blockNum, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
@@ -90,41 +87,46 @@ int RunKernel(const CocTilingParams &cocTiling, uint32_t rankId, uint32_t rankSi
     return 0;
 }
 
-int RunKernelBySwizzleOffset(uint32_t swizzleOffset, const CocTilingParams &cocTiling, uint32_t rankId,
-                             uint32_t rankSize, uint8_t *aPtr, uint8_t *bPtr, uint8_t *aMxScalePtr,
-                             uint8_t *bMxScalePtr, uint8_t *cPtr, uint8_t *gmSymmetric, aclrtStream stream,
-                             uint32_t blockNum, uint64_t fftsAddr)
+int RunKernelBySwizzleOffset(
+    uint32_t swizzleOffset, const CocTilingParams& cocTiling, uint32_t rankId, uint32_t rankSize, uint8_t* aPtr,
+    uint8_t* bPtr, uint8_t* aMxScalePtr, uint8_t* bMxScalePtr, uint8_t* cPtr, uint8_t* gmSymmetric, aclrtStream stream,
+    uint32_t blockNum, uint64_t fftsAddr)
 {
-    switch (swizzleOffset)
-    {
+    switch (swizzleOffset) {
         case 1:
-            return RunKernel<1>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<1>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
         case 2:
-            return RunKernel<2>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<2>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
         case 3:
-            return RunKernel<3>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<3>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
         case 4:
-            return RunKernel<4>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<4>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
         case 5:
-            return RunKernel<5>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<5>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
         case 6:
-            return RunKernel<6>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<6>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
         default:
-            return RunKernel<7>(cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric,
-                                stream, blockNum, fftsAddr);
+            return RunKernel<7>(
+                cocTiling, rankId, rankSize, aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum,
+                fftsAddr);
     }
 }
 
-}  // namespace
+} // namespace
 
-struct Options
-{
+struct Options {
     static constexpr auto HELPER =
         "Usage: ascend950_mxfp8_alltoall_matmul_split_k_urma rank_size rank_id ip_port m n k [data_path] "
         "[device_id_list]\n";
@@ -138,10 +140,9 @@ struct Options
     std::string dataPath;
     std::vector<int> deviceIdList{};
 
-    int Parse(int argc, char **argv)
+    int Parse(int argc, char** argv)
     {
-        enum class ArgsIndex
-        {
+        enum class ArgsIndex {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -153,8 +154,7 @@ struct Options
             INDEX_MAX
         };
 
-        if (argc < static_cast<int>(ArgsIndex::DATA_PATH_INDEX) || argc > static_cast<int>(ArgsIndex::INDEX_MAX))
-        {
+        if (argc < static_cast<int>(ArgsIndex::DATA_PATH_INDEX) || argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
             printf(HELPER);
             return -1;
         }
@@ -165,32 +165,24 @@ struct Options
         m = std::atoi(argv[static_cast<int>(ArgsIndex::M_INDEX)]);
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
-        if (rankSize <= 0 || rankId < 0 || rankId >= rankSize)
-        {
+        if (rankSize <= 0 || rankId < 0 || rankId >= rankSize) {
             printf(HELPER);
             return -1;
         }
-        if (argc > static_cast<int>(ArgsIndex::DATA_PATH_INDEX))
-        {
+        if (argc > static_cast<int>(ArgsIndex::DATA_PATH_INDEX)) {
             dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
         }
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
-        {
-            char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
-            {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char* idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
+            for (char* idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        }
-        else
-        {
-            for (size_t i = 0; i < static_cast<size_t>(rankSize); ++i)
-            {
+        } else {
+            for (size_t i = 0; i < static_cast<size_t>(rankSize); ++i) {
                 deviceIdList.push_back(i);
             }
         }
-        if (static_cast<int>(deviceIdList.size()) <= rankId)
-        {
+        if (static_cast<int>(deviceIdList.size()) <= rankId) {
             printf(HELPER);
             return -1;
         }
@@ -200,12 +192,11 @@ struct Options
     std::string GetDataPath() const { return dataPath; }
 };
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0)
-    {
+    if (options.Parse(argc, argv) != 0) {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -216,8 +207,7 @@ int main(int argc, char **argv)
     uint32_t n = options.n;
     uint32_t k = options.k;
 
-    if (rankSize <= 0 || m % rankSize != 0)
-    {
+    if (rankSize <= 0 || m % rankSize != 0) {
         std::cerr << "[ERROR] M (" << m << ") must be divisible by rankSize (" << rankSize
                   << ") for split-K AllToAll-MatMul URMA\n";
         return 1;
@@ -240,8 +230,7 @@ int main(int argc, char **argv)
     cocTiling.commBlockM = 64;
     cocTiling.rankSize = rankSize;
 
-    if (cocTiling.k % cocTiling.k0 != 0)
-    {
+    if (cocTiling.k % cocTiling.k0 != 0) {
         std::cerr << "[ERROR] local K (" << cocTiling.k << ") must be divisible by " << cocTiling.k0
                   << " for one-shot contiguous URMA copy\n";
         return 1;
@@ -256,8 +245,7 @@ int main(int argc, char **argv)
     ACL_CHECK(aclInit(nullptr));
     ACL_CHECK(aclrtSetDevice(deviceId));
     auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
-    if (rankSize > static_cast<int>(blockNum))
-    {
+    if (rankSize > static_cast<int>(blockNum)) {
         std::cerr << "[ERROR] rankSize (" << rankSize << ") must be <= launch blockNum (" << blockNum
                   << ") because URMA uses one AIV core per remote destination rank\n";
         return 1;
@@ -270,26 +258,26 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("Ascend950MxFp8AllToAllMatmulSplitKUrma");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator Ascend950MxFp8AllToAllMatmulSplitKUrma not found!" << std::endl;
         return -1;
     }
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());
-    void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
-    uint8_t *gmSymmetric = reinterpret_cast<uint8_t *>(symmPtr);
+    void* symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+    uint8_t* gmSymmetric = reinterpret_cast<uint8_t*>(symmPtr);
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
-    uint8_t *aMxScalePtr = kernelParams.customPtrs[0];
-    uint8_t *bMxScalePtr = kernelParams.customPtrs[1];
+    uint8_t* aPtr = kernelParams.ptrA;
+    uint8_t* bPtr = kernelParams.ptrB;
+    uint8_t* cPtr = kernelParams.ptrC;
+    uint8_t* aMxScalePtr = kernelParams.customPtrs[0];
+    uint8_t* bMxScalePtr = kernelParams.customPtrs[1];
 
     uint64_t fftsAddr = shmemx_get_ffts_config();
 
-    RunKernelBySwizzleOffset(swizzleOffset, cocTiling, static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize),
-                             aPtr, bPtr, aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum, fftsAddr);
+    RunKernelBySwizzleOffset(
+        swizzleOffset, cocTiling, static_cast<uint32_t>(rankId), static_cast<uint32_t>(rankSize), aPtr, bPtr,
+        aMxScalePtr, bMxScalePtr, cPtr, gmSymmetric, stream, blockNum, fftsAddr);
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
     std::printf("Rank %d test finished\n", rankId);

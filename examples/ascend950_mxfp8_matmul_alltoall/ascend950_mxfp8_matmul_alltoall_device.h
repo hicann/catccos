@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -36,11 +37,10 @@ using namespace Catccos;
 using namespace Catlass;
 using namespace tla;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
-          class ElementBScale, class LayoutBScale, class ElementC, class LayoutC, uint32_t M0_, uint32_t N0_,
-          uint32_t K0_>
-struct Ascend950MxFp8MatmulAllToAllConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
+    class ElementBScale, class LayoutBScale, class ElementC, class LayoutC, uint32_t M0_, uint32_t N0_, uint32_t K0_>
+struct Ascend950MxFp8MatmulAllToAllConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
     static constexpr bool enableUnitFlag = true;
@@ -54,8 +54,8 @@ struct Ascend950MxFp8MatmulAllToAllConfig
         ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementAScale,
         decltype(tla::MakeMxScaleLayout<ElementAScale, LayoutA, false>(0U, 0U)), ElementBScale,
         decltype(tla::MakeMxScaleLayout<ElementBScale, LayoutB, true>(0U, 0U)), ElementC, LayoutC, void>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                         ElementB, ElementC, void, TileCopy>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementC, void, TileCopy>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -68,29 +68,31 @@ struct Ascend950MxFp8MatmulAllToAllConfig
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
 
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Get, CopyTransport::Udma>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Udma>;
 
     using CommDispatchPolicy = Comm::AtlasCommUdmaRemoteCopy<ArchTag, UB_STAGES>;
     using BlockComm = Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, TileRemoteCopy>;
 
-    using Kernel = DGemm::Kernel::MatmulAllToAllMxSliceN<BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler,
-                                                         WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::MatmulAllToAllMxSliceN<
+        BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 // Pre-defined tiling configurations
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
-          class ElementBScale, class LayoutBScale, class ElementC, class LayoutC>
-using Ascend950MxFp8MatmulAllToAllConfig_M0_128 =
-    Ascend950MxFp8MatmulAllToAllConfig<ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale,
-                                       LayoutBScale, ElementC, LayoutC, 128, 256, 256>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
+    class ElementBScale, class LayoutBScale, class ElementC, class LayoutC>
+using Ascend950MxFp8MatmulAllToAllConfig_M0_128 = Ascend950MxFp8MatmulAllToAllConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale, LayoutBScale, ElementC, LayoutC,
+    128, 256, 256>;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
-          class ElementBScale, class LayoutBScale, class ElementC, class LayoutC>
-using Ascend950MxFp8MatmulAllToAllConfig_M0_256 =
-    Ascend950MxFp8MatmulAllToAllConfig<ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale,
-                                       LayoutBScale, ElementC, LayoutC, 256, 128, 256>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
+    class ElementBScale, class LayoutBScale, class ElementC, class LayoutC>
+using Ascend950MxFp8MatmulAllToAllConfig_M0_256 = Ascend950MxFp8MatmulAllToAllConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale, LayoutBScale, ElementC, LayoutC,
+    256, 128, 256>;
 
-#endif  // ASCEND950_MXFP8_MATMUL_ALLTOALL_DEVICE_H
+#endif // ASCEND950_MXFP8_MATMUL_ALLTOALL_DEVICE_H

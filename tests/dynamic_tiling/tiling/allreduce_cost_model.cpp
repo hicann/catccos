@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -17,29 +18,26 @@
 #include "mte_cost_model.h"
 #include "remote_copy_cost_model.h"
 
-namespace
-{
+namespace {
 
 // Each round synchronizes before reduce-scatter, between phases, and after all-gather.
 constexpr uint32_t SYNC_COUNT_PER_COMM = 3;
 
 uint64_t CeilDiv(uint64_t dividend, uint64_t divisor) { return (dividend + divisor - 1) / divisor; }
 
-bool IsValidConfig(COCMatMulInfo const &info, uint32_t rankSize, CostModelConfig const &config,
-                   CostModelHardwareConfig const &hardware)
+bool IsValidConfig(
+    COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config,
+    CostModelHardwareConfig const& hardware)
 {
     if (info.m <= 0 || info.k <= 0 || info.n <= 0 || rankSize == 0 ||
-        rankSize > std::numeric_limits<uint32_t>::max() / 2)
-    {
+        rankSize > std::numeric_limits<uint32_t>::max() / 2) {
         return false;
     }
     if (info.m > std::numeric_limits<uint32_t>::max() || info.k > std::numeric_limits<uint32_t>::max() ||
-        info.n > std::numeric_limits<uint32_t>::max())
-    {
+        info.n > std::numeric_limits<uint32_t>::max()) {
         return false;
     }
-    if (config.commIntervalList.empty() || config.m0List.empty() || config.aivCoreList.empty())
-    {
+    if (config.commIntervalList.empty() || config.m0List.empty() || config.aivCoreList.empty()) {
         return false;
     }
     uint64_t requestBits = static_cast<uint64_t>(hardware.remoteReadRequestBytes) * 8;
@@ -49,9 +47,9 @@ bool IsValidConfig(COCMatMulInfo const &info, uint32_t rankSize, CostModelConfig
            hardware.nd2nzCmdOtsd > 0 && hardware.fullCoreHitEfficiency > 0.0;
 }
 
-double EstimateAllReducePhaseTime(uint64_t blockCount, uint32_t n, uint32_t m0, uint32_t n0, uint32_t commTileM,
-                                  uint32_t commBlockM, uint32_t aivCoreNum, uint32_t rankSize,
-                                  CostModelHardwareConfig const &hardware)
+double EstimateAllReducePhaseTime(
+    uint64_t blockCount, uint32_t n, uint32_t m0, uint32_t n0, uint32_t commTileM, uint32_t commBlockM,
+    uint32_t aivCoreNum, uint32_t rankSize, CostModelHardwareConfig const& hardware)
 {
     uint32_t tileWidth = std::min(n, n0);
     uint64_t commBlockCount = CeilDiv(blockCount * m0, commBlockM);
@@ -62,20 +60,18 @@ double EstimateAllReducePhaseTime(uint64_t blockCount, uint32_t n, uint32_t m0, 
     return EstimateRemoteCopyWindowTime(window, hardware);
 }
 
-}  // namespace
+} // namespace
 
-CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSize, CostModelConfig const &config)
+CostModelResult SelectAllReduceTiling(COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config)
 {
     CostModelResult best;
     CostModelHardwareConfig hardware;
     auto hardwareStatus = GetCostModelHardwareConfig(config, hardware);
-    if (hardwareStatus != CostModelStatus::SUCCESS)
-    {
+    if (hardwareStatus != CostModelStatus::SUCCESS) {
         best.status = hardwareStatus;
         return best;
     }
-    if (!IsValidConfig(info, rankSize, config, hardware))
-    {
+    if (!IsValidConfig(info, rankSize, config, hardware)) {
         best.status = CostModelStatus::INVALID_ARGUMENT;
         return best;
     }
@@ -86,10 +82,8 @@ CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSi
     constexpr uint32_t K0 = 256;
     MTECostModel mteModel{hardware};
 
-    for (uint32_t m0 : config.m0List)
-    {
-        if (m0 != 128 && m0 != 256)
-        {
+    for (uint32_t m0 : config.m0List) {
+        if (m0 != 128 && m0 != 256) {
             continue;
         }
         uint32_t n0 = m0 == 128 ? 256 : 128;
@@ -103,10 +97,8 @@ CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSi
         double nd2nzHitTimePerCore = leftHitTime + rightHitTime;
         double cubeTimePerCore = (2.0 * m0 * k * n0) / hardware.cubeFlopsPerUs;
 
-        for (uint32_t p : config.commIntervalList)
-        {
-            if (p == 0 || (static_cast<uint64_t>(hardware.coreNum) * p) % rankSize != 0)
-            {
+        for (uint32_t p : config.commIntervalList) {
+            if (p == 0 || (static_cast<uint64_t>(hardware.coreNum) * p) % rankSize != 0) {
                 continue;
             }
 
@@ -117,16 +109,13 @@ CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSi
             uint64_t blocksPerComm = static_cast<uint64_t>(hardware.coreNum) * p;
             uint64_t commCount = CeilDiv(totalTiles, blocksPerComm);
 
-            for (uint32_t aivCoreNum : config.aivCoreList)
-            {
-                if (aivCoreNum != 16 && aivCoreNum != 20)
-                {
+            for (uint32_t aivCoreNum : config.aivCoreList) {
+                if (aivCoreNum != 16 && aivCoreNum != 20) {
                     continue;
                 }
 
                 CostModelTiling candidate{m0, K0, n0, blockM, p, 1, aivCoreNum == 16 ? 16U : 20U, blockM};
-                if (!config.IsCandidateValid(candidate))
-                {
+                if (!config.IsCandidateValid(candidate)) {
                     continue;
                 }
 
@@ -134,18 +123,17 @@ CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSi
                 std::vector<double> aivTimes;
                 aicTimes.reserve(commCount);
                 aivTimes.reserve(commCount);
-                for (uint64_t i = 0; i < commCount; ++i)
-                {
+                for (uint64_t i = 0; i < commCount; ++i) {
                     uint64_t actualBlocks = std::min(blocksPerComm, totalTiles - i * blocksPerComm);
                     uint64_t aicRounds = CeilDiv(actualBlocks, hardware.coreNum);
                     aicTimes.push_back(std::max(cubeTimePerCore * aicRounds, nd2nzHitTimePerCore * aicRounds));
 
                     // Both phases schedule the full rank axis. ReduceScatter
                     // skips local copy only after cores have been assigned.
-                    double reduceScatterTime = EstimateAllReducePhaseTime(actualBlocks, n, m0, n0, blockM, blockM,
-                                                                          aivCoreNum, rankSize, hardware);
-                    double allGatherTime = EstimateAllReducePhaseTime(actualBlocks, n, m0, n0, blockM, blockM,
-                                                                      aivCoreNum, rankSize, hardware);
+                    double reduceScatterTime = EstimateAllReducePhaseTime(
+                        actualBlocks, n, m0, n0, blockM, blockM, aivCoreNum, rankSize, hardware);
+                    double allGatherTime = EstimateAllReducePhaseTime(
+                        actualBlocks, n, m0, n0, blockM, blockM, aivCoreNum, rankSize, hardware);
                     aivTimes.push_back(reduceScatterTime + allGatherTime + hardware.syncTimeUs * SYNC_COUNT_PER_COMM);
                 }
 
@@ -153,8 +141,7 @@ CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSi
                 double totalTime = (pipelineTime + hardware.launchTimeUs);
                 totalTime = ApplyCommBlockM64Penalty(totalTime, candidate.commBlockM);
 
-                if (!std::isfinite(totalTime) || totalTime >= best.cost)
-                {
+                if (!std::isfinite(totalTime) || totalTime >= best.cost) {
                     continue;
                 }
 
@@ -165,8 +152,7 @@ CostModelResult SelectAllReduceTiling(COCMatMulInfo const &info, uint32_t rankSi
         }
     }
 
-    if (!best.IsSuccess())
-    {
+    if (!best.IsSuccess()) {
         best.status = CostModelStatus::NO_VALID_CANDIDATE;
     }
     return best;

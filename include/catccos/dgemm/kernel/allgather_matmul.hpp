@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,16 +24,12 @@
 
 namespace Catccos::DGemm::Kernel {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 template <
-    class BlockMmad_,
-    class BlockComm_,
-    class BlockMmadScheduler_,
-    class BlockCommScheduler_,
-    uint32_t WORKSPACE_STAGES_
->
+    class BlockMmad_, class BlockComm_, class BlockMmadScheduler_, class BlockCommScheduler_,
+    uint32_t WORKSPACE_STAGES_>
 class AllGatherMatmul {
 public:
     using BlockMmad = BlockMmad_;
@@ -64,11 +61,11 @@ public:
 
         uint32_t commInterval;
 
-        __gm__ ElementA *ptrA;
+        __gm__ ElementA* ptrA;
         LayoutA layoutA;
-        __gm__ ElementB *ptrB;
+        __gm__ ElementB* ptrB;
         LayoutB layoutB;
-        __gm__ ElementC *ptrC;
+        __gm__ ElementC* ptrC;
         LayoutC layoutC;
         GM_ADDR ptrSymmetric;
 
@@ -81,67 +78,58 @@ public:
 
         CATLASS_HOST_DEVICE
         Params(
-            GemmCoord const &problemShape_,
-            uint32_t rank_, uint32_t rankSize_,
-            uint32_t commInterval_,
-            GM_ADDR ptrA_, LayoutA const &layoutA_,
-            GM_ADDR ptrB_, LayoutB const &layoutB_,
-            GM_ADDR ptrC_, LayoutC const &layoutC_,
-            GM_ADDR ptrSymmetric_,
-            BlockCommParams const &blockCommParams_,
-            CommSchedulerParams const &commSchedulerParams_
-        ) : problemShape(problemShape_),
-            rankIdx(rank_), rankSize(rankSize_),
-            commInterval(commInterval_),
-            ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
-            ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
-            ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
-            ptrSymmetric(ptrSymmetric_),
-            blockCommParams(blockCommParams_),
-            commSchedulerParams(commSchedulerParams_)
-        {
-        }
+            GemmCoord const& problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_, GM_ADDR ptrA_,
+            LayoutA const& layoutA_, GM_ADDR ptrB_, LayoutB const& layoutB_, GM_ADDR ptrC_, LayoutC const& layoutC_,
+            GM_ADDR ptrSymmetric_, BlockCommParams const& blockCommParams_,
+            CommSchedulerParams const& commSchedulerParams_)
+            : problemShape(problemShape_),
+              rankIdx(rank_),
+              rankSize(rankSize_),
+              commInterval(commInterval_),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
+              layoutA(layoutA_),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
+              layoutB(layoutB_),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
+              layoutC(layoutC_),
+              ptrSymmetric(ptrSymmetric_),
+              blockCommParams(blockCommParams_),
+              commSchedulerParams(commSchedulerParams_)
+        {}
     };
 
-     /// User API arguments
-     struct Arguments {
-         GemmCoord problemShape;
-         uint32_t rankIdx;
-         uint32_t rankSize;
-         uint32_t commInterval;
-         GM_ADDR ptrA;
-         GM_ADDR ptrB;
-         GM_ADDR ptrC;
-         GM_ADDR ptrSymmetric;
-         MatrixCoord commCoreSplit;
-         MatrixCoord commBlockShape;
-         MatrixCoord commTileShape;
-     };
+    /// User API arguments
+    struct Arguments {
+        GemmCoord problemShape;
+        uint32_t rankIdx;
+        uint32_t rankSize;
+        uint32_t commInterval;
+        GM_ADDR ptrA;
+        GM_ADDR ptrB;
+        GM_ADDR ptrC;
+        GM_ADDR ptrSymmetric;
+        MatrixCoord commCoreSplit;
+        MatrixCoord commBlockShape;
+        MatrixCoord commTileShape;
+    };
 
-     static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+    static size_t GetWorkspaceSize(Arguments const& args) { return 0; }
 
-     static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
-     {
-         LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
-         LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
-         LayoutC layoutC{args.problemShape.m() * args.rankSize, args.problemShape.n(), args.problemShape.n()};
+    static Params ToUnderlyingArguments(Arguments const& args, uint8_t* workspace = nullptr)
+    {
+        LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
+        LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
+        LayoutC layoutC{args.problemShape.m() * args.rankSize, args.problemShape.n(), args.problemShape.n()};
 
-         typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
-         BlockCommParams blockCommParams{args.commBlockShape, tileParams};
-         CommSchedulerParams commSchedulerParams{args.commCoreSplit};
+        typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
+        BlockCommParams blockCommParams{args.commBlockShape, tileParams};
+        CommSchedulerParams commSchedulerParams{args.commCoreSplit};
 
-         return Params{
-             args.problemShape,
-             args.rankIdx, args.rankSize,
-             args.commInterval,
-             args.ptrA, layoutA,
-             args.ptrB, layoutB,
-             args.ptrC, layoutC,
-             args.ptrSymmetric,
-             blockCommParams,
-             commSchedulerParams
-         };
-     }
+        return Params{args.problemShape,  args.rankIdx, args.rankSize,     args.commInterval,
+                      args.ptrA,          layoutA,      args.ptrB,         layoutB,
+                      args.ptrC,          layoutC,      args.ptrSymmetric, blockCommParams,
+                      commSchedulerParams};
+    }
 
     // Methods
     CATLASS_DEVICE
@@ -154,7 +142,7 @@ public:
             timer.Tik();
         }
 #endif
-        for (uint32_t stageIdx = 0; stageIdx< WORKSPACE_STAGES; ++stageIdx) {
+        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
@@ -169,12 +157,10 @@ public:
     }
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE
-    void operator()(Params &params);
+    CATLASS_DEVICE void operator()(Params& params);
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIC>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx();
         uint32_t aicoreNum = AscendC::GetBlockNum();
@@ -187,7 +173,7 @@ public:
 
         // Represent the full gm
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric));
         AscendC::GlobalTensor<ElementB> gmB;
         gmB.SetGlobalBuffer(params.ptrB);
         AscendC::GlobalTensor<ElementC> gmC;
@@ -195,8 +181,7 @@ public:
 
         auto layoutSymmetric = Catlass::layout::RowMajor(
             WORKSPACE_STAGES * params.rankSize * commSizeM, params.problemShape.k(),
-            RoundUp<int64_t>(params.problemShape.k(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementA))
-        );
+            RoundUp<int64_t>(params.problemShape.k(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementA)));
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
@@ -209,8 +194,7 @@ public:
 
             uint32_t actualCommSizeM = Min(commSizeM, params.problemShape.m() - commIdx * commSizeM);
             auto actualProblemShape = Catlass::MakeCoord<uint32_t>(
-                actualCommSizeM, params.problemShape.n(), params.problemShape.k(), params.rankSize
-            );
+                actualCommSizeM, params.problemShape.n(), params.problemShape.k(), params.rankSize);
             BlockMmadScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
             uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
@@ -237,9 +221,7 @@ public:
                 auto gmBlockC = gmC[layoutC.GetOffset(offsetC)];
 
                 mmad(
-                    gmBlockA, layoutSymmetric,
-                    gmBlockB, params.layoutB,
-                    gmBlockC, layoutC,
+                    gmBlockA, layoutSymmetric, gmBlockB, params.layoutB, gmBlockC, layoutC,
                     actualBlockShape.GetCoordMNK());
             }
 #ifdef ENABLE_TIMER
@@ -251,8 +233,7 @@ public:
     }
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIV>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t subcoreIdx = AscendC::GetSubBlockIdx();
@@ -266,12 +247,11 @@ public:
         AscendC::GlobalTensor<ElementA> gmA;
         gmA.SetGlobalBuffer(params.ptrA);
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric));
 
         auto layoutSymmetric = Catlass::layout::RowMajor(
             WORKSPACE_STAGES * params.rankSize * commSizeM, params.problemShape.k(),
-            RoundUp<int64_t>(params.problemShape.k(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementA))
-        );
+            RoundUp<int64_t>(params.problemShape.k(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementA)));
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
@@ -310,7 +290,7 @@ public:
 
                     uint32_t remoteRankIdx = commBlockCoord.rank();
 
-                   auto offsetSrc = commSrcOffset + blockOffsetInRank;
+                    auto offsetSrc = commSrcOffset + blockOffsetInRank;
                     auto offsetDst = commDstOffset + blockOffsetInRank;
 
                     auto gmBlockSrc = gmA[params.layoutA.GetOffset(offsetSrc)];
@@ -320,10 +300,8 @@ public:
                     auto layoutBlockDst = layoutSymmetric.GetTileLayout(actualCommBlockShape);
 
                     blockRemoteCopy(
-                        gmBlockSrc, layoutBlockSrc,
-                        gmBlockDst, layoutBlockDst,
-                        actualCommBlockShape, remoteRankIdx % params.rankSize
-                    );
+                        gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape,
+                        remoteRankIdx % params.rankSize);
                 }
             }
             blockRemoteCopy.FinalizeBlockLoop();
@@ -336,7 +314,6 @@ public:
 #endif
             Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageId]);
         }
-
     }
 
 private:
@@ -349,6 +326,6 @@ private:
 #endif
 };
 
-} // namespace Catccos::Gemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
 #endif // CATCCOS_DGEMM_KERNEL_ALLGATHER_MATMUL_HPP

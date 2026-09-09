@@ -1,4 +1,5 @@
 
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -18,19 +19,17 @@
 
 #include "kernel_operator.h"
 
-namespace MoeInitRoutingQuantV2
-{
+namespace MoeInitRoutingQuantV2 {
 using namespace AscendC;
 using namespace optiling;
-class MoeV2SortBase
-{
-   public:
+class MoeV2SortBase {
+public:
     __aicore__ inline MoeV2SortBase(){};
 
-   protected:
+protected:
     __aicore__ inline void SyncAll();
 
-   protected:
+protected:
     TPipe* pipe;
     TQue<QuePosition::VECIN, 1> sortDataCopyInQueue;
     TQue<QuePosition::VECOUT, 1> sortDataCopyOutQueue;
@@ -62,8 +61,7 @@ class MoeV2SortBase
 
 __aicore__ inline void MoeV2SortBase::SyncAll()
 {
-    if (coreNum == 1)
-    {
+    if (coreNum == 1) {
         return;
     }
 #ifndef __CCE_KT_TEST__
@@ -71,5 +69,5 @@ __aicore__ inline void MoeV2SortBase::SyncAll()
 #endif
 }
 
-}  // namespace MoeInitRoutingQuantV2
-#endif  // INNER_MOE_V2_SORT_BASE_H
+} // namespace MoeInitRoutingQuantV2
+#endif // INNER_MOE_V2_SORT_BASE_H

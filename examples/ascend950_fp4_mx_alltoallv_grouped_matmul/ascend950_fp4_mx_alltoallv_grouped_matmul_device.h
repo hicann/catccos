@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -39,11 +40,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
-          class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC, uint32_t M0, uint32_t N0,
-          uint32_t K0>
-struct Ascend950Fp4MxAllToAllVGroupedMatmulConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
+    class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC, uint32_t M0, uint32_t N0, uint32_t K0>
+struct Ascend950Fp4MxAllToAllVGroupedMatmulConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
     constexpr static uint32_t PRELOAD_STAGES = 1;
@@ -61,8 +61,8 @@ struct Ascend950Fp4MxAllToAllVGroupedMatmulConfig
         ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA,
         decltype(tla::MakeMxScaleLayout<ElementMxScaleA, LayoutA, false>(0U, 0U)), ElementMxScaleB,
         decltype(tla::MakeMxScaleLayout<ElementMxScaleB, LayoutB, true>(0U, 0U)), ElementC, LayoutC, void>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                         ElementB, ElementC, void, TileCopy>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementC, void, TileCopy>;
 
     constexpr static bool IS_DYNAMIC = true;
 
@@ -76,10 +76,10 @@ struct Ascend950Fp4MxAllToAllVGroupedMatmulConfig
     using RemoteScaleSrcType = ScaleAType;
     using RemoteScaleDstType = ScaleAType;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      COPY_DIRECT, CopyTransport::Mte>;
-    using TileRemoteCopyScale = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteScaleSrcType, RemoteScaleDstType,
-                                                           void, COPY_DIRECT, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, COPY_DIRECT, CopyTransport::Mte>;
+    using TileRemoteCopyScale = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteScaleSrcType, RemoteScaleDstType, void, COPY_DIRECT, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     constexpr static uint32_t TP_SIZE_LIMITS = 1;
@@ -94,27 +94,29 @@ struct Ascend950Fp4MxAllToAllVGroupedMatmulConfig
 
     using BlockCommAllGather =
         Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
-    using BlockCommAllGatherScale = Comm::Block::CommBlock<CommDispatchPolicy, RemoteScaleSrcType, RemoteScaleDstType,
-                                                           void, TileRemoteCopyScale, TileScheduler>;
+    using BlockCommAllGatherScale = Comm::Block::CommBlock<
+        CommDispatchPolicy, RemoteScaleSrcType, RemoteScaleDstType, void, TileRemoteCopyScale, TileScheduler>;
 
-    using Kernel =
-        DGemm::Kernel::MxAllToAllVGroupedMatmulTla<ProblemShape, BlockMmad, BlockCommAllGather, BlockCommAllGatherScale,
-                                                   BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::MxAllToAllVGroupedMatmulTla<
+        ProblemShape, BlockMmad, BlockCommAllGather, BlockCommAllGatherScale, BlockMmadScheduler, BlockCommScheduler,
+        WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 // Pre-defined tiling configurations
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
-          class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC>
-using Ascend950Fp4MxAllToAllVGroupedMatmulConfig_M0_128 =
-    Ascend950Fp4MxAllToAllVGroupedMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA,
-                                               ElementMxScaleB, LayoutMxScaleB, ElementC, LayoutC, 128, 256, 512>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
+    class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC>
+using Ascend950Fp4MxAllToAllVGroupedMatmulConfig_M0_128 = Ascend950Fp4MxAllToAllVGroupedMatmulConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB, LayoutMxScaleB, ElementC,
+    LayoutC, 128, 256, 512>;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
-          class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC>
-using Ascend950Fp4MxAllToAllVGroupedMatmulConfig_M0_256 =
-    Ascend950Fp4MxAllToAllVGroupedMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA,
-                                               ElementMxScaleB, LayoutMxScaleB, ElementC, LayoutC, 256, 128, 512>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
+    class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC>
+using Ascend950Fp4MxAllToAllVGroupedMatmulConfig_M0_256 = Ascend950Fp4MxAllToAllVGroupedMatmulConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB, LayoutMxScaleB, ElementC,
+    LayoutC, 256, 128, 512>;
 
-#endif  // ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL_KERNEL_H
+#endif // ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL_KERNEL_H

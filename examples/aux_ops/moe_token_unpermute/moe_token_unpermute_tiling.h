@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -25,8 +26,8 @@ struct MoeTokenUnpermuteTilingData {
     int64_t buffer_num;
 };
 
-__forceinline__ [host, aicore] void
-MoeTokenUnpermuteTiling(int32_t m, int32_t n, int32_t topK, MoeTokenUnpermuteTilingData &tilingData, uint32_t coreNum)
+__forceinline__[host, aicore] void MoeTokenUnpermuteTiling(
+    int32_t m, int32_t n, int32_t topK, MoeTokenUnpermuteTilingData& tilingData, uint32_t coreNum)
 {
     tilingData.hidden_size = static_cast<int64_t>(n);
     tilingData.top_k = static_cast<int64_t>(topK);
@@ -37,13 +38,13 @@ MoeTokenUnpermuteTiling(int32_t m, int32_t n, int32_t topK, MoeTokenUnpermuteTil
     uint32_t outTokens = m / topK;
     tilingData.tokens_core_length = static_cast<int64_t>(outTokens / coreNum);
     tilingData.tokens_core_remain = static_cast<int64_t>(outTokens % coreNum);
-    tilingData.tokens_splited_length = tilingData.tokens_core_length < static_cast<int64_t>(600)
-                                           ? tilingData.tokens_core_length
-                                           : static_cast<int64_t>(600);
-    tilingData.tokens_splited_num = static_cast<int64_t>(
-                                    tilingData.tokens_core_length / tilingData.tokens_splited_length);
-    tilingData.tokens_splited_remain = static_cast<int64_t>(
-                                       tilingData.tokens_core_length % tilingData.tokens_splited_length);
+    tilingData.tokens_splited_length = tilingData.tokens_core_length < static_cast<int64_t>(600) ?
+                                           tilingData.tokens_core_length :
+                                           static_cast<int64_t>(600);
+    tilingData.tokens_splited_num =
+        static_cast<int64_t>(tilingData.tokens_core_length / tilingData.tokens_splited_length);
+    tilingData.tokens_splited_remain =
+        static_cast<int64_t>(tilingData.tokens_core_length % tilingData.tokens_splited_length);
     tilingData.buffer_num = 4;
 }
 

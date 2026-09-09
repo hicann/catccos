@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -17,24 +18,21 @@
 #include "launch_map.h"
 
 struct LUTGroup {
-  int m0Default;
-  int commIntervalDefault;
-  int commTileMDefault;
-  int commNpuSplitDefault;
-  int commDataSplitDefault;
-  std::map<int, std::vector<std::vector<int>>> m0Map;
-  std::map<int, std::vector<std::vector<int>>> commIntervalMap;
-  std::map<int, std::vector<std::vector<int>>> commTileMMap;
-  std::map<int, std::vector<std::vector<int>>> commNpuSplitMap;
-  std::map<int, std::vector<std::vector<int>>> commDataSplitMap;
+    int m0Default;
+    int commIntervalDefault;
+    int commTileMDefault;
+    int commNpuSplitDefault;
+    int commDataSplitDefault;
+    std::map<int, std::vector<std::vector<int>>> m0Map;
+    std::map<int, std::vector<std::vector<int>>> commIntervalMap;
+    std::map<int, std::vector<std::vector<int>>> commTileMMap;
+    std::map<int, std::vector<std::vector<int>>> commNpuSplitMap;
+    std::map<int, std::vector<std::vector<int>>> commDataSplitMap;
 };
 
 using LutKey = std::pair<CocCommType, int>; // {kernelType, rankSize}
 
-bool ApplyLookupTable(const COCMatMulInfo& info,
-                     CocCommType type,
-                     int rankSize,
-                     CocTilingParams& t);
+bool ApplyLookupTable(const COCMatMulInfo& info, CocCommType type, int rankSize, CocTilingParams& t);
 
 /* ---------- 全局 LUT 声明 ---------- */
 extern const LUTGroup AllGather2p;

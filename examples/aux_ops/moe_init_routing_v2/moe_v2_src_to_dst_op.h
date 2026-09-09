@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -25,8 +26,8 @@ class MoeV2SrcToDstOp {
 public:
     __aicore__ inline MoeV2SrcToDstOp(){};
     template <typename TilingData>
-    __aicore__ inline void Init(GM_ADDR expandSrcToDstRow, GM_ADDR workspace, const TilingData *tilingData,
-                                TPipe *tPipe);
+    __aicore__ inline void Init(
+        GM_ADDR expandSrcToDstRow, GM_ADDR workspace, const TilingData* tilingData, TPipe* tPipe);
     __aicore__ inline void Process();
 
 private:
@@ -37,7 +38,7 @@ private:
     __aicore__ inline void AssistInit();
 
 private:
-    TPipe *pipe;
+    TPipe* pipe;
     TQue<QuePosition::VECIN, 1> copyInQueue;
     TQue<QuePosition::VECOUT, 1> copyOutQueue;
     TBuf<TPosition::VECCALC> assistBuffer;
@@ -46,7 +47,7 @@ private:
     GlobalTensor<int32_t> expandSrcToDstRowGm;
     GlobalTensor<int32_t> assistGm;
 
-    const MoeV2GatherOutComputeTilingData *srcToDstTilingData;
+    const MoeV2GatherOutComputeTilingData* srcToDstTilingData;
 
     int64_t coreNum;
     int64_t blockIdx;
@@ -83,8 +84,9 @@ __aicore__ inline void MoeV2SrcToDstOp::Compute(int64_t progress)
     PipeBarrier<PIPE_V>();
     int64_t loops = Ceil(currentLoopRows, ASSIST_INDEX_NUM);
     for (int64_t i = 0; i < loops; i++) {
-        Adds(outLocal[i * ASSIST_NUM], assistTensor,
-             static_cast<int32_t>(this->perLoopRows * progress + i * ASSIST_INDEX_NUM), ASSIST_NUM);
+        Adds(
+            outLocal[i * ASSIST_NUM], assistTensor,
+            static_cast<int32_t>(this->perLoopRows * progress + i * ASSIST_INDEX_NUM), ASSIST_NUM);
     }
     PipeBarrier<PIPE_V>();
     copyOutQueue.EnQue<int32_t>(outLocal);
@@ -119,8 +121,8 @@ __aicore__ inline void MoeV2SrcToDstOp::SyncAll()
 }
 
 template <typename TilingData>
-__aicore__ inline void MoeV2SrcToDstOp::Init(GM_ADDR expandSrcToDstRow, GM_ADDR workspace, const TilingData *tilingData,
-                                             TPipe *tPipe)
+__aicore__ inline void MoeV2SrcToDstOp::Init(
+    GM_ADDR expandSrcToDstRow, GM_ADDR workspace, const TilingData* tilingData, TPipe* tPipe)
 {
     int64_t blockNum = GetBlockNum() * 2;
     this->pipe = tPipe;
@@ -140,11 +142,12 @@ __aicore__ inline void MoeV2SrcToDstOp::Init(GM_ADDR expandSrcToDstRow, GM_ADDR 
         this->lastLoopRows = this->srcToDstTilingData->perCoreLastLoopRows;
     }
 
-    expandSrcToDstRowGm.SetGlobalBuffer((__gm__ int32_t *)expandSrcToDstRow, Align(this->totalLength, sizeof(int32_t)));
-    expandDstToSrcRowGm.SetGlobalBuffer((__gm__ int32_t *)workspace + Align(this->totalLength, sizeof(int32_t)) +
-                                            this->blockIdx * this->srcToDstTilingData->perCoreRows,
-                                        Align(this->coreRows, sizeof(int32_t)));
-    assistGm.SetGlobalBuffer((__gm__ int32_t *)assist, ASSIST_NUM);
+    expandSrcToDstRowGm.SetGlobalBuffer((__gm__ int32_t*)expandSrcToDstRow, Align(this->totalLength, sizeof(int32_t)));
+    expandDstToSrcRowGm.SetGlobalBuffer(
+        (__gm__ int32_t*)workspace + Align(this->totalLength, sizeof(int32_t)) +
+            this->blockIdx * this->srcToDstTilingData->perCoreRows,
+        Align(this->coreRows, sizeof(int32_t)));
+    assistGm.SetGlobalBuffer((__gm__ int32_t*)assist, ASSIST_NUM);
 
     pipe->InitBuffer(copyInQueue, 1, this->perLoopRows * BLOCK_BYTES);
     pipe->InitBuffer(copyOutQueue, 1, Ceil(this->perLoopRows, ASSIST_NUM) * ASSIST_NUM * BLOCK_BYTES);

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,21 +27,11 @@
 
 namespace Catccos::Comm::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
-template <
-    uint32_t UB_STAGES_,
-    class SrcType_,
-    class DstType_,
-    class TileRemoteCopy_
->
-class CommBlock <
-    AtlasA2CommRdmaCopy<UB_STAGES_>,
-    SrcType_,
-    DstType_,
-    TileRemoteCopy_
-> {
+template <uint32_t UB_STAGES_, class SrcType_, class DstType_, class TileRemoteCopy_>
+class CommBlock<AtlasA2CommRdmaCopy<UB_STAGES_>, SrcType_, DstType_, TileRemoteCopy_> {
 public:
     // Type aliases
     using DispatchPolicy = AtlasA2CommRdmaCopy<UB_STAGES_>;
@@ -52,34 +43,26 @@ public:
     using LayoutDst = typename DstType_::Layout;
 
     using TileRemoteCopy = TileRemoteCopy_;
-    
+
     CATLASS_DEVICE
     CommBlock() = default;
 
     CATLASS_DEVICE
-    ~CommBlock()
-    {
-    }
+    ~CommBlock() {}
 
     CATLASS_DEVICE
-    void operator() (
-        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const &layoutSrc,
-        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const &layoutDst,
-        MatrixCoord const &actualCommBlockShape, uint32_t rankIdx
-    )
+    void operator()(
+        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const& layoutSrc,
+        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const& layoutDst,
+        MatrixCoord const& actualCommBlockShape, uint32_t rankIdx)
     {
         if (actualCommBlockShape.row() == 0) {
             return;
         }
-        
+
         tileRemoteCopy(
-            gmDst, layoutDst,
-            gmSrc, layoutSrc,
-            actualCommBlockShape,
-            ubSList[ubListId],
-            copyEventIdList[ubListId],
-            rankIdx
-        );
+            gmDst, layoutDst, gmSrc, layoutSrc, actualCommBlockShape, ubSList[ubListId], copyEventIdList[ubListId],
+            rankIdx);
     }
 
 private:
@@ -89,6 +72,6 @@ private:
     TileRemoteCopy tileRemoteCopy;
 };
 
-} // namespace Catccos::Comm::Block 
+} // namespace Catccos::Comm::Block
 
 #endif // CATCCOS_COMM_BLOCK_RDMA_COPY_HPP

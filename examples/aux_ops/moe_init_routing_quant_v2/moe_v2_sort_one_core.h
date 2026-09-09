@@ -1,4 +1,5 @@
 
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -19,26 +20,24 @@
 #include "moe_v2_mrgsort.h"
 #include "moe_v2_sort_base.h"
 
-namespace MoeInitRoutingQuantV2
-{
+namespace MoeInitRoutingQuantV2 {
 using namespace AscendC;
 using namespace optiling;
-class MoeV2SortOneCore : public MoeV2SortBase
-{
-   public:
+class MoeV2SortOneCore : public MoeV2SortBase {
+public:
     __aicore__ inline MoeV2SortOneCore(){};
     template <typename TilingData>
-    __aicore__ inline void Init(GM_ADDR expertIdx, GM_ADDR expertTokensCountOrCumsum,
-                                GM_ADDR expertTokensBeforeCapacity, GM_ADDR workspace, const TilingData* tilingData,
-                                TPipe* tPipe);
+    __aicore__ inline void Init(
+        GM_ADDR expertIdx, GM_ADDR expertTokensCountOrCumsum, GM_ADDR expertTokensBeforeCapacity, GM_ADDR workspace,
+        const TilingData* tilingData, TPipe* tPipe);
     __aicore__ inline void Process();
 
-   private:
+private:
     __aicore__ inline void CopyIn();
     __aicore__ inline void SortCompute();
     __aicore__ inline void CopyOut();
 
-   private:
+private:
     int64_t sortNum;
     int64_t blockIdx;
 };
@@ -46,8 +45,8 @@ class MoeV2SortOneCore : public MoeV2SortBase
 __aicore__ inline void MoeV2SortOneCore::CopyIn()
 {
     LocalTensor<int32_t> inLocal = sortDataCopyInQueue.AllocTensor<int32_t>();
-    DataCopyExtParams dataCopyParams{static_cast<uint16_t>(1),
-                                     static_cast<uint32_t>(this->totalLength * sizeof(int32_t)), 0, 0, 0};
+    DataCopyExtParams dataCopyParams{
+        static_cast<uint16_t>(1), static_cast<uint32_t>(this->totalLength * sizeof(int32_t)), 0, 0, 0};
     DataCopyPadExtParams<int32_t> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(inLocal[0], expertIdxGm, dataCopyParams, dataCopyPadParams);
 
@@ -67,8 +66,7 @@ __aicore__ inline void MoeV2SortOneCore::SortCompute()
     AscendC::PipeBarrier<PIPE_V>();
 
     int64_t duplicateNum = this->totalLength % ONE_REPEAT_SORT_NUM;
-    if (duplicateNum > 0)
-    {
+    if (duplicateNum > 0) {
         int duplicateIndex = this->totalLength - duplicateNum;
         uint64_t mask0 = UINT64_MAX;
         mask0 = mask0 << duplicateNum;
@@ -117,9 +115,9 @@ __aicore__ inline void MoeV2SortOneCore::CopyOut()
 }
 
 template <typename TilingData>
-__aicore__ inline void MoeV2SortOneCore::Init(GM_ADDR expertIdx, GM_ADDR expertTokensCountOrCumsum,
-                                              GM_ADDR expertTokensBeforeCapacity, GM_ADDR workspace,
-                                              const TilingData* tilingData, TPipe* tPipe)
+__aicore__ inline void MoeV2SortOneCore::Init(
+    GM_ADDR expertIdx, GM_ADDR expertTokensCountOrCumsum, GM_ADDR expertTokensBeforeCapacity, GM_ADDR workspace,
+    const TilingData* tilingData, TPipe* tPipe)
 {
     this->blockIdx = get_block_idx() + get_subblockid() * get_block_num();
     this->tileLength = Align(tilingData->vbsComputeParamsOp.lastCorePerLoopElements, sizeof(int32_t));
@@ -135,21 +133,18 @@ __aicore__ inline void MoeV2SortOneCore::Init(GM_ADDR expertIdx, GM_ADDR expertT
 
     expertIdxGm.SetGlobalBuffer((__gm__ int32_t*)expertIdx, this->tileLength);
     sortedexpertIdxGm.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(workspace), this->tileLength);
-    expandDstToSrcRowGm.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(workspace) + this->tileLength,
-                                        this->tileLength);
+    expandDstToSrcRowGm.SetGlobalBuffer(
+        reinterpret_cast<__gm__ int32_t*>(workspace) + this->tileLength, this->tileLength);
 
-    if (this->blockIdx == this->coreNum - 1)
-    {
-        if (this->expertTokensCountOrCumsumFlag > 0)
-        {
-            expertTokensCountOrCumsumGm.SetGlobalBuffer((__gm__ int32_t*)expertTokensCountOrCumsum,
-                                                        Align(this->expertNum, sizeof(int32_t)));
+    if (this->blockIdx == this->coreNum - 1) {
+        if (this->expertTokensCountOrCumsumFlag > 0) {
+            expertTokensCountOrCumsumGm.SetGlobalBuffer(
+                (__gm__ int32_t*)expertTokensCountOrCumsum, Align(this->expertNum, sizeof(int32_t)));
             InitGlobalMemory(expertTokensCountOrCumsumGm, this->expertNum, 0);
         }
-        if (this->expertTokensBeforeCapacityFlag == 1)
-        {
-            expertTokensBeforeCapacityGm.SetGlobalBuffer((__gm__ int32_t*)expertTokensBeforeCapacity,
-                                                         Align(this->expertNum, sizeof(int32_t)));
+        if (this->expertTokensBeforeCapacityFlag == 1) {
+            expertTokensBeforeCapacityGm.SetGlobalBuffer(
+                (__gm__ int32_t*)expertTokensBeforeCapacity, Align(this->expertNum, sizeof(int32_t)));
             InitGlobalMemory(expertTokensBeforeCapacityGm, this->expertNum, 0);
         }
     }
@@ -164,13 +159,12 @@ __aicore__ inline void MoeV2SortOneCore::Init(GM_ADDR expertIdx, GM_ADDR expertT
 
 __aicore__ inline void MoeV2SortOneCore::Process()
 {
-    if (get_block_idx() + get_subblockid() * get_block_num() < 1)
-    {
+    if (get_block_idx() + get_subblockid() * get_block_num() < 1) {
         CopyIn();
         SortCompute();
         CopyOut();
     }
     this->SyncAll();
 }
-}  // namespace MoeInitRoutingQuantV2
-#endif  // INNER_MOE_V2_SORT_ONE_CORE_H
+} // namespace MoeInitRoutingQuantV2
+#endif // INNER_MOE_V2_SORT_ONE_CORE_H

@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -20,8 +21,8 @@
 
 namespace Catccos::DGemm::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 template <class MoeConstraints_ = DefaultMoeConstraints>
 struct BlockMmadSchedulerReduceScatterAllToAllV {
@@ -35,38 +36,38 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
     };
 
     struct LocalExpertContext {
-        GemmCoord *ptrProblemShape;
-        GemmCoord *ptrBlockGrid;
-        uint64_t *ptrFinishedLoops;
-        
+        GemmCoord* ptrProblemShape;
+        GemmCoord* ptrBlockGrid;
+        uint64_t* ptrFinishedLoops;
+
         uint32_t localExpertIdx;
         uint32_t dstRankIdx;
         uint32_t blockAccumList[MoeConstraints::RANK_SIZE_LIMIT + 1] = {0};
         uint32_t blockNum;
-        
+
         const GemmCoord& GetProblemShape() const { return ptrProblemShape[dstRankIdx]; }
         const GemmCoord& GetBlockGrid() const { return ptrBlockGrid[dstRankIdx]; }
         uint32_t GetFinishedLoops() const { return ptrFinishedLoops[dstRankIdx]; }
 
-        void UpdateDstRank(uint32_t taskIdx) {
+        void UpdateDstRank(uint32_t taskIdx)
+        {
             while (taskIdx >= blockAccumList[dstRankIdx + 1]) {
                 dstRankIdx++;
             }
         }
-        
-        uint32_t GetBlockIdxInRank(uint32_t taskIdx) const {
-            return taskIdx - blockAccumList[dstRankIdx];
-        }
+
+        uint32_t GetBlockIdxInRank(uint32_t taskIdx) const { return taskIdx - blockAccumList[dstRankIdx]; }
     };
 
     ProblemShape problemShape;
-    
+
     uint32_t commLoops;
     GemmCoord blockShape;
     uint32_t blockPerCommInRank;
 
     uint32_t outputSplitBlock[MoeConstraints::RANK_SIZE_LIMIT] = {0};
-    uint32_t outputSplitBlockInLocalExpert[MoeConstraints::RANK_SIZE_LIMIT][MoeConstraints::LOCAL_EXPERT_NUM_LIMIT] = {0};
+    uint32_t outputSplitBlockInLocalExpert[MoeConstraints::RANK_SIZE_LIMIT][MoeConstraints::LOCAL_EXPERT_NUM_LIMIT] = {
+        0};
     uint32_t outputOffsetList[MoeConstraints::LOCAL_EXPERT_NUM_LIMIT][MoeConstraints::RANK_SIZE_LIMIT] = {0};
 
     GemmCoord mmadProblemShapes[MoeConstraints::LOCAL_EXPERT_NUM_LIMIT][MoeConstraints::RANK_SIZE_LIMIT];
@@ -80,10 +81,8 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
 
     CATLASS_DEVICE
     BlockMmadSchedulerReduceScatterAllToAllV(
-        ProblemShape const &problemShape_,
-        uint32_t blockPerCommInRank_,
-        MatrixCoord const &blockShapeMN_
-    ) : problemShape(problemShape_), blockPerCommInRank(blockPerCommInRank_)
+        ProblemShape const& problemShape_, uint32_t blockPerCommInRank_, MatrixCoord const& blockShapeMN_)
+        : problemShape(problemShape_), blockPerCommInRank(blockPerCommInRank_)
     {
         blockShape = {blockShapeMN_.row(), blockShapeMN_.column(), problemShape.k()};
         commLoops = 0;
@@ -110,7 +109,8 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
                 outputOffset += tokens;
 
                 mmadProblemShapes[localExpertIdx][rankIdx] = {tokens, problemShape.n(), problemShape.k()};
-                mmadBlockGrids[localExpertIdx][rankIdx] = CeilDiv(mmadProblemShapes[localExpertIdx][rankIdx], blockShape);
+                mmadBlockGrids[localExpertIdx][rankIdx] =
+                    CeilDiv(mmadProblemShapes[localExpertIdx][rankIdx], blockShape);
             }
         }
 
@@ -121,10 +121,7 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
     }
 
     CATLASS_DEVICE
-    uint32_t GetCommLoops() const
-    {
-        return commLoops;
-    }
+    uint32_t GetCommLoops() const { return commLoops; }
 
     CATLASS_DEVICE
     void UpdateCommContext(uint32_t commIdx)
@@ -137,10 +134,10 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
             for (uint32_t localExpertIdx = 0; localExpertIdx < problemShape.localExpertNum(); ++localExpertIdx) {
                 auto blockNumInLastGroup = commContext.blockNumList[localExpertIdx][dstRankIdx];
                 commContext.inGroupOffsetList[localExpertIdx][dstRankIdx] += blockNumInLastGroup;
-                
+
                 auto outputSplitBlocks = outputSplitBlockInLocalExpert[dstRankIdx][localExpertIdx];
                 auto residueBlocks = outputSplitBlocks - commContext.inGroupOffsetList[localExpertIdx][dstRankIdx];
-                
+
                 uint32_t blocks = Min<uint64_t>(actualCommBlocks - totalBlocks, residueBlocks);
                 commContext.blockNumList[localExpertIdx][dstRankIdx] = blocks;
                 commContext.blockOffsetList[localExpertIdx][dstRankIdx] = totalBlocks * blockShape.m();
@@ -157,7 +154,7 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
         localExpertCtx.ptrFinishedLoops = commContext.inGroupOffsetList[localExpertIdx];
         localExpertCtx.localExpertIdx = localExpertIdx;
         localExpertCtx.dstRankIdx = 0;
-    
+
         uint32_t blockAccum = 0;
         for (uint32_t rankIdx = 0; rankIdx < problemShape.rankSize(); ++rankIdx) {
             blockAccum += commContext.blockNumList[localExpertIdx][rankIdx];
@@ -171,17 +168,16 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
 
     struct Iter {
         using Scheduler = BlockMmadSchedulerReduceScatterAllToAllV<MoeConstraints>;
-        Scheduler *const scheduler;
+        Scheduler* const scheduler;
         uint32_t taskIdx;
         uint32_t coreLoops;
 
         CATLASS_DEVICE
-        void Next() {
-            taskIdx += AscendC::GetBlockNum();
-        }
+        void Next() { taskIdx += AscendC::GetBlockNum(); }
 
         CATLASS_DEVICE
-        bool End() {
+        bool End()
+        {
             if (taskIdx >= coreLoops) {
                 scheduler->startTask = taskIdx - coreLoops;
             }
@@ -198,31 +194,31 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
     }
 
     CATLASS_DEVICE
-    DistGemmCoord GetBlockOffset(Iter const &iter)
+    DistGemmCoord GetBlockOffset(Iter const& iter)
     {
         localExpertCtx.UpdateDstRank(iter.taskIdx);
         blockIdxInRank = localExpertCtx.GetBlockIdxInRank(iter.taskIdx);
         auto blockCoordMN = MatrixSwizzle<7, 1>::GetCoord(
             localExpertCtx.GetBlockGrid().GetCoordMN(), blockIdxInRank + localExpertCtx.GetFinishedLoops());
-        return Catlass::MakeCoord(blockCoordMN.row() * blockShape.m(), 
-                                  blockCoordMN.column() * blockShape.n(), 0U, localExpertCtx.dstRankIdx);
+        return Catlass::MakeCoord(
+            blockCoordMN.row() * blockShape.m(), blockCoordMN.column() * blockShape.n(), 0U, localExpertCtx.dstRankIdx);
     }
 
     struct RemapperA {
         using Scheduler = BlockMmadSchedulerReduceScatterAllToAllV<MoeConstraints>;
-        const Scheduler *scheduler;
+        const Scheduler* scheduler;
         uint32_t commIdx;
         uint32_t localExpertIdx;
 
         CATLASS_DEVICE
-        MatrixCoord operator()(DistGemmCoord const &blockOffset) const
+        MatrixCoord operator()(DistGemmCoord const& blockOffset) const
         {
             auto tokenOffset = scheduler->outputOffsetList[localExpertIdx][blockOffset.rank()];
             return blockOffset.GetCoordMK() + Catlass::MakeCoord<uint32_t>(tokenOffset, 0);
         }
 
         CATLASS_DEVICE
-        GemmCoord GetResidueShape(GemmCoord const &blockOffset) const
+        GemmCoord GetResidueShape(GemmCoord const& blockOffset) const
         {
             return ClipSub(scheduler->localExpertCtx.GetProblemShape(), blockOffset);
         }
@@ -236,16 +232,16 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
 
     struct RemapperC {
         using Scheduler = BlockMmadSchedulerReduceScatterAllToAllV<MoeConstraints>;
-        const Scheduler *scheduler;
+        const Scheduler* scheduler;
         uint32_t commIdx;
         uint32_t localExpertIdx;
 
         CATLASS_DEVICE
-        DistMatrixCoord operator()(DistGemmCoord const &blockOffset) const
+        DistMatrixCoord operator()(DistGemmCoord const& blockOffset) const
         {
             auto outputOffset = scheduler->commContext.blockOffsetList[localExpertIdx][blockOffset.rank()];
-            MatrixCoord localOffset = Catlass::MakeCoord<uint32_t>(
-                scheduler->blockIdxInRank * scheduler->blockShape.m() + outputOffset, 0);
+            MatrixCoord localOffset =
+                Catlass::MakeCoord<uint32_t>(scheduler->blockIdxInRank * scheduler->blockShape.m() + outputOffset, 0);
             return {localOffset, blockOffset.rank()};
         }
     };
@@ -257,14 +253,14 @@ struct BlockMmadSchedulerReduceScatterAllToAllV {
     }
 
     CATLASS_DEVICE
-    GemmCoord RemapActualBlockShape(GemmCoord const &blockOffset,
-        RemapperA const &remapperA, RemapperC const &remapperC) const
+    GemmCoord RemapActualBlockShape(
+        GemmCoord const& blockOffset, RemapperA const& remapperA, RemapperC const& remapperC) const
     {
         (void)remapperC;
         return Min(blockShape, remapperA.GetResidueShape(blockOffset));
     }
 };
 
-}  // namespace Catccos::DGemm::Block
+} // namespace Catccos::DGemm::Block
 
-#endif  // CATCCOS_DGEMM_BLOCK_SCHEDULER_REDUCESCATTER_ALLTOALLV_HPP
+#endif // CATCCOS_DGEMM_BLOCK_SCHEDULER_REDUCESCATTER_ALLTOALLV_HPP

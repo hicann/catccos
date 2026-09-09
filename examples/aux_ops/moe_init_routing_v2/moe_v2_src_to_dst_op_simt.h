@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -25,7 +26,7 @@ class MoeV2SrcToDstOpSimt {
 public:
     __aicore__ inline MoeV2SrcToDstOpSimt(){};
     template <typename TilingData>
-    __aicore__ inline void Init(GM_ADDR expandedRowIdx, GM_ADDR expandDstToSrcRow, const TilingData *tilingData);
+    __aicore__ inline void Init(GM_ADDR expandedRowIdx, GM_ADDR expandDstToSrcRow, const TilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -33,9 +34,9 @@ private:
     __aicore__ inline void ComputeSimt() const;
 
 private:
-    __gm__ int32_t *expandDstToSrcRowGm_;
-    __gm__ int32_t *expandedRowIdxGm_;
-    const MoeV2GatherOutComputeTilingData *srcToDstTilingData_;
+    __gm__ int32_t* expandDstToSrcRowGm_;
+    __gm__ int32_t* expandedRowIdxGm_;
+    const MoeV2GatherOutComputeTilingData* srcToDstTilingData_;
 
     int64_t coreNum_;
     int64_t blockIdx_;
@@ -55,8 +56,8 @@ __aicore__ inline void MoeV2SrcToDstOpSimt::SyncAll()
 }
 
 template <typename TilingData>
-__aicore__ inline void MoeV2SrcToDstOpSimt::Init(GM_ADDR expandedRowIdx, GM_ADDR expandDstToSrcRow,
-                                                 const TilingData *tilingData)
+__aicore__ inline void MoeV2SrcToDstOpSimt::Init(
+    GM_ADDR expandedRowIdx, GM_ADDR expandDstToSrcRow, const TilingData* tilingData)
 {
     this->blockIdx_ = get_block_idx() + get_subblockid() * get_block_num();
     this->coreNum_ = tilingData->coreNum;
@@ -71,8 +72,8 @@ __aicore__ inline void MoeV2SrcToDstOpSimt::Init(GM_ADDR expandedRowIdx, GM_ADDR
     startIndex_ = this->blockIdx_ * this->perCoreRows_;
     this->threadNum_ = THREAD_NUM < this->coreRows_ ? THREAD_NUM : this->coreRows_;
 
-    expandedRowIdxGm_ = (__gm__ int32_t *)expandedRowIdx;
-    expandDstToSrcRowGm_ = (__gm__ int32_t *)expandDstToSrcRow + Align(this->totalLength_, sizeof(int32_t));
+    expandedRowIdxGm_ = (__gm__ int32_t*)expandedRowIdx;
+    expandDstToSrcRowGm_ = (__gm__ int32_t*)expandDstToSrcRow + Align(this->totalLength_, sizeof(int32_t));
 }
 
 __aicore__ inline void MoeV2SrcToDstOpSimt::ComputeSimt() const

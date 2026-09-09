@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -13,39 +14,34 @@
 
 #include "catlass/arch/arch.hpp"
 
-namespace Catccos::Epilogue
-{
+namespace Catccos::Epilogue {
 
 template <uint32_t UB_STAGES_>
-struct EpilogueAtlasA2PerTokenDequantSwiglu
-{
+struct EpilogueAtlasA2PerTokenDequantSwiglu {
     using ArchTag = Catlass::Arch::AtlasA2;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
 template <uint32_t UB_STAGES_, uint32_t TILE_M_ = 1>
-struct EpilogueAscend950RegBaseSwiglu
-{
+struct EpilogueAscend950RegBaseSwiglu {
     using ArchTag = Catlass::Arch::Ascend950;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
     static constexpr uint32_t TILE_M = TILE_M_;
 };
 
 template <uint32_t UB_STAGES_, bool IsDynamic_ = false>
-struct EpilogueAtlasA5PerTensorQuant
-{
+struct EpilogueAtlasA5PerTensorQuant {
     using ArchTag = Catlass::Arch::Ascend950;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
     static constexpr bool IsDynamic = IsDynamic_;
 };
 
 template <uint32_t UB_STAGES_>
-struct EpilogueAtlasA2PerTokenDequantWithDst
-{
+struct EpilogueAtlasA2PerTokenDequantWithDst {
     using ArchTag = Catlass::Arch::AtlasA2;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
 };
 
-}  // namespace Catccos::Epilogue
+} // namespace Catccos::Epilogue
 
-#endif  // CATCCOS_EPILOGUE_DISPATCH_POLICY_HPP
+#endif // CATCCOS_EPILOGUE_DISPATCH_POLICY_HPP

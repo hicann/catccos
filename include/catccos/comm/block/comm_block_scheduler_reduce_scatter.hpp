@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -24,8 +25,8 @@ namespace Catccos::Comm::Block {
 
 using Catlass::MatrixCoord;
 
-template<bool IsDynamic_, class CoreSplit_, 
-    uint32_t SWIZZLE_DIRECTION_ = 0, bool IS_DETERMINISTIC_ = false,
+template <
+    bool IsDynamic_, class CoreSplit_, uint32_t SWIZZLE_DIRECTION_ = 0, bool IS_DETERMINISTIC_ = false,
     uint32_t MMAD_SWIZZLE_OFFSET_ = 1, uint32_t MMAD_SWIZZLE_DIRECTION_ = 0>
 struct BlockCommSchedulerReduceScatter {
     static constexpr uint32_t SWIZZLE_DIRECTION = SWIZZLE_DIRECTION_;
@@ -35,7 +36,8 @@ struct BlockCommSchedulerReduceScatter {
     static constexpr bool IsDynamic = IsDynamic_;
     using CoreSplit = CoreSplit_;
 
-    static_assert((IS_DETERMINISTIC && SWIZZLE_DIRECTION == 0) || !IS_DETERMINISTIC,
+    static_assert(
+        (IS_DETERMINISTIC && SWIZZLE_DIRECTION == 0) || !IS_DETERMINISTIC,
         "Deterministic calculation requires that the swizzle direction be 0.");
 
     struct MmadInfo {
@@ -47,13 +49,13 @@ struct BlockCommSchedulerReduceScatter {
         MmadInfo() = default;
 
         CATLASS_DEVICE
-        MmadInfo(DistGemmCoord const &mmadProblemShape_, MatrixCoord const &mmadBlockShape_)
+        MmadInfo(DistGemmCoord const& mmadProblemShape_, MatrixCoord const& mmadBlockShape_)
             : mmadProblemShape(mmadProblemShape_), mmadBlockShape(mmadBlockShape_)
         {
             mmadLoops = CeilDiv(MatrixCoord(mmadProblemShape.GetCoordMN()), mmadBlockShape);
         }
     };
-    
+
     DistMatrixCoord loops;
     MatrixCoord actualCommShape;
 
@@ -90,8 +92,7 @@ struct BlockCommSchedulerReduceScatter {
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(MatrixCoord coreSplit_) 
-            : coreSplit(coreSplit_) {}
+        ParamsBase(MatrixCoord coreSplit_) : coreSplit(coreSplit_) {}
 
         CATLASS_DEVICE
         MatrixCoord CoreSplit() const { return coreSplit; }
@@ -105,10 +106,12 @@ struct BlockCommSchedulerReduceScatter {
     BlockCommSchedulerReduceScatter() {}
 
     CATLASS_DEVICE
-    BlockCommSchedulerReduceScatter(MatrixCoord const &blockShapeInRank_, MatrixCoord const &coreSplit_, 
-        uint32_t const rankSize_, uint32_t const rankIdx_, uint32_t blockPerCommInRank_,
-        MmadInfo const &mmadInfo_)
-        : coreSplit(coreSplit_), rankSize(rankSize_), rankIdx(rankIdx_), 
+    BlockCommSchedulerReduceScatter(
+        MatrixCoord const& blockShapeInRank_, MatrixCoord const& coreSplit_, uint32_t const rankSize_,
+        uint32_t const rankIdx_, uint32_t blockPerCommInRank_, MmadInfo const& mmadInfo_)
+        : coreSplit(coreSplit_),
+          rankSize(rankSize_),
+          rankIdx(rankIdx_),
           blockPerCommInRank(blockPerCommInRank_),
           mmadInfo(mmadInfo_)
     {
@@ -120,56 +123,47 @@ struct BlockCommSchedulerReduceScatter {
     }
 
     CATLASS_DEVICE
-    uint32_t GetRealCores() const
-    {
-        return coreSplit.row() * coreSplit.column();
-    }
+    uint32_t GetRealCores() const { return coreSplit.row() * coreSplit.column(); }
 
     struct Iter {
         uint32_t taskIdx;
         uint32_t iterStep;
         uint32_t coreLoops;
- 
+
         CATLASS_DEVICE
-        void Next() {
-            taskIdx += iterStep;
-        }
- 
+        void Next() { taskIdx += iterStep; }
+
         CATLASS_DEVICE
-        bool End() {
-            return taskIdx >= coreLoops;
-        }
+        bool End() { return taskIdx >= coreLoops; }
     };
- 
+
     CATLASS_DEVICE
-    Iter Begin(uint32_t commIdx) {
+    Iter Begin(uint32_t commIdx)
+    {
         uint32_t taskIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t iterStep = GetRealCores();
         if (AscendC::GetSubBlockIdx() != 0 || taskIdx >= iterStep) {
-            return {0, 0, 0}; 
+            return {0, 0, 0};
         }
 
-        uint32_t actualBlockInRank = Min<uint32_t>(
-            blockPerCommInRank, Numel(mmadInfo.mmadLoops) - commIdx * blockPerCommInRank);
+        uint32_t actualBlockInRank =
+            Min<uint32_t>(blockPerCommInRank, Numel(mmadInfo.mmadLoops) - commIdx * blockPerCommInRank);
         actualCommShape = MatrixCoord{actualBlockInRank, 1} * mmadInfo.mmadBlockShape;
         loops = DistMatrixCoord(CeilDiv<MatrixCoord>(actualCommShape, blockShape.GetCoordInRank()), rankSize);
-        
+
         uint32_t tileCount = loops.row() * loops.column();
         coreLoops = (IS_DETERMINISTIC ? RoundUp<uint32_t>(tileCount, coreSplit.row()) : tileCount) * loops.rank();
         return {taskIdx, iterStep, coreLoops};
     }
 
     CATLASS_DEVICE
-    uint32_t GetCommLoops() const
-    {
-        return commLoops;
-    }
+    uint32_t GetCommLoops() const { return commLoops; }
 
     CATLASS_DEVICE
-    SymmMatrixCoord GetBlockOffset(uint32_t taskIdx) const {
-        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(
-            loops, coreSplit, taskIdx);
-        
+    SymmMatrixCoord GetBlockOffset(uint32_t taskIdx) const
+    {
+        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(loops, coreSplit, taskIdx);
+
         if (blockCoord.IsOverflow(loops)) {
             return SymmMatrixCoord{UINT_MAX, UINT_MAX, rankIdx, rankSize};
         }
@@ -177,10 +171,10 @@ struct BlockCommSchedulerReduceScatter {
     }
 
     struct RemapperDst {
-        using Scheduler = BlockCommSchedulerReduceScatter<IsDynamic, CoreSplit,
-            SWIZZLE_DIRECTION, IS_DETERMINISTIC, MMAD_SWIZZLE_OFFSET, MMAD_SWIZZLE_DIRECTION>;
+        using Scheduler = BlockCommSchedulerReduceScatter<
+            IsDynamic, CoreSplit, SWIZZLE_DIRECTION, IS_DETERMINISTIC, MMAD_SWIZZLE_OFFSET, MMAD_SWIZZLE_DIRECTION>;
 
-        Scheduler *scheduler;
+        Scheduler* scheduler;
         uint32_t commIdx;
 
         struct MmadContext {
@@ -191,11 +185,11 @@ struct BlockCommSchedulerReduceScatter {
         MmadContext mmadCtx;
 
         CATLASS_DEVICE
-        void UpdateMmadContext(SymmMatrixCoord const &blockOffset)
+        void UpdateMmadContext(SymmMatrixCoord const& blockOffset)
         {
             MatrixCoord blockOffsetInRank = blockOffset.GetMatrixCoord();
-            uint32_t mmadLoopIdx = commIdx * scheduler->blockPerCommInRank 
-                + blockOffsetInRank.row() / scheduler->mmadInfo.mmadBlockShape.row(); // 昂贵的除法
+            uint32_t mmadLoopIdx = commIdx * scheduler->blockPerCommInRank +
+                                   blockOffsetInRank.row() / scheduler->mmadInfo.mmadBlockShape.row(); // 昂贵的除法
 
             MatrixCoord mmadBlockCoord = MatrixSwizzle<MMAD_SWIZZLE_OFFSET, MMAD_SWIZZLE_DIRECTION>::GetCoord(
                 scheduler->mmadInfo.mmadLoops, mmadLoopIdx);
@@ -205,36 +199,34 @@ struct BlockCommSchedulerReduceScatter {
         }
 
         CATLASS_DEVICE
-        MatrixCoord operator()(SymmMatrixCoord const &blockOffset) const
+        MatrixCoord operator()(SymmMatrixCoord const& blockOffset) const
         {
             return mmadCtx.mmadBlockOffset + mmadCtx.offsetInMmadBlock;
         }
 
         CATLASS_DEVICE
-        MatrixCoord GetResidueShape(SymmMatrixCoord const &blockOffset) const 
+        MatrixCoord GetResidueShape(SymmMatrixCoord const& blockOffset) const
         {
-            auto actualMmadBlockShape = Min(scheduler->mmadInfo.mmadBlockShape, 
-                ClipSub<MatrixCoord>(scheduler->mmadInfo.mmadProblemShape.GetCoordMN(), mmadCtx.mmadBlockOffset));
+            auto actualMmadBlockShape =
+                Min(scheduler->mmadInfo.mmadBlockShape,
+                    ClipSub<MatrixCoord>(scheduler->mmadInfo.mmadProblemShape.GetCoordMN(), mmadCtx.mmadBlockOffset));
             return actualMmadBlockShape - Min<uint32_t, 2>(actualMmadBlockShape, mmadCtx.offsetInMmadBlock);
         }
     };
 
     CATLASS_DEVICE
-    const RemapperDst GetRemapperDst(uint32_t commIdx) {
-        return {this, commIdx};
-    }
+    const RemapperDst GetRemapperDst(uint32_t commIdx) { return {this, commIdx}; }
 
     CATLASS_DEVICE
-    MatrixCoord RemapActualBlockShape(SymmMatrixCoord const &blockOffset, RemapperDst const &remapperDst) const
+    MatrixCoord RemapActualBlockShape(SymmMatrixCoord const& blockOffset, RemapperDst const& remapperDst) const
     {
         MatrixCoord blockOffsetInRank = blockOffset.GetMatrixCoord();
-        auto actualBlockShape = Min(blockShape.GetCoordInRank(), 
-            ClipSub<MatrixCoord>(actualCommShape, blockOffsetInRank));
+        auto actualBlockShape =
+            Min(blockShape.GetCoordInRank(), ClipSub<MatrixCoord>(actualCommShape, blockOffsetInRank));
         return Min<uint32_t, 2>(actualBlockShape, remapperDst.GetResidueShape(blockOffset));
     }
-
 };
 
-}  // namespace Catccos::Comm::Block
+} // namespace Catccos::Comm::Block
 
 #endif // CATCCOS_COMM_BLOCK_SCHEDULER_REDUCE_SCATTER_HPP

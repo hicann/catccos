@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -9,8 +10,7 @@
  */
 #include "cost_model.h"
 
-namespace
-{
+namespace {
 
 constexpr double A2_INT8_CUBE_FLOPS_PER_US = 27840672.0;
 constexpr uint32_t A5_DEFAULT_CORE_NUM = 28;
@@ -22,19 +22,18 @@ constexpr double A5_HCCS_BANDWIDTH_GIB_PER_S = 35.1495;
 constexpr double A5_CUBE_FLOPS_PER_US = 13500000.0;
 constexpr double A5_SYNC_TIME_US = 1.297780;
 constexpr double A5_CROSS_CORE_BARRIER_TIME_US = 0.183095;
-constexpr double A5_LAUNCH_TIME_US = 6.47;  // TODO(A5_MEASURE): launch time
+constexpr double A5_LAUNCH_TIME_US = 6.47; // TODO(A5_MEASURE): launch time
 constexpr uint32_t A5_READ_OTSD_BOUND = 128;
-constexpr uint32_t A5_ND2NZ_CMD_OTSD = 2;                  // TODO(A5_MEASURE): ND2NZ OTSD
-constexpr double A5_CACHE_MISS_READ_RTT_NS = 235.0;        // TODO(A5_MEASURE): miss RTT
-constexpr double A5_CACHE_MISS_REQUEST_INTERVAL_NS = 4.5;  // TODO(A5_MEASURE): miss interval
-constexpr double A5_CACHE_HIT_READ_RTT_NS = 110.0;         // TODO(A5_MEASURE): hit RTT
-constexpr double A5_CACHE_HIT_REQUEST_INTERVAL_NS = 1.9;   // TODO(A5_MEASURE): hit interval
-constexpr double A5_FULL_CORE_HIT_EFFICIENCY = 0.8;        // TODO(A5_MEASURE): hit efficiency
+constexpr uint32_t A5_ND2NZ_CMD_OTSD = 2;                 // TODO(A5_MEASURE): ND2NZ OTSD
+constexpr double A5_CACHE_MISS_READ_RTT_NS = 235.0;       // TODO(A5_MEASURE): miss RTT
+constexpr double A5_CACHE_MISS_REQUEST_INTERVAL_NS = 4.5; // TODO(A5_MEASURE): miss interval
+constexpr double A5_CACHE_HIT_READ_RTT_NS = 110.0;        // TODO(A5_MEASURE): hit RTT
+constexpr double A5_CACHE_HIT_REQUEST_INTERVAL_NS = 1.9;  // TODO(A5_MEASURE): hit interval
+constexpr double A5_FULL_CORE_HIT_EFFICIENCY = 0.8;       // TODO(A5_MEASURE): hit efficiency
 
 uint32_t GetElementBits(CocDataType dataType)
 {
-    switch (dataType)
-    {
+    switch (dataType) {
         case FP16:
         case BF16:
             return 16;
@@ -46,19 +45,17 @@ uint32_t GetElementBits(CocDataType dataType)
     }
 }
 
-}  // namespace
+} // namespace
 
-CostModelStatus GetA2CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig &hardware)
+CostModelStatus GetA2CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig& hardware)
 {
     uint32_t elementBits = GetElementBits(dataType);
-    if (elementBits == 0)
-    {
+    if (elementBits == 0) {
         return CostModelStatus::INVALID_ARGUMENT;
     }
 
     hardware = CostModelHardwareConfig{};
-    if (dataType == CocDataType::INT8)
-    {
+    if (dataType == CocDataType::INT8) {
         hardware.cubeFlopsPerUs = A2_INT8_CUBE_FLOPS_PER_US;
     }
     hardware.inputElementBits = elementBits;
@@ -66,18 +63,17 @@ CostModelStatus GetA2CostModelHardwareConfig(CocDataType dataType, CostModelHard
     return CostModelStatus::SUCCESS;
 }
 
-CostModelStatus GetA3CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig &hardware)
+CostModelStatus GetA3CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig& hardware)
 {
     (void)dataType;
     (void)hardware;
     return CostModelStatus::UNSUPPORTED;
 }
 
-CostModelStatus GetA5CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig &hardware)
+CostModelStatus GetA5CostModelHardwareConfig(CocDataType dataType, CostModelHardwareConfig& hardware)
 {
     uint32_t elementBits = GetElementBits(dataType);
-    if (elementBits == 0)
-    {
+    if (elementBits == 0) {
         return CostModelStatus::INVALID_ARGUMENT;
     }
 
@@ -102,38 +98,32 @@ CostModelStatus GetA5CostModelHardwareConfig(CocDataType dataType, CostModelHard
     return CostModelStatus::SUCCESS;
 }
 
-CostModelStatus GetCostModelHardwareConfig(CostModelConfig const &config, CostModelHardwareConfig &hardware)
+CostModelStatus GetCostModelHardwareConfig(CostModelConfig const& config, CostModelHardwareConfig& hardware)
 {
     auto status = GetCostModelHardwareConfig(config.hardwareType, config.dataType, hardware);
-    if (status != CostModelStatus::SUCCESS)
-    {
+    if (status != CostModelStatus::SUCCESS) {
         return status;
     }
-    if (config.inputElementBits > 0)
-    {
+    if (config.inputElementBits > 0) {
         hardware.inputElementBits = config.inputElementBits;
     }
-    if (config.communicationElementBits > 0)
-    {
+    if (config.communicationElementBits > 0) {
         hardware.communicationElementBits = config.communicationElementBits;
     }
-    if (config.cubeFlopsPerUsOverride > 0.0)
-    {
+    if (config.cubeFlopsPerUsOverride > 0.0) {
         hardware.cubeFlopsPerUs = config.cubeFlopsPerUsOverride;
     }
-    if (config.aicCoreNum > 0)
-    {
+    if (config.aicCoreNum > 0) {
         // The fused kernels launch one logical AIV group per AIC.
         hardware.coreNum = config.aicCoreNum;
     }
     return CostModelStatus::SUCCESS;
 }
 
-CostModelStatus GetCostModelHardwareConfig(CostModelHardwareType hardwareType, CocDataType dataType,
-                                           CostModelHardwareConfig &hardware)
+CostModelStatus GetCostModelHardwareConfig(
+    CostModelHardwareType hardwareType, CocDataType dataType, CostModelHardwareConfig& hardware)
 {
-    switch (hardwareType)
-    {
+    switch (hardwareType) {
         case CostModelHardwareType::A2:
             return GetA2CostModelHardwareConfig(dataType, hardware);
         case CostModelHardwareType::A3:

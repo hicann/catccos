@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -32,22 +33,15 @@ using namespace Catlass;
 
 namespace Catccos::DGemm::Kernel {
 
-template <
-    class MatmulKernel
->
+template <class MatmulKernel>
 struct AicFinishSync {
     CATLASS_DEVICE
-    void operator()() const
-    {
-        Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(ptr->flagAicFinishStore);
-    }
+    void operator()() const { Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(ptr->flagAicFinishStore); }
 
-    MatmulKernel *ptr;
+    MatmulKernel* ptr;
 };
 
-template <
-    class MatmulKernel
->
+template <class MatmulKernel>
 struct AivWaitSync {
     CATLASS_DEVICE
     void operator()() const
@@ -56,29 +50,20 @@ struct AivWaitSync {
         Catlass::Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
     }
 
-    MatmulKernel *ptr;
+    MatmulKernel* ptr;
 };
 
-template <
-    class MatmulKernel
->
+template <class MatmulKernel>
 struct AllToAllVGmmEmptyCallBack {
     CATLASS_DEVICE
-    void operator()() const
-    {
-    }
+    void operator()() const {}
 
-    MatmulKernel *ptr;
+    MatmulKernel* ptr;
 };
 
 template <
-    class BlockMmad_,
-    class BlockScheduler_,
-    class ElementGroupList_,
-    class LocalCopyBlockEpilogue_,
-    class RemoteCommBlockEpilogue_,
-    class BlockEpilogueScheduler_
->
+    class BlockMmad_, class BlockScheduler_, class ElementGroupList_, class LocalCopyBlockEpilogue_,
+    class RemoteCommBlockEpilogue_, class BlockEpilogueScheduler_>
 class AlltoallvGMMKernel {
 public:
     using BlockMmad = BlockMmad_;
@@ -95,7 +80,7 @@ public:
 
     using LocalCopyBlockEpilogue = LocalCopyBlockEpilogue_;
     using RemoteCommBlockEpilogue = RemoteCommBlockEpilogue_;
-    
+
     using BlockEpilogueScheduler = BlockEpilogueScheduler_;
 
     using LocalCopyParams = typename LocalCopyBlockEpilogue::Params;
@@ -107,9 +92,9 @@ public:
 
     struct Params {
         GemmCoord problemShape;
-        __gm__ ElementA *ptrA;
-        __gm__ ElementB *ptrB;
-        __gm__ ElementC *ptrC;
+        __gm__ ElementA* ptrA;
+        __gm__ ElementB* ptrB;
+        __gm__ ElementC* ptrC;
         LayoutA layoutA;
         LayoutB layoutB;
         LayoutC layoutC;
@@ -132,31 +117,31 @@ public:
 
         CATLASS_HOST_DEVICE
         Params(
-            GemmCoord problemShape_,
-            uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_,
-            uint32_t rank_, uint32_t rankSize_,
-            GM_ADDR ptrTokenPerExpert_,
-            GM_ADDR ptrA_, LayoutA layoutA_,
-            GM_ADDR ptrB_, LayoutB layoutB_,
-            GM_ADDR ptrC_, LayoutC layoutC_,
-            GM_ADDR ptrWorkspace_, GM_ADDR symmetricPtr_, 
+            GemmCoord problemShape_, uint32_t EP_, uint32_t expertPerRank_, uint32_t maxOutputSize_, uint32_t rank_,
+            uint32_t rankSize_, GM_ADDR ptrTokenPerExpert_, GM_ADDR ptrA_, LayoutA layoutA_, GM_ADDR ptrB_,
+            LayoutB layoutB_, GM_ADDR ptrC_, LayoutC layoutC_, GM_ADDR ptrWorkspace_, GM_ADDR symmetricPtr_,
             LocalCopyParams localCopyParams_, RemoteCommParams remoteCommParams_,
-            const Callback &callback_ = Callback{},
-            int32_t syncInterval_ = INT_MAX
-        ) : problemShape(problemShape_),
-            EP(EP_), expertPerRank(expertPerRank_), maxOutputSize(maxOutputSize_),
-            rank(rank_), rankSize(rankSize_),
-            ptrTokenPerExpert(reinterpret_cast<__gm__ int32_t *>(ptrTokenPerExpert_)),
-            ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
-            ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
-            ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
-            ptrWorkspace(ptrWorkspace_), symmetricPtr(symmetricPtr_),
-            localCopyParams(localCopyParams_),
-            remoteCommParams(remoteCommParams_),
-            callback(callback_),
-            syncInterval(syncInterval_)
-        {
-        }
+            const Callback& callback_ = Callback{}, int32_t syncInterval_ = INT_MAX)
+            : problemShape(problemShape_),
+              EP(EP_),
+              expertPerRank(expertPerRank_),
+              maxOutputSize(maxOutputSize_),
+              rank(rank_),
+              rankSize(rankSize_),
+              ptrTokenPerExpert(reinterpret_cast<__gm__ int32_t*>(ptrTokenPerExpert_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
+              layoutA(layoutA_),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
+              layoutB(layoutB_),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
+              layoutC(layoutC_),
+              ptrWorkspace(ptrWorkspace_),
+              symmetricPtr(symmetricPtr_),
+              localCopyParams(localCopyParams_),
+              remoteCommParams(remoteCommParams_),
+              callback(callback_),
+              syncInterval(syncInterval_)
+        {}
     };
 
     /// User-facing arguments
@@ -176,7 +161,8 @@ public:
         Catlass::MatrixCoord commTileShape;
     };
 
-    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr) {
+    static Params ToUnderlyingArguments(Arguments const& args, uint8_t* workspace = nullptr)
+    {
         LayoutA layoutA{args.problemShape.m(), args.problemShape.k()};
         LayoutB layoutB{args.problemShape.k(), args.problemShape.n()};
         LayoutC layoutC{args.problemShape.m(), args.problemShape.n()};
@@ -189,16 +175,9 @@ public:
         LocalCopyParams localCopyParams{};
 
         return Params(
-            args.problemShape,
-            args.rankSize, expertPerRank, maxOutputSize,
-            args.rankIdx, args.rankSize,
-            args.ptrTokenPerExpert,
-            args.ptrA, layoutA,
-            args.ptrB, layoutB,
-            args.ptrC, layoutC,
-            args.ptrWorkspace, args.ptrSymmetric,
-            localCopyParams, remoteCommParams
-        );
+            args.problemShape, args.rankSize, expertPerRank, maxOutputSize, args.rankIdx, args.rankSize,
+            args.ptrTokenPerExpert, args.ptrA, layoutA, args.ptrB, layoutB, args.ptrC, layoutC, args.ptrWorkspace,
+            args.ptrSymmetric, localCopyParams, remoteCommParams);
     }
 
     struct WorkspaceInfo {
@@ -206,7 +185,8 @@ public:
         GM_ADDR ptrcumsumMM;
 
         CATLASS_DEVICE
-        WorkspaceInfo(const Params & params) {
+        WorkspaceInfo(const Params& params)
+        {
             ptrTempOut = params.ptrWorkspace;
             ptrcumsumMM = params.ptrWorkspace + params.maxOutputSize * params.problemShape.k() * sizeof(ElementA);
         }
@@ -214,7 +194,7 @@ public:
 
     CATLASS_DEVICE
     AlltoallvGMMKernel()
-    {   
+    {
 #ifdef ENABLE_TIMER
         __gm__ uint8_t* timer_buffer = GetTimerBuffer();
         if (timer_buffer != nullptr) {
@@ -224,7 +204,6 @@ public:
 #endif
         flagAivFinishCumsum = Catlass::Arch::CrossCoreFlag(0);
         flagAicFinishStore = Catlass::Arch::CrossCoreFlag(4);
-        
     }
 
     CATLASS_DEVICE
@@ -236,22 +215,21 @@ public:
     }
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource = Catlass::Arch::Resource<ArchTag>());
+    CATLASS_DEVICE void operator()(
+        Params const& params, Catlass::Arch::Resource<ArchTag> resource = Catlass::Arch::Resource<ArchTag>());
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIC>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
 
         AscendC::GlobalTensor<ElementA> gmWorkspace;
-        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrWorkspace));
+        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrWorkspace));
         AscendC::GlobalTensor<ElementB> gmB;
         gmB.SetGlobalBuffer(params.ptrB);
         AscendC::GlobalTensor<ElementC> gmC;
-        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrC));
+        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC*>(params.ptrC));
 
         WorkspaceInfo workspaceInfo(params);
 
@@ -296,20 +274,17 @@ public:
                 int64_t gmOffsetA = gmGroupOffsetA + layoutA.GetOffset(offsetA);
                 int64_t gmOffsetB = gmGroupOffsetB + layoutB.GetOffset(offsetB);
                 int64_t gmOffsetC = gmGroupOffsetC + layoutC.GetOffset(offsetC);
-                
+
                 blockMmad(
-                    gmWorkspace[gmOffsetA], layoutA,
-                    gmB[gmOffsetB], layoutB,
-                    gmC[gmOffsetC], layoutC,
-                    actualBlockShape
-                );
+                    gmWorkspace[gmOffsetA], layoutA, gmB[gmOffsetB], layoutB, gmC[gmOffsetC], layoutC,
+                    actualBlockShape);
             }
 
             gmGroupOffsetA += inGroupProblemShape.m() * inGroupProblemShape.k();
             gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
             gmGroupOffsetC += inGroupProblemShape.m() * inGroupProblemShape.n();
             startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
-            
+
             if ((groupIdx + 1) % params.syncInterval == 0 || groupIdx == params.expertPerRank - 1) {
                 if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
                     blockMmad.SynchronizeBlock();
@@ -323,10 +298,9 @@ public:
     }
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIV>(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
-        uint32_t coreIdx = get_block_idx() + get_subblockid() * get_block_num(); 
+        uint32_t coreIdx = get_block_idx() + get_subblockid() * get_block_num();
         uint32_t coreNum = get_block_num() * get_subblockdim();
         coreNum = (coreNum == 0) ? 1 : coreNum;
 
@@ -335,30 +309,21 @@ public:
 
         WorkspaceInfo workspaceInfo(params);
         AscendC::GlobalTensor<ElementA> gmA;
-        gmA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrA));
+        gmA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrA));
         AscendC::GlobalTensor<ElementA> gmWorkspace;
-        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrWorkspace));
+        gmWorkspace.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrWorkspace));
         AscendC::GlobalTensor<ElementC> gmC;
-        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrC));
+        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC*>(params.ptrC));
         AscendC::GlobalTensor<int32_t> tokenPerExpert;
         tokenPerExpert.SetGlobalBuffer(params.ptrTokenPerExpert);
         AscendC::GlobalTensor<int32_t> cumsumMM;
         cumsumMM.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(workspaceInfo.ptrcumsumMM));
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.symmetricPtr));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.symmetricPtr));
 
         BlockEpilogueScheduler blockEpilogueScheduler(
-            params.rank,
-            params.rankSize,
-            params.expertPerRank,
-            params.EP,
-            params.problemShape,
-            coreIdx,
-            coreNum,
-            tokenPerExpert,
-            cumsumMM,
-            resource
-        );
+            params.rank, params.rankSize, params.expertPerRank, params.EP, params.problemShape, coreIdx, coreNum,
+            tokenPerExpert, cumsumMM, resource);
 
         // ========= 搬运A矩阵到shmem start =========
         if (params.ptrA != nullptr) {
@@ -379,19 +344,13 @@ public:
                 auto layoutBlockDst = params.layoutA.GetTileLayout(actualBlockShape);
 
                 localCopyBlockEpilogue.InitBlockLoop();
-                localCopyBlockEpilogue(
-                    blockSrc, 
-                    layoutBlockSrc,
-                    blockDst, 
-                    layoutBlockDst,
-                    actualBlockShape
-                );
+                localCopyBlockEpilogue(blockSrc, layoutBlockSrc, blockDst, layoutBlockDst, actualBlockShape);
                 localCopyBlockEpilogue.FinalizeBlockLoop();
             }
             aclshmemx_barrier_all_vec();
         }
         // ========= 搬运A矩阵到shmem end =========
-        
+
         // ======== all to allv start ========
         uint32_t commLoops = blockEpilogueScheduler.GetCommLoops();
         auto remapperDst = blockEpilogueScheduler.GetRemapperDst();
@@ -412,19 +371,13 @@ public:
                 auto gmBlockDst = gmWorkspace[params.layoutA.GetOffset(blockOffsetDst)];
 
                 auto actualBlockShape = blockEpilogueScheduler.RemapActualBlockShape(blockOffset, remapperDst);
-                
+
                 auto layoutBlockSrc = params.layoutA.GetTileLayout(actualBlockShape);
                 auto layoutBlockDst = params.layoutA.GetTileLayout(actualBlockShape);
 
                 remoteCommBlockEpilogue.InitBlockLoop();
                 remoteCommBlockEpilogue(
-                    gmBlockSrc,
-                    layoutBlockSrc,
-                    gmBlockDst,
-                    layoutBlockDst,
-                    actualBlockShape,
-                    dstEpIdx
-                );
+                    gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualBlockShape, dstEpIdx);
                 remoteCommBlockEpilogue.FinalizeBlockLoop();
 
                 blockEpilogueScheduler.UpdateSrcPrevSum(actualBlockShape.row());
@@ -445,6 +398,6 @@ private:
     AscendTimerDevice timer;
 #endif
 };
-}
+} // namespace Catccos::DGemm::Kernel
 
 #endif

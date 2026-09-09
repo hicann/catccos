@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -36,11 +37,8 @@ using namespace AscendC;
 using namespace Catccos;
 
 template <
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementD, class LayoutD,
-    uint32_t M0_, uint32_t N0_, uint32_t K0_
->
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
 struct MatmulAllReduceConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
@@ -54,9 +52,8 @@ struct MatmulAllReduceConfig {
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
     using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;
     using SymmetricType = DType;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
-        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, SymmetricType
-    >;
+    using BlockMmad =
+        Catlass::Gemm::Block::BlockMmad<MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, SymmetricType>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -67,42 +64,31 @@ struct MatmulAllReduceConfig {
     using RemoteDstType = DType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using ReduceScatterDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockReduceScatter = Comm::Block::CommBlock<
-        ReduceScatterDispatch,
-        RemoteSrcType, RemoteDstType,
-        void,
-        TileRemoteCopy, TileScheduler
-    >;
+        ReduceScatterDispatch, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
     using AllGatherDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockAllGather = Comm::Block::CommBlock<
-        AllGatherDispatch,
-        RemoteSrcType, RemoteDstType,
-        void,
-        TileRemoteCopy, TileScheduler
-    >;
+    using BlockAllGather =
+        Comm::Block::CommBlock<AllGatherDispatch, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
     using Kernel = DGemm::Kernel::MatmulAllReduce<
-        BlockMmad,
-        BlockReduceScatter,
-        BlockAllGather,
-        BlockMmadScheduler,
-        BlockScheduler,
-        WORKSPACE_STAGES
-    >;
+        BlockMmad, BlockReduceScatter, BlockAllGather, BlockMmadScheduler, BlockScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 // Pre-defined tiling configurations
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD>
-using MatmulAllReduceConfig_M0_128 = MatmulAllReduceConfig<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, 128, 256, 256>;
+using MatmulAllReduceConfig_M0_128 =
+    MatmulAllReduceConfig<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, 128, 256, 256>;
 
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD>
-using MatmulAllReduceConfig_M0_256 = MatmulAllReduceConfig<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, 256, 128, 256>;
+using MatmulAllReduceConfig_M0_256 =
+    MatmulAllReduceConfig<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, 256, 128, 256>;
 
 #endif // MATMUL_ALLREDUCE_KERNEL_H

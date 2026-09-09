@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -42,4 +43,4 @@
 #include "ascend950_mxfp8_matmul_alltoall/ascend950_mxfp8_matmul_alltoall_host.h"
 #endif
 
-#endif  // OPERATOR_HOST_H
+#endif // OPERATOR_HOST_H

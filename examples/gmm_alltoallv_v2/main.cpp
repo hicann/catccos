@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,8 +27,7 @@ using ElementB = half;
 using ElementC = half;
 using ElementD = half;
 
-struct Options
-{
+struct Options {
     static constexpr auto helper = "Usage: gmm_alltoallv_v2 m n k ep_size expert_num device_list\n";
 
     int rankSize;
@@ -40,10 +40,9 @@ struct Options
     uint32_t expertNum{0};
     std::vector<int> deviceIdList{};
 
-    int Parse(int argc, char **argv)
+    int Parse(int argc, char** argv)
     {
-        enum class ArgsIndex
-        {
+        enum class ArgsIndex {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -56,8 +55,7 @@ struct Options
             INDEX_MAX
         };
 
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX) || argc <= static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
-        {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX) || argc <= static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
             printf(helper);
             return -1;
         }
@@ -71,18 +69,13 @@ struct Options
         epSize = std::atoi(argv[static_cast<int>(ArgsIndex::EP_SIZE_INDEX)]);
         expertNum = std::atoi(argv[static_cast<int>(ArgsIndex::EXPERT_NUM_INDEX)]);
 
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
-        {
-            char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
-            {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char* idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
+            for (char* idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        }
-        else
-        {
-            for (int i = 0; i < rankSize; ++i)
-            {
+        } else {
+            for (int i = 0; i < rankSize; ++i) {
                 deviceIdList.push_back(i);
             }
         }
@@ -90,12 +83,11 @@ struct Options
     }
 };
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0)
-    {
+    if (options.Parse(argc, argv) != 0) {
         return 1;
     }
     int rankSize = options.rankSize;
@@ -138,20 +130,19 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("GMMAllToAllVV2");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator GMMAllToAllVV2 not found!" << std::endl;
         return -1;
     }
 
-    void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
-    uint8_t *symmetricPtr = (uint8_t *)symmPtr;
+    void* symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+    uint8_t* symmetricPtr = (uint8_t*)symmPtr;
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, "./output");
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
+    uint8_t* aPtr = kernelParams.ptrA;
+    uint8_t* bPtr = kernelParams.ptrB;
+    uint8_t* cPtr = kernelParams.ptrC;
 
     std::string fileName;
     std::string dataFile = "./output";
@@ -160,23 +151,22 @@ int main(int argc, char **argv)
     fileName = dataFile + "/global_tokens_per_expert_" + std::to_string(rankId) + ".bin";
     ReadFile(fileName, globalTokensPerExpertHost.data(), globalTokensPerExpertSize);
 
-    uint8_t *globalTokensPerExpertDevice = symmetricPtr + cocTiling.m * cocTiling.topK * cocTiling.n * sizeof(__fp16);
-    ACL_CHECK(aclrtMemcpy(globalTokensPerExpertDevice, globalTokensPerExpertSize, globalTokensPerExpertHost.data(),
-                          globalTokensPerExpertSize, ACL_MEMCPY_HOST_TO_DEVICE));
+    uint8_t* globalTokensPerExpertDevice = symmetricPtr + cocTiling.m * cocTiling.topK * cocTiling.n * sizeof(__fp16);
+    ACL_CHECK(aclrtMemcpy(
+        globalTokensPerExpertDevice, globalTokensPerExpertSize, globalTokensPerExpertHost.data(),
+        globalTokensPerExpertSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
     size_t allToAllVGmmWorkspace = op->GetWorkspaceSize(cocTiling);
     size_t expandedRowIdxSize = (cocTiling.m + 255) / 256 * 256 * cocTiling.topK * sizeof(int32_t);
     auto workSpaceSize = expandedRowIdxSize + allToAllVGmmWorkspace;
 
-    uint8_t *workspaceDevice{nullptr};
-    if (workSpaceSize > 0)
-    {
-        ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    uint8_t* workspaceDevice{nullptr};
+    if (workSpaceSize > 0) {
+        ACL_CHECK(aclrtMalloc((void**)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     }
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
-    for (int i = 0; i < 1; i++)
-    {
+    for (int i = 0; i < 1; i++) {
         uint64_t fftsAddr = shmemx_get_ffts_config();
         GMMAllToAllVV2<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC><<<blockNum, nullptr, stream>>>(
             fftsAddr, aPtr, bPtr, cPtr, workspaceDevice, symmetricPtr, globalTokensPerExpertDevice, cocTiling);
@@ -189,8 +179,7 @@ int main(int argc, char **argv)
     shmem_free(symmPtr);
 
     FreeDeviceSpace(kernelParams);
-    if (workSpaceSize > 0)
-    {
+    if (workSpaceSize > 0) {
         ACL_CHECK(aclrtFree(workspaceDevice));
     }
 

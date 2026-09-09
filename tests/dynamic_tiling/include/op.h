@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -24,4 +25,4 @@
 #include "operator_host.h"
 #include "tiling.h"
 
-#endif  // OP_H
+#endif // OP_H

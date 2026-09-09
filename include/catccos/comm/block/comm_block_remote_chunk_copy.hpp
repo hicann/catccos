@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -22,29 +23,15 @@
 
 namespace Catccos::Comm::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 template <
-    class ArchTag_,
-    uint32_t UB_STAGES_,
-    bool IsDynamic_,
-    class SrcType_,
-    class Dst0Type_,
-    class Dst1Type_,
-    class BlockShape_,
-    class TileRemoteCopy_,
-    class TileSwizzle_
->
-class CommBlock <
-    AtlasCommRemoteChunkCopy<ArchTag_, UB_STAGES_, IsDynamic_>,
-    SrcType_,
-    Dst0Type_,
-    Dst1Type_,
-    BlockShape_,
-    TileRemoteCopy_,
-    TileSwizzle_
-> {
+    class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_, class SrcType_, class Dst0Type_, class Dst1Type_,
+    class BlockShape_, class TileRemoteCopy_, class TileSwizzle_>
+class CommBlock<
+    AtlasCommRemoteChunkCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_, Dst0Type_, Dst1Type_, BlockShape_,
+    TileRemoteCopy_, TileSwizzle_> {
 public:
     // Type aliases
     using DispatchPolicy = AtlasCommRemoteChunkCopy<ArchTag_, UB_STAGES_, IsDynamic_>;
@@ -79,7 +66,7 @@ public:
         uint32_t chunkByteOffset;
 
         CATLASS_HOST_DEVICE
-        ParamsBase(int64_t chunkByteOffset_): chunkByteOffset(chunkByteOffset_) {}
+        ParamsBase(int64_t chunkByteOffset_) : chunkByteOffset(chunkByteOffset_) {}
 
         CATLASS_DEVICE
         static MatrixCoord BlockShape() { return BlockShape::ToCoord(); }
@@ -97,8 +84,9 @@ public:
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(MatrixCoord blockShape_, const TileParams &tileParams_, int64_t chunkByteOffset_)
-            : blockShape(blockShape_), tileParams(tileParams_), chunkByteOffset(chunkByteOffset_) {}
+        ParamsBase(MatrixCoord blockShape_, const TileParams& tileParams_, int64_t chunkByteOffset_)
+            : blockShape(blockShape_), tileParams(tileParams_), chunkByteOffset(chunkByteOffset_)
+        {}
 
         CATLASS_DEVICE
         MatrixCoord BlockShape() const { return blockShape; }
@@ -109,7 +97,7 @@ public:
     using Params = ParamsBase<IsDynamic>;
 
     CATLASS_DEVICE
-    CommBlock(Catlass::Arch::Resource<ArchTag> &resource, Params const &params) : params(params)
+    CommBlock(Catlass::Arch::Resource<ArchTag>& resource, Params const& params) : params(params)
     {
         size_t ubOffset = 0;
         for (uint32_t i = 0; i < UB_STAGES; ++i) {
@@ -126,7 +114,7 @@ public:
         uint32_t copyEventId = 0;
         for (uint32_t i = 0; i < UB_STAGES; ++i) {
             copyEventIdList[i] = copyEventId++;
-            AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]); 
+            AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
         }
     }
 
@@ -140,17 +128,14 @@ public:
     }
 
     CATLASS_DEVICE
-    ~CommBlock()
-    {
-    }
+    ~CommBlock() {}
 
     CATLASS_DEVICE
-    void operator() (
-        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const &layoutSrc,
-        AscendC::GlobalTensor<ElementDst0> const& gmDst0, LayoutDst0 const &layoutDst0,
-        AscendC::GlobalTensor<ElementDst1> const& gmDst1, LayoutDst1 const &layoutDst1,
-        MatrixCoord const &actualCommBlockShape, uint32_t rankIdx
-    )
+    void operator()(
+        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const& layoutSrc,
+        AscendC::GlobalTensor<ElementDst0> const& gmDst0, LayoutDst0 const& layoutDst0,
+        AscendC::GlobalTensor<ElementDst1> const& gmDst1, LayoutDst1 const& layoutDst1,
+        MatrixCoord const& actualCommBlockShape, uint32_t rankIdx)
     {
         if (actualCommBlockShape.row() == 0) {
             return;
@@ -179,15 +164,19 @@ public:
             // ub src
             auto layoutUbSrc = LayoutComputeInUb::template MakeLayoutInUb<ElementSrc>(actualTileShape);
             // ub dst0
-            auto actualTileShapeAsElemDst0 = MatrixCoord{actualTileShape.row(),
+            auto actualTileShapeAsElemDst0 = MatrixCoord{
+                actualTileShape.row(),
                 static_cast<uint32_t>(actualTileShape.column() * sizeof(ElementSrc) / sizeof(ElementDst0))};
-            auto layoutUbAsElemDst0 = LayoutComputeInUb::template MakeLayoutInUb<ElementDst0>(actualTileShapeAsElemDst0);
-            auto layoutUbDst0 = layoutUbAsElemDst0.GetTileLayout(
-                MatrixCoord{layoutUbAsElemDst0.shape(0), static_cast<uint32_t>(params.chunkByteOffset / sizeof(ElementDst0))});
+            auto layoutUbAsElemDst0 =
+                LayoutComputeInUb::template MakeLayoutInUb<ElementDst0>(actualTileShapeAsElemDst0);
+            auto layoutUbDst0 = layoutUbAsElemDst0.GetTileLayout(MatrixCoord{
+                layoutUbAsElemDst0.shape(0), static_cast<uint32_t>(params.chunkByteOffset / sizeof(ElementDst0))});
             // ub dst1
-            auto actualTileShapeAsElemDst1 = MatrixCoord{actualTileShape.row(),
+            auto actualTileShapeAsElemDst1 = MatrixCoord{
+                actualTileShape.row(),
                 static_cast<uint32_t>(actualTileShape.column() * sizeof(ElementSrc) / sizeof(ElementDst1))};
-            auto layoutUbAsElemDst1 = LayoutComputeInUb::template MakeLayoutInUb<ElementDst1>(actualTileShapeAsElemDst1);
+            auto layoutUbAsElemDst1 =
+                LayoutComputeInUb::template MakeLayoutInUb<ElementDst1>(actualTileShapeAsElemDst1);
             auto layoutUbDst1 = layoutUbAsElemDst1.GetTileLayout(MatrixCoord{layoutUbAsElemDst1.shape(0), 1});
 
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
@@ -215,12 +204,12 @@ private:
     uint32_t copyEventIdList[UB_STAGES];
     uint32_t ubListId{0};
     TileRemoteCopy tileRemoteCopy;
-    
+
     CopyGmToUbC copyGmToUbC;
     CopyUbToGmD0 copyUbToGmD0;
     CopyUbToGmD1 copyUbToGmD1;
 };
 
-} // namespace Catccos::Comm::Block 
+} // namespace Catccos::Comm::Block
 
 #endif // CATCCOS_COMM_BLOCK_REMOTE_CHUNK_COPY_HPP

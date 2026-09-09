@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -37,10 +38,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct AllToAllVGroupedMatmulConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct AllToAllVGroupedMatmulConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     constexpr static uint32_t PRELOAD_STAGES = 1;
@@ -69,8 +70,8 @@ struct AllToAllVGroupedMatmulConfig
     using RemoteSrcType = AType;
     using RemoteDstType = AType;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      COPY_DIRECT, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, COPY_DIRECT, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using BlockComm =
@@ -86,8 +87,8 @@ struct AllToAllVGroupedMatmulConfig
 
     using ProblemShape = DGemm::AllToAllVAllGatherProblemShape;
 
-    using Kernel = DGemm::Kernel::AllToAllVGroupedMatmul<ProblemShape, BlockMmad, BlockComm, BlockMmadScheduler,
-                                                         BlockScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::AllToAllVGroupedMatmul<
+        ProblemShape, BlockMmad, BlockComm, BlockMmadScheduler, BlockScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };

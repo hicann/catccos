@@ -1,3 +1,4 @@
+
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
@@ -19,22 +20,20 @@ BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULA
 #include "moe_v2_mrgsort.h"
 #include "moe_v2_sort_base.h"
 
-namespace MoeInitRoutingV2
-{
+namespace MoeInitRoutingV2 {
 using namespace AscendC;
 using namespace optiling;
 
 template <typename T>
-class MoeV2FullLoad : public MoeV2SortBase
-{
-   public:
+class MoeV2FullLoad : public MoeV2SortBase {
+public:
     __aicore__ inline MoeV2FullLoad(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR expertIdx, GM_ADDR expandedX, GM_ADDR expandedRowIdx,
-                                GM_ADDR expertTokensCountOrCumsum, GM_ADDR workspace,
-                                const MoeInitRoutingV2TilingData *tilingData, TPipe *tPipe);
+    __aicore__ inline void Init(
+        GM_ADDR x, GM_ADDR expertIdx, GM_ADDR expandedX, GM_ADDR expandedRowIdx, GM_ADDR expertTokensCountOrCumsum,
+        GM_ADDR workspace, const MoeInitRoutingV2TilingData* tilingData, TPipe* tPipe);
     __aicore__ inline void Process();
 
-   private:
+private:
     __aicore__ inline void CopyIn();
     __aicore__ inline void SortCompute();
     __aicore__ inline void CopyOutIdx();
@@ -42,9 +41,9 @@ class MoeV2FullLoad : public MoeV2SortBase
     __aicore__ inline void CopyOutX();
     __aicore__ inline void ComputeExpertTokenCountOrCumsum();
 
-   private:
+private:
     int64_t sortNum_;
-    const MoeV2GatherOutComputeTilingData *gatherOutTilingData_;
+    const MoeV2GatherOutComputeTilingData* gatherOutTilingData_;
     int64_t blockIdx_;
     int64_t needCoreNum_;
     int64_t sortNeedCoreNum_;
@@ -81,8 +80,8 @@ template <typename T>
 __aicore__ inline void MoeV2FullLoad<T>::CopyIn()
 {
     LocalTensor<int32_t> inLocal = sortDataCopyInQueue.AllocTensor<int32_t>();
-    DataCopyExtParams dataCopyParams{static_cast<uint16_t>(1),
-                                     static_cast<uint32_t>(this->totalLength * sizeof(int32_t)), 0, 0, 0};
+    DataCopyExtParams dataCopyParams{
+        static_cast<uint16_t>(1), static_cast<uint32_t>(this->totalLength * sizeof(int32_t)), 0, 0, 0};
     DataCopyPadExtParams<int32_t> dataCopyPadParams{false, 0, 0, 0};
 #if defined(__CCE_AICORE__) && __CCE_AICORE__ == 200
     DataCopyPadCustom(inLocal[0], expertIdxGm_, dataCopyParams, dataCopyPadParams);
@@ -108,8 +107,7 @@ __aicore__ inline void MoeV2FullLoad<T>::SortCompute()
     Muls(expertIdxLocalFp32, expertIdxLocalFp32, (float)-1, this->totalLength);
     PipeBarrier<PIPE_V>();
     int64_t duplicateNum = this->totalLength % ONE_REPEAT_SORT_NUM;
-    if (duplicateNum > 0)
-    {
+    if (duplicateNum > 0) {
         int duplicateIndex = this->totalLength - duplicateNum;
         uint64_t mask0 = UINT64_MAX;
         mask0 = mask0 << duplicateNum;
@@ -136,11 +134,13 @@ __aicore__ inline void MoeV2FullLoad<T>::SortCompute()
     Extract(expandedExpertIdxLocal, expandDstToSrcRowLocal, sortedLocal, this->sortNum_ / ONE_REPEAT_SORT_NUM);
     PipeBarrier<PIPE_V>();
 #if defined(__CCE_AICORE__) && __CCE_AICORE__ == 200
-    Cast(expandDstToSrcRowLocalFp32, expandDstToSrcRowLocal.ReinterpretCast<int32_t>(), RoundMode::CAST_NONE,
-         this->totalLength);
+    Cast(
+        expandDstToSrcRowLocalFp32, expandDstToSrcRowLocal.ReinterpretCast<int32_t>(), RoundMode::CAST_NONE,
+        this->totalLength);
 #else
-    Cast(expandDstToSrcRowLocalFp32, expandDstToSrcRowLocal.ReinterpretCast<int32_t>(), RoundMode::CAST_ROUND,
-         this->totalLength);
+    Cast(
+        expandDstToSrcRowLocalFp32, expandDstToSrcRowLocal.ReinterpretCast<int32_t>(), RoundMode::CAST_ROUND,
+        this->totalLength);
 #endif
     PipeBarrier<PIPE_V>();
     Muls(expandedExpertIdxLocal, expandedExpertIdxLocal, (float)-1, this->totalLength);
@@ -157,8 +157,7 @@ __aicore__ inline void MoeV2FullLoad<T>::SortCompute()
     PipeBarrier<PIPE_V>();
     ArithProgression<int32_t>(inLocal[this->sortNum_], 0, 1, this->totalLength);
     PipeBarrier<PIPE_V>();
-    if (duplicateNum > 0)
-    {
+    if (duplicateNum > 0) {
         int duplicateIndex = this->totalLength - duplicateNum;
         uint64_t mask0 = UINT64_MAX;
         mask0 = mask0 << duplicateNum;
@@ -210,41 +209,34 @@ __aicore__ inline void MoeV2FullLoad<T>::ComputeExpertTokenCountOrCumsum()
 
     int32_t lastExpertId = expandedExpertIdx.GetValue(0);
 #ifdef __CCE_KT_TEST__
-    if (lastExpertId > expertTokensCount.GetSize())
-    {
+    if (lastExpertId > expertTokensCount.GetSize()) {
         return;
     }
 #endif
     int64_t tokenCount = 0;
     int64_t lastExpertCount = 0;
-    for (int64_t i = 0; i < this->totalLength; i++)
-    {
+    for (int64_t i = 0; i < this->totalLength; i++) {
         int32_t curExpertId = expandedExpertIdx.GetValue(i);
         tokenCount++;
-        while (lastExpertId < curExpertId)
-        {
+        while (lastExpertId < curExpertId) {
             expertTokensCount.SetValue(lastExpertId, tokenCount - 1);
-            if (this->expertTokensCountOrCumsumFlag == EXERPT_TOKENS_COUNT)
-            {
+            if (this->expertTokensCountOrCumsumFlag == EXERPT_TOKENS_COUNT) {
                 tokenCount = 1;
             }
             lastExpertId++;
         }
     }
     expertTokensCount.SetValue(lastExpertId, tokenCount);
-    if (this->expertTokensCountOrCumsumFlag == EXERPT_TOKENS_CUMSUM)
-    {
+    if (this->expertTokensCountOrCumsumFlag == EXERPT_TOKENS_CUMSUM) {
         lastExpertId++;
-        while (lastExpertId < this->expertNum)
-        {
+        while (lastExpertId < this->expertNum) {
             expertTokensCount.SetValue(lastExpertId, tokenCount);
             lastExpertId++;
         }
     }
-    DataCopyExtParams copyParams{static_cast<uint16_t>(1), static_cast<uint32_t>(this->expertNum * sizeof(int32_t)), 0,
-                                 0, 0};
-    if (this->expertTokensCountOrCumsumFlag > 0)
-    {
+    DataCopyExtParams copyParams{
+        static_cast<uint16_t>(1), static_cast<uint32_t>(this->expertNum * sizeof(int32_t)), 0, 0, 0};
+    if (this->expertTokensCountOrCumsumFlag > 0) {
 #if defined(__CCE_AICORE__) && __CCE_AICORE__ == 200
         DataCopyCustom(expertTokensCountOrCumsumGm, expertTokensCount, copyParams.blockCount, copyParams.blockLen);
 #else
@@ -268,8 +260,8 @@ __aicore__ inline void MoeV2FullLoad<T>::CopyOutX()
     int64_t startXRow = curRowsStart / this->k_;
     int64_t endXRow = (curRowsStart + this->coreRows_ - 1) / this->k_;
 
-    DataCopyExtParams dataXCopyParams{static_cast<uint16_t>(endXRow - startXRow + 1),
-                                      static_cast<uint32_t>(this->cols_ * sizeof(T)), 0, 0, 0};
+    DataCopyExtParams dataXCopyParams{
+        static_cast<uint16_t>(endXRow - startXRow + 1), static_cast<uint32_t>(this->cols_ * sizeof(T)), 0, 0, 0};
     DataCopyPadExtParams<T> dataXCopyPadParams{false, 0, 0, 0};
 #if defined(__CCE_AICORE__) && __CCE_AICORE__ == 200
     DataCopyPadCustom(xLocal, xGm_[startXRow * this->cols_], dataXCopyParams, dataXCopyPadParams);
@@ -279,16 +271,14 @@ __aicore__ inline void MoeV2FullLoad<T>::CopyOutX()
     SetWaitFlag<HardEvent::MTE2_S>(HardEvent::MTE2_S);
 
     int64_t k = 0;
-    for (int64_t i = startXRow; i <= endXRow; i++)
-    {
-        for (; k < this->perCoreRows_ && curRowsStart / this->k_ == i; curRowsStart++, k++)
-        {
+    for (int64_t i = startXRow; i <= endXRow; i++) {
+        for (; k < this->perCoreRows_ && curRowsStart / this->k_ == i; curRowsStart++, k++) {
             int32_t outIndex = expandedRowIdx.GetValue(curRowsStart);
-            if (outIndex < this->activateRows_)
-            {
+            if (outIndex < this->activateRows_) {
 #if defined(__CCE_AICORE__) && __CCE_AICORE__ == 200
-                DataCopyCustom(expandedXGm_[outIndex * this->cols_], xLocal[(i - startXRow) * inFactor],
-                               intriParams.blockCount, intriParams.blockLen);
+                DataCopyCustom(
+                    expandedXGm_[outIndex * this->cols_], xLocal[(i - startXRow) * inFactor], intriParams.blockCount,
+                    intriParams.blockLen);
 #else
                 DataCopyPad(expandedXGm_[outIndex * this->cols_], xLocal[(i - startXRow) * inFactor], intriParams);
 #endif
@@ -307,9 +297,9 @@ __aicore__ inline void MoeV2FullLoad<T>::CopyOutEmpty()
 }
 
 template <typename T>
-__aicore__ inline void MoeV2FullLoad<T>::Init(GM_ADDR x, GM_ADDR expertIdx, GM_ADDR expandedX, GM_ADDR expandedRowIdx,
-                                              GM_ADDR expertTokensCountOrCumsum, GM_ADDR workspace,
-                                              const MoeInitRoutingV2TilingData *tilingData, TPipe *tPipe)
+__aicore__ inline void MoeV2FullLoad<T>::Init(
+    GM_ADDR x, GM_ADDR expertIdx, GM_ADDR expandedX, GM_ADDR expandedRowIdx, GM_ADDR expertTokensCountOrCumsum,
+    GM_ADDR workspace, const MoeInitRoutingV2TilingData* tilingData, TPipe* tPipe)
 {
     this->gatherOutTilingData_ = &(tilingData->gatherOutComputeParamsOp);
     // this->blockIdx_ = GetBlockIdx();
@@ -319,18 +309,14 @@ __aicore__ inline void MoeV2FullLoad<T>::Init(GM_ADDR x, GM_ADDR expertIdx, GM_A
     this->cols_ = tilingData->cols;
     this->sortNeedCoreNum_ = this->gatherOutTilingData_->needCoreNum;
     this->needCoreNum_ = this->gatherOutTilingData_->needCoreNum;
-    if (needCoreNum_ == 0)
-    {
+    if (needCoreNum_ == 0) {
         this->sortNeedCoreNum_ = tilingData->vbsComputeParamsOp.needCoreNum;
     }
     this->perCoreRows_ = this->gatherOutTilingData_->perCoreRows;
     this->activateRows_ = this->gatherOutTilingData_->activateRows;
-    if (this->blockIdx_ == this->gatherOutTilingData_->needCoreNum - 1)
-    {
+    if (this->blockIdx_ == this->gatherOutTilingData_->needCoreNum - 1) {
         this->coreRows_ = this->gatherOutTilingData_->lastCoreRows;
-    }
-    else
-    {
+    } else {
         this->coreRows_ = this->gatherOutTilingData_->perCoreRows;
     }
     this->expertTokensCountOrCumsumFlag = tilingData->expertTokensCountOrCumsumFlag;
@@ -342,16 +328,15 @@ __aicore__ inline void MoeV2FullLoad<T>::Init(GM_ADDR x, GM_ADDR expertIdx, GM_A
     this->totalLength = tilingData->n * tilingData->k;
     this->pipe = tPipe;
 
-    xGm_.SetGlobalBuffer((__gm__ T *)x);
-    expertIdxGm_.SetGlobalBuffer((__gm__ int32_t *)expertIdx, this->tileLength);
+    xGm_.SetGlobalBuffer((__gm__ T*)x);
+    expertIdxGm_.SetGlobalBuffer((__gm__ int32_t*)expertIdx, this->tileLength);
 
-    expandedXGm_.SetGlobalBuffer((__gm__ T *)expandedX);
-    expandedRowIdxGm_.SetGlobalBuffer((__gm__ int32_t *)expandedRowIdx, this->tileLength);
-    if (this->expertTokensCountOrCumsumFlag > 0)
-    {
+    expandedXGm_.SetGlobalBuffer((__gm__ T*)expandedX);
+    expandedRowIdxGm_.SetGlobalBuffer((__gm__ int32_t*)expandedRowIdx, this->tileLength);
+    if (this->expertTokensCountOrCumsumFlag > 0) {
         // dropless
-        expertTokensCountOrCumsumGm.SetGlobalBuffer((__gm__ int32_t *)expertTokensCountOrCumsum,
-                                                    Align(this->expertNum, sizeof(int32_t)));
+        expertTokensCountOrCumsumGm.SetGlobalBuffer(
+            (__gm__ int32_t*)expertTokensCountOrCumsum, Align(this->expertNum, sizeof(int32_t)));
     }
 
     int64_t kvFactor = 2;
@@ -380,38 +365,28 @@ __aicore__ inline void MoeV2FullLoad<T>::Init(GM_ADDR x, GM_ADDR expertIdx, GM_A
 template <typename T>
 __aicore__ inline void MoeV2FullLoad<T>::Process()
 {
-    if (this->blockIdx_ < this->sortNeedCoreNum_)
-    {
+    if (this->blockIdx_ < this->sortNeedCoreNum_) {
         CopyIn();
         SortCompute();
-        if (this->blockIdx_ == 0)
-        {
+        if (this->blockIdx_ == 0) {
             CopyOutIdx();
         }
-        if (this->blockIdx_ == this->sortNeedCoreNum_ - 1 && this->expertTokensCountOrCumsumFlag > EXERPT_TOKENS_NONE)
-        {
+        if (this->blockIdx_ == this->sortNeedCoreNum_ - 1 && this->expertTokensCountOrCumsumFlag > EXERPT_TOKENS_NONE) {
             ComputeExpertTokenCountOrCumsum();
-        }
-        else
-        {
+        } else {
             CopyOutEmpty();
         }
     }
-    if (this->needCoreNum_ != 0)
-    {
-        if (this->blockIdx_ < this->needCoreNum_)
-        {
+    if (this->needCoreNum_ != 0) {
+        if (this->blockIdx_ < this->needCoreNum_) {
             CopyOutX();
         }
-    }
-    else
-    {
-        if (this->blockIdx_ < this->sortNeedCoreNum_)
-        {
+    } else {
+        if (this->blockIdx_ < this->sortNeedCoreNum_) {
             LocalTensor<int32_t> expandedRowIdx = expandedRowIdxCopyOutQueue_.DeQue<int32_t>();
             expandedRowIdxCopyOutQueue_.FreeTensor(expandedRowIdx);
         }
     }
 }
-}  // namespace MoeInitRoutingV2
-#endif  // MOE_V2_FULL_LOAD_H
+} // namespace MoeInitRoutingV2
+#endif // MOE_V2_FULL_LOAD_H

@@ -1,4 +1,5 @@
 
+
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
@@ -19,8 +20,7 @@ BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULA
 
 #include "kernel_operator.h"
 
-namespace MoeInitRoutingV2
-{
+namespace MoeInitRoutingV2 {
 using namespace AscendC;
 using namespace optiling;
 constexpr int64_t SPLIT_N = 0;
@@ -28,7 +28,7 @@ constexpr int64_t SPLIT_K = 1;
 constexpr float MIN_FP32 = -3.4e38f;
 #if __CCE_AICORE__ == 200
 constexpr int64_t ONE_REPEAT_SORT_NUM = 16;
-constexpr int64_t REGIONP_ROPOSAL_KV_RATIO = 4;  // 8 / 2
+constexpr int64_t REGIONP_ROPOSAL_KV_RATIO = 4; // 8 / 2
 constexpr int64_t SYNC_LEN = 8 * 8 * 32;
 #else
 constexpr int64_t ONE_REPEAT_SORT_NUM = 32;
@@ -67,8 +67,7 @@ const __gm__ int32_t assist[256] = {
 
 __aicore__ inline int64_t Ceil(int64_t a, int64_t b)
 {
-    if (b == 0)
-    {
+    if (b == 0) {
         return 0;
     }
     return (a + b - 1) / b;
@@ -76,8 +75,7 @@ __aicore__ inline int64_t Ceil(int64_t a, int64_t b)
 
 __aicore__ inline int64_t Align(int64_t elementNum, int64_t bytes)
 {
-    if (bytes == 0)
-    {
+    if (bytes == 0) {
         return 0;
     }
     return (elementNum * bytes + BLOCK_BYTES - 1) / BLOCK_BYTES * BLOCK_BYTES / bytes;
@@ -109,8 +107,8 @@ __aicore__ inline void SetWaitFlag(HardEvent evt)
 }
 
 template <typename T>
-__aicore__ inline void DataCopyPadCustom(LocalTensor<T> inLocal, GlobalTensor<T> srcGm,
-                                         DataCopyExtParams tokenCopyParams, DataCopyPadExtParams<T> padParams)
+__aicore__ inline void DataCopyPadCustom(
+    LocalTensor<T> inLocal, GlobalTensor<T> srcGm, DataCopyExtParams tokenCopyParams, DataCopyPadExtParams<T> padParams)
 {
 #if __CCE_AICORE__ == 220
     DataCopyPad(inLocal, srcGm, tokenCopyParams, padParams);
@@ -119,16 +117,12 @@ __aicore__ inline void DataCopyPadCustom(LocalTensor<T> inLocal, GlobalTensor<T>
     int64_t numPerBlock = BLOCK_BYTES / sizeof(T);
     int64_t alignElem = AlignUp(elem, numPerBlock);
 
-    if (likely(alignElem == elem))
-    {
+    if (likely(alignElem == elem)) {
         DataCopyParams copyParams = {tokenCopyParams.blockCount, static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
         DataCopy(inLocal, srcGm, copyParams);
-    }
-    else
-    {
+    } else {
         DataCopyParams copyParams = {1, static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
-        for (uint32_t i = 0; i < tokenCopyParams.blockCount; i++)
-        {
+        for (uint32_t i = 0; i < tokenCopyParams.blockCount; i++) {
             DataCopy(inLocal[i * alignElem], srcGm[i * elem], copyParams);
         }
     }
@@ -136,36 +130,29 @@ __aicore__ inline void DataCopyPadCustom(LocalTensor<T> inLocal, GlobalTensor<T>
 }
 
 template <typename T, bool needBack = false, bool isAtomic = false>
-__aicore__ inline void DataCopyCustom(GlobalTensor<T> dstGm, LocalTensor<T> inLocal, int64_t blockCount,
-                                      int64_t blockLen)
+__aicore__ inline void DataCopyCustom(
+    GlobalTensor<T> dstGm, LocalTensor<T> inLocal, int64_t blockCount, int64_t blockLen)
 {
     int64_t elem = blockLen / sizeof(T);
     int64_t numPerBlock = sizeof(T) == 0 ? 1 : BLOCK_BYTES / sizeof(T);
     int64_t alignElem = AlignUp(elem, numPerBlock);
 
-    if (likely(alignElem == elem))
-    {
-        DataCopyParams copyParams = {static_cast<uint16_t>(blockCount), static_cast<uint16_t>(alignElem / numPerBlock),
-                                     0, 0};
+    if (likely(alignElem == elem)) {
+        DataCopyParams copyParams = {
+            static_cast<uint16_t>(blockCount), static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
         DataCopy(dstGm, inLocal, copyParams);
-    }
-    else
-    {
-        if (blockCount == 1)
-        {
-            if constexpr (needBack)
-            {
+    } else {
+        if (blockCount == 1) {
+            if constexpr (needBack) {
                 int64_t elemAlignDown = numPerBlock == 0 ? 0 : elem / numPerBlock * numPerBlock;
-                if (elemAlignDown != 0)
-                {
-                    DataCopyParams copyParams = {static_cast<uint16_t>(blockCount),
-                                                 static_cast<uint16_t>(elemAlignDown / numPerBlock), 0, 0};
+                if (elemAlignDown != 0) {
+                    DataCopyParams copyParams = {
+                        static_cast<uint16_t>(blockCount), static_cast<uint16_t>(elemAlignDown / numPerBlock), 0, 0};
                     DataCopy(dstGm, inLocal, copyParams);
                     SetWaitFlag<HardEvent::MTE2_S>(HardEvent::MTE2_S);
                     SetWaitFlag<HardEvent::V_S>(HardEvent::V_S);
 
-                    for (uint32_t i = 0; i < numPerBlock; i++)
-                    {
+                    for (uint32_t i = 0; i < numPerBlock; i++) {
                         inLocal.SetValue(alignElem - 1 - i, inLocal.GetValue(elem - 1 - i));
                     }
                     SetWaitFlag<HardEvent::S_MTE3>(HardEvent::S_MTE3);
@@ -173,14 +160,11 @@ __aicore__ inline void DataCopyCustom(GlobalTensor<T> dstGm, LocalTensor<T> inLo
                     DataCopyParams copyParamslast = {1, 1, 0, 0};
 
                     DataCopy(dstGm[elem - numPerBlock], inLocal[elemAlignDown], copyParamslast);
-                }
-                else
-                {
+                } else {
                     T tmp[BLOCK_BYTES];
                     SetWaitFlag<HardEvent::MTE2_S>(HardEvent::MTE2_S);
                     SetWaitFlag<HardEvent::V_S>(HardEvent::V_S);
-                    for (uint32_t i = 0; i < elem; i++)
-                    {
+                    for (uint32_t i = 0; i < elem; i++) {
                         tmp[i] = inLocal.GetValue(elem - 1 - i);
                     }
                     DataCopyParams copyParamslast = {1, 1, 0, 0};
@@ -188,40 +172,31 @@ __aicore__ inline void DataCopyCustom(GlobalTensor<T> dstGm, LocalTensor<T> inLo
                     SetWaitFlag<HardEvent::MTE3_MTE2>(HardEvent::MTE3_MTE2);
                     DataCopy(inLocal, dstGm[elem - numPerBlock], copyParamslast);
                     SetWaitFlag<HardEvent::MTE2_S>(HardEvent::MTE2_S);
-                    for (uint32_t i = 0; i < elem; i++)
-                    {
+                    for (uint32_t i = 0; i < elem; i++) {
                         inLocal.SetValue(numPerBlock - 1 - i, tmp[i]);
                     }
                     SetWaitFlag<HardEvent::S_MTE3>(HardEvent::S_MTE3);
                     DataCopy(dstGm[elem - numPerBlock], inLocal, copyParamslast);
                 }
-            }
-            else if constexpr (isAtomic)
-            {
+            } else if constexpr (isAtomic) {
                 SetWaitFlag<HardEvent::MTE2_S>(HardEvent::MTE2_S);
                 SetWaitFlag<HardEvent::V_S>(HardEvent::V_S);
-                for (uint32_t i = 0; i < alignElem - elem; i++)
-                {
+                for (uint32_t i = 0; i < alignElem - elem; i++) {
                     inLocal.SetValue(alignElem - 1 - i, T(0));
                 }
                 SetWaitFlag<HardEvent::S_MTE3>(HardEvent::S_MTE3);
 
-                DataCopyParams copyParams = {static_cast<uint16_t>(blockCount),
-                                             static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
+                DataCopyParams copyParams = {
+                    static_cast<uint16_t>(blockCount), static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
+                DataCopy(dstGm, inLocal, copyParams);
+            } else {
+                DataCopyParams copyParams = {
+                    static_cast<uint16_t>(blockCount), static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
                 DataCopy(dstGm, inLocal, copyParams);
             }
-            else
-            {
-                DataCopyParams copyParams = {static_cast<uint16_t>(blockCount),
-                                             static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
-                DataCopy(dstGm, inLocal, copyParams);
-            }
-        }
-        else
-        {
+        } else {
             DataCopyParams copyParams = {1, static_cast<uint16_t>(alignElem / numPerBlock), 0, 0};
-            for (uint32_t i = 0; i < blockCount; i++)
-            {
+            for (uint32_t i = 0; i < blockCount; i++) {
                 DataCopy(dstGm[i * elem], inLocal[i * alignElem], copyParams);
                 PipeBarrier<PIPE_MTE3>();
             }
@@ -229,5 +204,5 @@ __aicore__ inline void DataCopyCustom(GlobalTensor<T> dstGm, LocalTensor<T> inLo
     }
 }
 
-}  // namespace MoeInitRoutingV2
-#endif  // MOE_V2_COMMON_H
+} // namespace MoeInitRoutingV2
+#endif // MOE_V2_COMMON_H

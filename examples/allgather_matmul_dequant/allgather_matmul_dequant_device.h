@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -38,11 +39,11 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA_, class LayoutA_, class ElementB_, class LayoutB_, class ElementD_, class LayoutD_,
-          class ElementScale_, class LayoutScale_, bool EnablePadding_, uint32_t M0_ = 128, uint32_t N0_ = 256,
-          uint32_t K0_ = 256>
-struct AllGatherMatmulDequantConfig
-{
+template <
+    class ElementA_, class LayoutA_, class ElementB_, class LayoutB_, class ElementD_, class LayoutD_,
+    class ElementScale_, class LayoutScale_, bool EnablePadding_, uint32_t M0_ = 128, uint32_t N0_ = 256,
+    uint32_t K0_ = 256>
+struct AllGatherMatmulDequantConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     using ElementA = ElementA_;
@@ -89,17 +90,16 @@ struct AllGatherMatmulDequantConfig
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileSchedulerForAllgather = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockComm = Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy,
-                                             TileSchedulerForAllgather>;
+    using BlockComm = Comm::Block::CommBlock<
+        CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileSchedulerForAllgather>;
 
-    using Kernel =
-        DGemm::Kernel::AllGatherDequantMatmul<GlobalPaddingB, BlockMmad, BlockComm, BlockSchedulerForAllgather,
-                                              CommBlockScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::AllGatherDequantMatmul<
+        GlobalPaddingB, BlockMmad, BlockComm, BlockSchedulerForAllgather, CommBlockScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
@@ -120,4 +120,4 @@ template <class EA, class LA, class EB, class LB, class ED, class LD, class ES, 
 using AllGatherMatmulDequantPaddingConfig_M0_256 =
     AllGatherMatmulDequantConfig<EA, LA, EB, LB, ED, LD, ES, LS, true, 256, 128, 256>;
 
-#endif  // ALLGATHER_MATMUL_DEQUANT_KERNEL_H
+#endif // ALLGATHER_MATMUL_DEQUANT_KERNEL_H

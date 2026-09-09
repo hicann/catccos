@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -34,31 +35,27 @@ private:
 
 public:
     DeviceDGemm() {}
-    ~DeviceDGemm() {
-        if (timerBuffer_ != nullptr){
+    ~DeviceDGemm()
+    {
+        if (timerBuffer_ != nullptr) {
             aclrtFree(timerBuffer_);
             timerBuffer_ = nullptr;
             timerBufferSize_ = 0;
         }
     }
 
-    Params const &params() const
-    {
-        return params_;
-    }
+    Params const& params() const { return params_; }
 
-    static size_t GetWorkspaceSize(Arguments const &args)
-    {
-        return DGemmKernel::GetWorkspaceSize(args);
-    }
+    static size_t GetWorkspaceSize(Arguments const& args) { return DGemmKernel::GetWorkspaceSize(args); }
 
-    Catlass::Status Initialize(Arguments const &args, uint8_t *workspace = nullptr)
+    Catlass::Status Initialize(Arguments const& args, uint8_t* workspace = nullptr)
     {
         params_ = DGemmKernel::ToUnderlyingArguments(args, workspace);
         return Catlass::Status::kSuccess;
     }
 
-    void ExportTimerCsv() {
+    void ExportTimerCsv()
+    {
 #ifdef ENABLE_TIMER
         if (timerBuffer_ == nullptr) {
             fprintf(stderr, "timerBuffer_ is nullptr, returning\n");
@@ -69,7 +66,8 @@ public:
         uint32_t rankId = (rankIdInt >= 0) ? static_cast<uint32_t>(rankIdInt) : 0;
 
         size_t timerBufferSize = AscendTimerHost::GetTotalTimerBufferSize() * sizeof(int64_t);
-        if (timerBufferSize == 0) return;
+        if (timerBufferSize == 0)
+            return;
 
         std::string out_dir = "output_timer";
         mkdir(out_dir.c_str(), 0777);
@@ -92,7 +90,7 @@ public:
         (void)AscendTimerHost::GetPlatformCoreNum();
         AscendTimerHost::ConfigureCoreNum(static_cast<int>(blockDim));
         size_t timerBufferSize = AscendTimerHost::GetTotalTimerBufferSize() * sizeof(int64_t);
-        
+
         if (timerBufferSize > timerBufferSize_ && timerBuffer_ != nullptr) {
             aclrtFree(timerBuffer_);
             timerBuffer_ = nullptr;
@@ -100,7 +98,7 @@ public:
         }
 
         if (timerBufferSize > 0 && timerBuffer_ == nullptr) {
-            ACL_CHECK(aclrtMalloc(reinterpret_cast<void **>(&timerBuffer_), timerBufferSize, ACL_MEM_MALLOC_HUGE_FIRST));
+            ACL_CHECK(aclrtMalloc(reinterpret_cast<void**>(&timerBuffer_), timerBufferSize, ACL_MEM_MALLOC_HUGE_FIRST));
             timerBufferSize_ = timerBufferSize;
         }
 #endif
@@ -110,7 +108,7 @@ public:
         } else {
             KernelAdapter<DGemmKernel><<<blockDim, nullptr, stream>>>(params_, fftsAddr, timerBuffer_);
         }
-        
+
         ACL_CHECK(aclrtSynchronizeStream(stream));
 #ifdef ENABLE_TIMER
         ExportTimerCsv();

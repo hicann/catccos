@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -21,17 +22,16 @@ enum class CacheStatus {
 
 class MTECostModel {
 public:
-    explicit MTECostModel(CostModelHardwareConfig const &config);
+    explicit MTECostModel(CostModelHardwareConfig const& config);
 
     double Nd2NzContinuous(
-        uint32_t coreNum, uint32_t instructionNum, uint32_t nValue,
-        uint32_t dValue = 256,
+        uint32_t coreNum, uint32_t instructionNum, uint32_t nValue, uint32_t dValue = 256,
         CacheStatus cacheStatus = CacheStatus::MISS) const;
 
 private:
-    MTECacheConfig const &GetCacheConfig(CacheStatus status) const;
+    MTECacheConfig const& GetCacheConfig(CacheStatus status) const;
 
-    CostModelHardwareConfig const &config_;
+    CostModelHardwareConfig const& config_;
 };
 
 #endif // MTE_COST_MODEL_H

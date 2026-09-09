@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -30,33 +31,25 @@ public:
     static constexpr bool IS_COLLECTIVE_ALL_GATHER = true;
 
     struct Params {
-        TilingData *tilingData;
+        TilingData* tilingData;
         uint64_t ccTilingOffset;
         GM_ADDR workspace;
         uint32_t rankSize;
 
         CATLASS_HOST_DEVICE
-        Params() : tilingData(nullptr), ccTilingOffset(0), workspace(nullptr), rankSize(0)
-        {
-        }
+        Params() : tilingData(nullptr), ccTilingOffset(0), workspace(nullptr), rankSize(0) {}
 
         CATLASS_HOST_DEVICE
-        Params(TilingData *tilingData_, uint64_t ccTilingOffset_, GM_ADDR workspace_, uint32_t rankSize_)
-            : tilingData(tilingData_),
-              ccTilingOffset(ccTilingOffset_),
-              workspace(workspace_),
-              rankSize(rankSize_)
-        {
-        }
+        Params(TilingData* tilingData_, uint64_t ccTilingOffset_, GM_ADDR workspace_, uint32_t rankSize_)
+            : tilingData(tilingData_), ccTilingOffset(ccTilingOffset_), workspace(workspace_), rankSize(rankSize_)
+        {}
     };
 
     CATLASS_DEVICE
-    Ascend950HcommComm()
-    {
-    }
+    Ascend950HcommComm() {}
 
     CATLASS_DEVICE
-    bool Init(Params const &params)
+    bool Init(Params const& params)
     {
         workspace_ = params.workspace;
         rankSize_ = params.rankSize;
@@ -67,14 +60,16 @@ public:
             int32_t ret = hccl_.SetCcTilingV2(params.ccTilingOffset);
             if (ret != HCCL_SUCCESS_CODE) {
                 if (IsDiagnosticCore()) {
-                    AscendC::PRINTF("[AGMM_DIAG] SetCcTilingV2 failed, ret=%d, offset=%llu\n", ret,
-                                    static_cast<unsigned long long>(params.ccTilingOffset));
+                    AscendC::PRINTF(
+                        "[AGMM_DIAG] SetCcTilingV2 failed, ret=%d, offset=%llu\n", ret,
+                        static_cast<unsigned long long>(params.ccTilingOffset));
                 }
                 return false;
             }
             if (IsDiagnosticCore()) {
-                AscendC::PRINTF("[AGMM_DIAG] SetCcTilingV2 success, offset=%llu\n",
-                                static_cast<unsigned long long>(params.ccTilingOffset));
+                AscendC::PRINTF(
+                    "[AGMM_DIAG] SetCcTilingV2 success, offset=%llu\n",
+                    static_cast<unsigned long long>(params.ccTilingOffset));
             }
         }
         return true;
@@ -85,36 +80,36 @@ public:
     {
         uint32_t sequence = sequence_++;
         if (IsDiagnosticCore()) {
-            AscendC::PRINTF("[AGMM_DIAG] AllGather begin, seq=%u, sendCount=%llu, strideCount=%llu\n", sequence,
-                            static_cast<unsigned long long>(sendCount),
-                            static_cast<unsigned long long>(strideCount));
+            AscendC::PRINTF(
+                "[AGMM_DIAG] AllGather begin, seq=%u, sendCount=%llu, strideCount=%llu\n", sequence,
+                static_cast<unsigned long long>(sendCount), static_cast<unsigned long long>(strideCount));
         }
 
         auto handle = hccl_.AllGather<true>(
             sendBuffer, recvBuffer, sendCount, AscendC::HcclDataType::HCCL_DATA_TYPE_FP16, strideCount);
         if (handle < 0) {
             if (IsDiagnosticCore()) {
-                AscendC::PRINTF("[AGMM_DIAG] AllGather prepare failed, seq=%u, handle=%d\n", sequence,
-                                static_cast<int32_t>(handle));
+                AscendC::PRINTF(
+                    "[AGMM_DIAG] AllGather prepare failed, seq=%u, handle=%d\n", sequence,
+                    static_cast<int32_t>(handle));
             }
             return false;
         }
 
         if (IsDiagnosticCore()) {
-            AscendC::PRINTF("[AGMM_DIAG] Wait begin, seq=%u, handle=%d\n", sequence,
-                            static_cast<int32_t>(handle));
+            AscendC::PRINTF("[AGMM_DIAG] Wait begin, seq=%u, handle=%d\n", sequence, static_cast<int32_t>(handle));
         }
         int32_t ret = hccl_.Wait(handle);
         if (ret != HCCL_SUCCESS_CODE) {
             if (IsDiagnosticCore()) {
-                AscendC::PRINTF("[AGMM_DIAG] Wait failed, seq=%u, handle=%d, ret=%d\n", sequence,
-                                static_cast<int32_t>(handle), ret);
+                AscendC::PRINTF(
+                    "[AGMM_DIAG] Wait failed, seq=%u, handle=%d, ret=%d\n", sequence, static_cast<int32_t>(handle),
+                    ret);
             }
             return false;
         }
         if (IsDiagnosticCore()) {
-            AscendC::PRINTF("[AGMM_DIAG] Wait end, seq=%u, handle=%d\n", sequence,
-                            static_cast<int32_t>(handle));
+            AscendC::PRINTF("[AGMM_DIAG] Wait end, seq=%u, handle=%d\n", sequence, static_cast<int32_t>(handle));
         }
         return true;
     }
@@ -139,16 +134,10 @@ public:
     }
 
     CATLASS_DEVICE
-    auto GetPeerMem() const
-    {
-        return workspace_;
-    }
+    auto GetPeerMem() const { return workspace_; }
 
     CATLASS_DEVICE
-    auto GetPeerMem(int32_t) const
-    {
-        return workspace_;
-    }
+    auto GetPeerMem(int32_t) const { return workspace_; }
 
     CATLASS_DEVICE
     uint32_t GetRankIdx() const
@@ -159,10 +148,7 @@ public:
     }
 
     CATLASS_DEVICE
-    uint32_t GetRankSize() const
-    {
-        return rankSize_;
-    }
+    uint32_t GetRankSize() const { return rankSize_; }
 
 private:
     static constexpr int32_t HCCL_SUCCESS_CODE = 0;

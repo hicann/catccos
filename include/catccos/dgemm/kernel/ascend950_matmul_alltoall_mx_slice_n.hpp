@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -22,8 +23,7 @@
 // UDMA headers
 #include "shmem.h"
 
-namespace Catccos::DGemm::Kernel
-{
+namespace Catccos::DGemm::Kernel {
 
 using Catlass::GemmCoord;
 using Catlass::MatrixCoord;
@@ -55,18 +55,18 @@ using Catlass::MatrixCoord;
 /// each (L1_TILE_M, L1_TILE_N) output tile to D (local N-slice) or symmetric
 /// (remote N-slices). Constraint: chunkN must be a multiple of L1_TILE_N so that
 /// tile boundaries align with N-slice boundaries (no tile straddles local/remote).
-template <class BlockMmad_, class BlockComm_, class BlockMmadScheduler_, class BlockCommScheduler_,
-          uint32_t WORKSPACE_STAGES_>
-class MatmulAllToAllMxSliceN
-{
-   public:
+template <
+    class BlockMmad_, class BlockComm_, class BlockMmadScheduler_, class BlockCommScheduler_,
+    uint32_t WORKSPACE_STAGES_>
+class MatmulAllToAllMxSliceN {
+public:
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
     using L1TileShape = typename BlockMmad::L1TileShape;
     using ElementA = typename BlockMmad::ElementA;
     using ElementB = typename BlockMmad::ElementB;
     using ElementC = typename BlockMmad::ElementC;
-    using ElementD = typename BlockMmad::ElementC;  // Same as ElementC for MX path
+    using ElementD = typename BlockMmad::ElementC; // Same as ElementC for MX path
     using LayoutTagA = typename BlockMmad::TileCopy::LayoutTagA;
     using LayoutTagB = typename BlockMmad::TileCopy::LayoutTagB;
     using LayoutTagC = typename BlockMmad::TileCopy::LayoutTagC;
@@ -92,22 +92,21 @@ class MatmulAllToAllMxSliceN
     static constexpr uint32_t L1_TILE_N = tla::get<1>(L1TileShape{});
     static constexpr uint32_t L1_TILE_K = tla::get<2>(L1TileShape{});
 
-    struct Params
-    {
-        DistGemmCoord problemShape;  // (M, N, K, rankSize): M = per-rank rows, N = full
+    struct Params {
+        DistGemmCoord problemShape; // (M, N, K, rankSize): M = per-rank rows, N = full
         uint32_t rankIdx;
         uint32_t rankSize;
         uint32_t commInterval;
 
-        __gm__ ElementA *ptrA;
+        __gm__ ElementA* ptrA;
         LayoutA layoutA;
-        __gm__ ElementB *ptrB;
+        __gm__ ElementB* ptrB;
         LayoutB layoutB;
-        __gm__ ElementMxScaleA *ptrMxScaleA;
+        __gm__ ElementMxScaleA* ptrMxScaleA;
         LayoutMxScaleA layoutMxScaleA;
-        __gm__ ElementMxScaleB *ptrMxScaleB;
+        __gm__ ElementMxScaleB* ptrMxScaleB;
         LayoutMxScaleB layoutMxScaleB;
-        __gm__ ElementD *ptrD;
+        __gm__ ElementD* ptrD;
         LayoutC layoutD;
         LayoutTagComm layoutTagComm;
         GM_ADDR ptrSymmetric;
@@ -118,36 +117,35 @@ class MatmulAllToAllMxSliceN
         Params() = default;
 
         CATLASS_HOST_DEVICE
-        Params(DistGemmCoord const &problemShape_, uint32_t rankIdx_, uint32_t rankSize_, uint32_t commInterval_,
-               LayoutTagComm layoutTagComm_, GM_ADDR ptrA_, LayoutA const &layoutA_, GM_ADDR ptrB_,
-               LayoutB const &layoutB_, GM_ADDR ptrMxScaleA_, LayoutMxScaleA const &layoutMxScaleA_,
-               GM_ADDR ptrMxScaleB_, LayoutMxScaleB const &layoutMxScaleB_, GM_ADDR ptrD_, LayoutC const &layoutD_,
-               GM_ADDR ptrSymmetric_, BlockCommSchedulerParams const &blockCommSchedulerParams_)
+        Params(
+            DistGemmCoord const& problemShape_, uint32_t rankIdx_, uint32_t rankSize_, uint32_t commInterval_,
+            LayoutTagComm layoutTagComm_, GM_ADDR ptrA_, LayoutA const& layoutA_, GM_ADDR ptrB_,
+            LayoutB const& layoutB_, GM_ADDR ptrMxScaleA_, LayoutMxScaleA const& layoutMxScaleA_, GM_ADDR ptrMxScaleB_,
+            LayoutMxScaleB const& layoutMxScaleB_, GM_ADDR ptrD_, LayoutC const& layoutD_, GM_ADDR ptrSymmetric_,
+            BlockCommSchedulerParams const& blockCommSchedulerParams_)
             : problemShape(problemShape_),
               rankIdx(rankIdx_),
               rankSize(rankSize_),
               commInterval(commInterval_),
               layoutTagComm(layoutTagComm_),
-              ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
               layoutA(layoutA_),
-              ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
               layoutB(layoutB_),
-              ptrMxScaleA(reinterpret_cast<__gm__ ElementMxScaleA *>(ptrMxScaleA_)),
+              ptrMxScaleA(reinterpret_cast<__gm__ ElementMxScaleA*>(ptrMxScaleA_)),
               layoutMxScaleA(layoutMxScaleA_),
-              ptrMxScaleB(reinterpret_cast<__gm__ ElementMxScaleB *>(ptrMxScaleB_)),
+              ptrMxScaleB(reinterpret_cast<__gm__ ElementMxScaleB*>(ptrMxScaleB_)),
               layoutMxScaleB(layoutMxScaleB_),
-              ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)),
+              ptrD(reinterpret_cast<__gm__ ElementD*>(ptrD_)),
               layoutD(layoutD_),
               ptrSymmetric(ptrSymmetric_),
               blockCommSchedulerParams(blockCommSchedulerParams_)
-        {
-        }
+        {}
     };
 
     /// User API arguments
-    struct Arguments
-    {
-        GemmCoord problemShape;  // (M, N, K): M = per-rank rows, N = full, K
+    struct Arguments {
+        GemmCoord problemShape; // (M, N, K): M = per-rank rows, N = full, K
         uint32_t rankIdx;
         uint32_t rankSize;
         uint32_t commInterval;
@@ -162,9 +160,9 @@ class MatmulAllToAllMxSliceN
         MatrixCoord commTileShape;
     };
 
-    static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+    static size_t GetWorkspaceSize(Arguments const& args) { return 0; }
 
-    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    static Params ToUnderlyingArguments(Arguments const& args, uint8_t* workspace = nullptr)
     {
         // A: (M, K) per rank; B: (K, N) shared; D: (rankSize*M, N/rankSize) per rank.
         LayoutTagC layoutTagC{args.problemShape.m() * args.rankSize, args.problemShape.n() / args.rankSize};
@@ -183,36 +181,36 @@ class MatmulAllToAllMxSliceN
 
         // distProblemShape: (M, N, K, rankSize). M is NOT divided (each rank computes
         // its own full (M, N)); the N-slice (chunkN = N/rankSize) is the scatter unit.
-        DistGemmCoord distProblemShape{args.problemShape.m(), args.problemShape.n(), args.problemShape.k(),
-                                       args.rankSize};
+        DistGemmCoord distProblemShape{
+            args.problemShape.m(), args.problemShape.n(), args.problemShape.k(), args.rankSize};
 
         typename BlockComm::TileRemoteCopy::Params tileParams{args.commTileShape};
         BlockCommSchedulerParams blockCommSchedulerParams{args.commCoreSplit};
 
-        return Params{distProblemShape,
-                      args.rankIdx,
-                      args.rankSize,
-                      args.commInterval,
-                      layoutTagC,
-                      args.ptrA,
-                      layoutA,
-                      args.ptrB,
-                      layoutB,
-                      args.ptrMxScaleA,
-                      layoutMxScaleA,
-                      args.ptrMxScaleB,
-                      layoutMxScaleB,
-                      args.ptrD,
-                      layoutD,
-                      args.ptrSymmetric,
-                      blockCommSchedulerParams};
+        return Params{
+            distProblemShape,
+            args.rankIdx,
+            args.rankSize,
+            args.commInterval,
+            layoutTagC,
+            args.ptrA,
+            layoutA,
+            args.ptrB,
+            layoutB,
+            args.ptrMxScaleA,
+            layoutMxScaleA,
+            args.ptrMxScaleB,
+            layoutMxScaleB,
+            args.ptrD,
+            layoutD,
+            args.ptrSymmetric,
+            blockCommSchedulerParams};
     }
 
     CATLASS_DEVICE
     MatmulAllToAllMxSliceN()
     {
-        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx)
-        {
+        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
@@ -222,21 +220,21 @@ class MatmulAllToAllMxSliceN
     ~MatmulAllToAllMxSliceN() {}
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE void operator()(Params const &params);
+    CATLASS_DEVICE void operator()(Params const& params);
 
     /// AIC: Compute MX FP8 MatMul staged along M. For each output tile, the
     /// destination rank is derived from the tile's N-position. Local-rank
     /// N-slices go to D; remote-rank N-slices go to symmetric memory.
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx();
         uint32_t aicoreNum = AscendC::GetBlockNum();
 
         GemmCoord mmadBlockShape = GemmCoord{L1_TILE_M, L1_TILE_N, L1_TILE_K};
-        GemmCoord problemShapeInRank = params.problemShape.GetCoordMNK();  // (M, N, K)
+        GemmCoord problemShapeInRank = params.problemShape.GetCoordMNK(); // (M, N, K)
 
-        uint32_t chunkN = problemShapeInRank.n() / params.rankSize;  // per-rank N-slice
+        uint32_t chunkN = problemShapeInRank.n() / params.rankSize; // per-rank N-slice
         uint32_t commShapeM = params.commInterval * L1_TILE_M;
         uint32_t commLoops = CeilDiv(problemShapeInRank.m(), commShapeM);
 
@@ -244,11 +242,10 @@ class MatmulAllToAllMxSliceN
         // column blocks of width chunkN; only remote slices are written by AIC.
         auto layoutTagSymmetric = Catlass::layout::RowMajor::MakeLayout<ElementC>(commShapeM * params.rankSize, chunkN);
         AscendC::GlobalTensor<ElementC> gmSymmetricList[WORKSPACE_STAGES];
-        auto ptrSymmetric = reinterpret_cast<__gm__ ElementC *>(params.ptrSymmetric);
-        for (int stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx)
-        {
-            gmSymmetricList[stageIdx].SetGlobalBuffer(ptrSymmetric +
-                                                      stageIdx * layoutTagSymmetric.Capacity() * sizeof(ElementC));
+        auto ptrSymmetric = reinterpret_cast<__gm__ ElementC*>(params.ptrSymmetric);
+        for (int stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
+            gmSymmetricList[stageIdx].SetGlobalBuffer(
+                ptrSymmetric + stageIdx * layoutTagSymmetric.Capacity() * sizeof(ElementC));
         }
         auto layoutSymmetric = tla::MakeLayoutFromTag(layoutTagSymmetric);
 
@@ -266,24 +263,18 @@ class MatmulAllToAllMxSliceN
         gmD.SetGlobalBuffer(params.ptrD);
 
         // L2 cache hints: A is reused across N-tiles, B is reused across M-tiles.
-        if (CeilDiv(problemShapeInRank.m() * params.rankSize, L1_TILE_M) == 1)
-        {
+        if (CeilDiv(problemShapeInRank.m() * params.rankSize, L1_TILE_M) == 1) {
             gmB.SetL2CacheHint(AscendC::CacheMode::CACHE_MODE_DISABLE);
-        }
-        else
-        {
+        } else {
             gmB.SetL2CacheHint(AscendC::CacheMode::CACHE_MODE_NORMAL);
         }
-        if (CeilDiv(problemShapeInRank.n() * params.rankSize, L1_TILE_N) == 1)
-        {
+        if (CeilDiv(problemShapeInRank.n() * params.rankSize, L1_TILE_N) == 1) {
             gmA.SetL2CacheHint(AscendC::CacheMode::CACHE_MODE_DISABLE);
-        }
-        else
-        {
+        } else {
             gmA.SetL2CacheHint(AscendC::CacheMode::CACHE_MODE_NORMAL);
         }
 
-        auto const &layoutD = params.layoutTagComm;
+        auto const& layoutD = params.layoutTagComm;
 
         auto tensorA = tla::MakeTensor(gmA, params.layoutA, Catlass::Arch::PositionGM{});
         auto tensorB = tla::MakeTensor(gmB, params.layoutB, Catlass::Arch::PositionGM{});
@@ -291,14 +282,12 @@ class MatmulAllToAllMxSliceN
         auto tensorMxScaleB = tla::MakeTensor(gmMxScaleB, params.layoutMxScaleB, Catlass::Arch::PositionGM{});
         auto tensorD = tla::MakeTensor(gmD, params.layoutD, Catlass::Arch::PositionGM{});
 
-        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-        {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
-            auto const &gmSymmetric = gmSymmetricList[stageIdx];
+            auto const& gmSymmetric = gmSymmetricList[stageIdx];
             auto tensorSymmetric = tla::MakeTensor(gmSymmetric, layoutSymmetric, Catlass::Arch::PositionGM{});
 
-            if (commIdx >= WORKSPACE_STAGES)
-            {
+            if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageIdx]);
             }
 
@@ -313,8 +302,7 @@ class MatmulAllToAllMxSliceN
 
             MatrixCoord commOffsetGM{commIdx * commShapeM, 0};
 
-            for (uint32_t blockIdx = aicoreIdx; blockIdx < coreLoops; blockIdx += aicoreNum)
-            {
+            for (uint32_t blockIdx = aicoreIdx; blockIdx < coreLoops; blockIdx += aicoreNum) {
                 GemmCoord mmadBlockCoord = mmadScheduler.GetBlockCoord(blockIdx);
                 GemmCoord actualBlockShape = mmadScheduler.GetActualBlockShape(mmadBlockCoord);
 
@@ -329,41 +317,41 @@ class MatmulAllToAllMxSliceN
                 // B read: full N (the tile's N-position selects the target rank).
                 auto blockOffsetB = offsetCoord.GetCoordKN();
 
-                auto tensorBlockA = GetTile(tensorA, tla::MakeCoord(blockOffsetA[0], blockOffsetA[1]),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
+                auto tensorBlockA = GetTile(
+                    tensorA, tla::MakeCoord(blockOffsetA[0], blockOffsetA[1]),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
                 auto tensorBlockMxScaleA = GetTile(
                     tensorMxScaleA, tla::MakeCoord(blockOffsetA[0], blockOffsetA[1] / Catlass::MX_SCALE_GROUP_NUM),
                     tla::MakeShape(actualBlockShape.m(), CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k())));
-                auto tensorBlockB = GetTile(tensorB, tla::MakeCoord(blockOffsetB[0], blockOffsetB[1]),
-                                            tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
+                auto tensorBlockB = GetTile(
+                    tensorB, tla::MakeCoord(blockOffsetB[0], blockOffsetB[1]),
+                    tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
                 auto tensorBlockMxScaleB = GetTile(
                     tensorMxScaleB, tla::MakeCoord(blockOffsetB[0] / Catlass::MX_SCALE_GROUP_NUM, blockOffsetB[1]),
                     tla::MakeShape(CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k()), actualBlockShape.n()));
 
-                if (targetRankIdx == params.rankIdx)
-                {
+                if (targetRankIdx == params.rankIdx) {
                     // Local N-slice: write directly to D at [rankIdx*M + commOffset, n - rankIdx*chunkN].
-                    auto blockOffsetD =
-                        tla::MakeCoord(offsetMN.row() + params.rankIdx * problemShapeInRank.m() + commOffsetGM.row(),
-                                       offsetMN.column() - params.rankIdx * chunkN);
+                    auto blockOffsetD = tla::MakeCoord(
+                        offsetMN.row() + params.rankIdx * problemShapeInRank.m() + commOffsetGM.row(),
+                        offsetMN.column() - params.rankIdx * chunkN);
                     auto tensorBlockD =
                         GetTile(tensorD, blockOffsetD, tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
-                    blockMmad(tensorBlockA, tensorBlockB, tensorBlockD, actualBlockShape, tensorBlockMxScaleA,
-                              tensorBlockMxScaleB);
-                }
-                else
-                {
+                    blockMmad(
+                        tensorBlockA, tensorBlockB, tensorBlockD, actualBlockShape, tensorBlockMxScaleA,
+                        tensorBlockMxScaleB);
+                } else {
                     // Remote N-slice: write to symmetric memory at [offset.m, offset.n].
-                    auto blockOffsetSymm = tla::MakeCoord(offsetMN.row() + targetRankIdx * commShapeM,
-                                                          offsetMN.column() - targetRankIdx * chunkN);
-                    auto tensorBlockC = GetTile(tensorSymmetric, blockOffsetSymm,
-                                                tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
-                    blockMmad(tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape, tensorBlockMxScaleA,
-                              tensorBlockMxScaleB);
+                    auto blockOffsetSymm = tla::MakeCoord(
+                        offsetMN.row() + targetRankIdx * commShapeM, offsetMN.column() - targetRankIdx * chunkN);
+                    auto tensorBlockC = GetTile(
+                        tensorSymmetric, blockOffsetSymm, tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
+                    blockMmad(
+                        tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape, tensorBlockMxScaleA,
+                        tensorBlockMxScaleB);
                 }
             }
-            if constexpr (BlockMmad::DispatchPolicy::ASYNC)
-            {
+            if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
                 blockMmad.SynchronizeBlock();
             }
 
@@ -375,15 +363,15 @@ class MatmulAllToAllMxSliceN
     /// AIV: Pull the local rank's N-slice from each remote rank's symmetric memory
     /// into D. Data from remote rank j lands in [j*M, :] on local D.
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t subcoreIdx = AscendC::GetSubBlockIdx();
         GemmCoord mmadBlockShape = GemmCoord{L1_TILE_M, L1_TILE_N, L1_TILE_K};
-        GemmCoord problemShapeInRank = params.problemShape.GetCoordMNK();  // (M, N, K)
+        GemmCoord problemShapeInRank = params.problemShape.GetCoordMNK(); // (M, N, K)
 
         BlockComm blockRemoteCopy;
-        uint32_t chunkN = problemShapeInRank.n() / params.rankSize;  // per-rank N-slice
+        uint32_t chunkN = problemShapeInRank.n() / params.rankSize; // per-rank N-slice
         uint32_t commShapeM = params.commInterval * L1_TILE_M;
         uint32_t commLoops = CeilDiv(problemShapeInRank.m(), commShapeM);
 
@@ -391,21 +379,19 @@ class MatmulAllToAllMxSliceN
         // [rankIdx*chunkN : (rankIdx+1)*chunkN] from each remote rank.
         auto layoutTagSymmetric = Catlass::layout::RowMajor::MakeLayout<ElementC>(commShapeM * params.rankSize, chunkN);
         AscendC::GlobalTensor<ElementC> gmSymmetricList[WORKSPACE_STAGES];
-        auto ptrSymmetric = reinterpret_cast<__gm__ ElementC *>(params.ptrSymmetric);
-        for (int stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx)
-        {
-            gmSymmetricList[stageIdx].SetGlobalBuffer(ptrSymmetric +
-                                                      stageIdx * layoutTagSymmetric.Capacity() * sizeof(ElementC));
+        auto ptrSymmetric = reinterpret_cast<__gm__ ElementC*>(params.ptrSymmetric);
+        for (int stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
+            gmSymmetricList[stageIdx].SetGlobalBuffer(
+                ptrSymmetric + stageIdx * layoutTagSymmetric.Capacity() * sizeof(ElementC));
         }
 
-        auto const &layoutD = params.layoutTagComm;
+        auto const& layoutD = params.layoutTagComm;
         AscendC::GlobalTensor<ElementD> gmD;
         gmD.SetGlobalBuffer(params.ptrD);
 
-        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-        {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageIdx = commIdx % WORKSPACE_STAGES;
-            auto const &gmSymmetric = gmSymmetricList[stageIdx];
+            auto const& gmSymmetric = gmSymmetricList[stageIdx];
 
             uint32_t actualCommM = Min<uint32_t>(commShapeM, problemShapeInRank.m() - commIdx * commShapeM);
 
@@ -413,17 +399,15 @@ class MatmulAllToAllMxSliceN
 
             aclshmemx_barrier_all_vec();
 
-            if (subcoreIdx == 0 && aicoreIdx < params.rankSize)
-            {
+            if (subcoreIdx == 0 && aicoreIdx < params.rankSize) {
                 uint32_t udmaCoreLoops = params.rankSize;
                 uint32_t udmaAicoreNum = params.rankSize;
 
                 auto actualCommBlockShape = MatrixCoord{actualCommM, chunkN};
 
-                for (uint32_t remoteRankIdx = aicoreIdx; remoteRankIdx < udmaCoreLoops; remoteRankIdx += udmaAicoreNum)
-                {
-                    if (remoteRankIdx == params.rankIdx)
-                    {
+                for (uint32_t remoteRankIdx = aicoreIdx; remoteRankIdx < udmaCoreLoops;
+                     remoteRankIdx += udmaAicoreNum) {
+                    if (remoteRankIdx == params.rankIdx) {
                         continue;
                     }
 
@@ -440,25 +424,25 @@ class MatmulAllToAllMxSliceN
                     auto gmBlockDst = gmD[layoutD.GetOffset(blockOffsetDst)];
                     auto layoutBlockDst = layoutD.GetTileLayout(actualCommBlockShape);
 
-                    blockRemoteCopy(gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape,
-                                    remoteRankIdx % params.rankSize);
+                    blockRemoteCopy(
+                        gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape,
+                        remoteRankIdx % params.rankSize);
                 }
             }
 
-            if (commIdx < commLoops - WORKSPACE_STAGES && commLoops >= WORKSPACE_STAGES)
-            {
+            if (commIdx < commLoops - WORKSPACE_STAGES && commLoops >= WORKSPACE_STAGES) {
                 aclshmemx_barrier_all_vec();
                 Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(flagAivFinishCompute[stageIdx]);
             }
         }
     }
 
-   private:
+private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
 };
 
-}  // namespace Catccos::DGemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_DGEMM_KERNEL_ASCEND950_MATMUL_ALLTOALL_MX_SLICE_N_HPP
+#endif // CATCCOS_DGEMM_KERNEL_ASCEND950_MATMUL_ALLTOALL_MX_SLICE_N_HPP

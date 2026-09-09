@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -43,8 +44,7 @@ constexpr int32_t MAX_RANK_SIZE = 128;
 
 using half = __fp16;
 
-enum CocCommType
-{
+enum CocCommType {
     MATMUL_ALLREDUCE = 0,
     ALLGATHER_MATMUL,
     ASCEND950_ALLGATHER_MATMUL,
@@ -84,16 +84,9 @@ enum CocCommType
     UNKNOWN
 };
 
-enum CocDataType
-{
-    FP16 = 1,
-    INT8 = 2,
-    BF16 = 27,
-    FP8E4M3FN = 36
-};
+enum CocDataType { FP16 = 1, INT8 = 2, BF16 = 27, FP8E4M3FN = 36 };
 
-struct CocTilingParams
-{
+struct CocTilingParams {
     uint32_t m = 0;
     uint32_t k = 0;
     uint32_t n = 0;
@@ -113,25 +106,23 @@ struct CocTilingParams
     uint32_t topK = 1;
 };
 
-struct COCMatMulInfo
-{
+struct COCMatMulInfo {
     int64_t m;
     int64_t k;
     int64_t n;
 };
 
-struct KernelParams
-{
-    uint8_t *ptrA;
-    uint8_t *ptrB;
-    uint8_t *ptrC;
-    uint8_t **customPtrs;
+struct KernelParams {
+    uint8_t* ptrA;
+    uint8_t* ptrB;
+    uint8_t* ptrC;
+    uint8_t** customPtrs;
     uint32_t customCount;
 
     KernelParams() : ptrA(nullptr), ptrB(nullptr), ptrC(nullptr), customPtrs(nullptr), customCount(0) {}
 
     template <typename... Args>
-    void SetKernelParams(uint8_t *a, uint8_t *b, uint8_t *c, Args... args)
+    void SetKernelParams(uint8_t* a, uint8_t* b, uint8_t* c, Args... args)
     {
         ptrA = a;
         ptrB = b;
@@ -140,18 +131,15 @@ struct KernelParams
         const int argsCount = sizeof...(args);
         customCount = argsCount;
 
-        if (customPtrs != nullptr)
-        {
+        if (customPtrs != nullptr) {
             ACL_CHECK(aclrtFreeHost(customPtrs));
         }
 
-        if (argsCount > 0)
-        {
-            ACL_CHECK(aclrtMallocHost((void **)(&customPtrs), argsCount * sizeof(uint8_t *)));
-            uint8_t *pointers[] = {args...};
+        if (argsCount > 0) {
+            ACL_CHECK(aclrtMallocHost((void**)(&customPtrs), argsCount * sizeof(uint8_t*)));
+            uint8_t* pointers[] = {args...};
 
-            for (size_t i = 0; i < argsCount; ++i)
-            {
+            for (size_t i = 0; i < argsCount; ++i) {
                 customPtrs[i] = pointers[i];
             }
         }
@@ -159,34 +147,28 @@ struct KernelParams
 
     ~KernelParams()
     {
-        if (customPtrs != nullptr)
-        {
+        if (customPtrs != nullptr) {
             ACL_CHECK(aclrtFreeHost(customPtrs));
         }
     }
 };
 
-inline void FreeDeviceSpace(KernelParams &params)
+inline void FreeDeviceSpace(KernelParams& params)
 {
-    if (params.ptrA != nullptr)
-    {
+    if (params.ptrA != nullptr) {
         ACL_CHECK(aclrtFree(params.ptrA));
     }
-    if (params.ptrB != nullptr)
-    {
+    if (params.ptrB != nullptr) {
         ACL_CHECK(aclrtFree(params.ptrB));
     }
-    if (params.ptrC != nullptr)
-    {
+    if (params.ptrC != nullptr) {
         ACL_CHECK(aclrtFree(params.ptrC));
     }
     params.ptrA = nullptr;
     params.ptrB = nullptr;
     params.ptrC = nullptr;
-    for (uint32_t i = 0; i < params.customCount; i++)
-    {
-        if (params.customPtrs[i] != nullptr)
-        {
+    for (uint32_t i = 0; i < params.customCount; i++) {
+        if (params.customPtrs[i] != nullptr) {
             ACL_CHECK(aclrtFree(params.customPtrs[i]));
         }
     }
@@ -229,11 +211,10 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     // 新增算子继续添加...
 };
 
-inline CocCommType GetCommType(const std::string &kernelName)
+inline CocCommType GetCommType(const std::string& kernelName)
 {
     auto it = CommTypeMap.find(kernelName);
-    if (it != CommTypeMap.end())
-    {
+    if (it != CommTypeMap.end()) {
         return it->second;
     }
     return CocCommType::UNKNOWN;
@@ -276,11 +257,10 @@ const std::map<CocCommType, std::string> CommTypeOpNameMap = {
 
 inline int32_t CeilDev(int32_t num, int32_t div)
 {
-    if (div == 0)
-    {
+    if (div == 0) {
         return 0;
     }
     return (num + div - 1) / div;
 }
 
-#endif  // INFO_H
+#endif // INFO_H

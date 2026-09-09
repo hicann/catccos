@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -36,10 +37,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct Ascend950AllToAllMatmulConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct Ascend950AllToAllMatmulConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
     static constexpr bool ENABLE_UNIT_FLAG = true;
@@ -51,8 +52,8 @@ struct Ascend950AllToAllMatmulConfig
     using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
     using TileCopy =
         Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                         ElementB, ElementC, void, TileCopy>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementC, void, TileCopy>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -63,8 +64,8 @@ struct Ascend950AllToAllMatmulConfig
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using AllToAllDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
@@ -85,4 +86,4 @@ template <class ElementA, class LayoutA, class ElementB, class LayoutB, class El
 using Ascend950AllToAllMatmulConfig_M0_256 =
     Ascend950AllToAllMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>;
 
-#endif  // ASCEND950_ALLTOALL_MATMUL_DEVICE_H
+#endif // ASCEND950_ALLTOALL_MATMUL_DEVICE_H

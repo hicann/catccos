@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -8,7 +9,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef GROUP_SWIGLU_H 
+#ifndef GROUP_SWIGLU_H
 #define GROUP_SWIGLU_H
 
 #include "catlass/catlass.hpp"
@@ -27,22 +28,15 @@ using namespace Catlass;
 
 namespace Catccos::DGemm::Kernel {
 
-template <
-    class SwigluKernel
->
+template <class SwigluKernel>
 struct AivFinishSync {
     CATLASS_DEVICE
-    void operator()() const
-    {
-        Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(ptr->flagAivFinishStore);
-    }
+    void operator()() const { Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(ptr->flagAivFinishStore); }
 
-    SwigluKernel *ptr;
+    SwigluKernel* ptr;
 };
 
-template <
-    class SwigluKernel
->
+template <class SwigluKernel>
 struct AicWaitSync {
     CATLASS_DEVICE
     void operator()() const
@@ -51,13 +45,10 @@ struct AicWaitSync {
         Catlass::Arch::CrossCoreBarrier<0x0, PIPE_FIX>();
     }
 
-    SwigluKernel *ptr;
+    SwigluKernel* ptr;
 };
 
-template <
-    class ArchTag_,
-    class SwigluBlock_
->
+template <class ArchTag_, class SwigluBlock_>
 class SwigluKernel {
 public:
     using ArchTag = ArchTag_;
@@ -75,8 +66,8 @@ public:
     struct Params {
         uint32_t problemCount;
         MatrixCoord problemShape;
-        __gm__ ElementC *ptrC;
-        __gm__ ElementD *ptrD;
+        __gm__ ElementC* ptrC;
+        __gm__ ElementD* ptrD;
         LayoutC layoutC;
         LayoutD layoutD;
         GM_ADDR ptrGroupList;
@@ -89,35 +80,27 @@ public:
 
         CATLASS_DEVICE
         Params(
-            uint32_t problemCount_,
-            MatrixCoord problemShape_,
-            GM_ADDR ptrC_, LayoutC layoutC_,
-            GM_ADDR ptrD_, LayoutD layoutD_,
-            GM_ADDR ptrGroupList_,
-            const Callback &waitCallback_ = Callback{},
-            const Callback &notifyCallback_ = Callback{},
-            int32_t syncInterval_ = INT_MAX
-        ) : problemCount(problemCount_),
-            problemShape(problemShape_),
-            ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
-            ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)), layoutD(layoutD_),
-            ptrGroupList(ptrGroupList_),
-            waitCallback(waitCallback_),
-            notifyCallback(notifyCallback_),
-            syncInterval(syncInterval_)
-        {
-        }
+            uint32_t problemCount_, MatrixCoord problemShape_, GM_ADDR ptrC_, LayoutC layoutC_, GM_ADDR ptrD_,
+            LayoutD layoutD_, GM_ADDR ptrGroupList_, const Callback& waitCallback_ = Callback{},
+            const Callback& notifyCallback_ = Callback{}, int32_t syncInterval_ = INT_MAX)
+            : problemCount(problemCount_),
+              problemShape(problemShape_),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
+              layoutC(layoutC_),
+              ptrD(reinterpret_cast<__gm__ ElementD*>(ptrD_)),
+              layoutD(layoutD_),
+              ptrGroupList(ptrGroupList_),
+              waitCallback(waitCallback_),
+              notifyCallback(notifyCallback_),
+              syncInterval(syncInterval_)
+        {}
     };
 
     CATLASS_DEVICE
-    SwigluKernel()
-    {
-        flagAivFinishStore = Catlass::Arch::CrossCoreFlag(4);
-    }
-
+    SwigluKernel() { flagAivFinishStore = Catlass::Arch::CrossCoreFlag(4); }
 
     CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    void operator()(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         AscendC::GlobalTensor<ElementC> gmC;
         gmC.SetGlobalBuffer(params.ptrC);
@@ -131,23 +114,21 @@ public:
         int64_t gmGroupOffsetD = 0;
         int64_t gmGroupOffsetC = 0;
         uint32_t startCoreIdx = 0;
-        
-        SwigluParams swigluParams{
-            {1, params.problemShape.column()}
-        };
+
+        SwigluParams swigluParams{{1, params.problemShape.column()}};
         SwigluBlock swigluBlockEpilogue(resource, swigluParams);
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t coreNum = AscendC::GetBlockNum();
-        
+
         for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
             uint32_t currentM = groupList(groupIdx);
 
             LayoutD layoutD = params.layoutD.GetTileLayout(MakeCoord(currentM, nOut));
-            
+
             if (groupIdx % params.syncInterval == 0) {
                 params.waitCallback();
             }
-            
+
             uint32_t rows = currentM;
             uint32_t coreLoops = (currentM + rows - 1) / rows;
 
@@ -183,13 +164,12 @@ public:
                 AscendC::PipeBarrier<PIPE_MTE3>();
                 params.notifyCallback();
             }
-
-        }   
+        }
     }
 
 private:
     Catlass::Arch::CrossCoreFlag flagAivFinishStore;
 };
-}
+} // namespace Catccos::DGemm::Kernel
 
 #endif

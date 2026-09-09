@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -17,14 +18,10 @@ using ElementFp8Mx = float8_e4m3_t;
 using ElementFp4Mx = float4_e2m1x2_t;
 
 void LaunchAscend950BF16QuantAllGatherFP8E4M3FN(
-    void *stream, uint32_t blockNum, uint64_t fftsAddr,
-    KernelParams& kernelParams,
-    uint8_t *workSpace,
-    uint8_t *symmetricPtr, CocTilingParams& cocTiling,
-    uint32_t transA, uint32_t transB)
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
-    MxQuantAllGather<ElementInput, LayoutInput, ElementFp8Mx, LayoutOutput>
-        <<<blockNum, nullptr, stream>>>(
-            fftsAddr, kernelParams.ptrA, kernelParams.ptrC, kernelParams.ptrB, symmetricPtr, cocTiling, 10);
+    MxQuantAllGather<ElementInput, LayoutInput, ElementFp8Mx, LayoutOutput><<<blockNum, nullptr, stream>>>(
+        fftsAddr, kernelParams.ptrA, kernelParams.ptrC, kernelParams.ptrB, symmetricPtr, cocTiling, 10);
 }

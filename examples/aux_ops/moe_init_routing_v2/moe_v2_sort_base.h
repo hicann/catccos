@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -29,7 +30,7 @@ protected:
     __aicore__ inline void SyncAll();
 
 protected:
-    TPipe *pipe;
+    TPipe* pipe;
     TQue<QuePosition::VECIN, 1> sortDataCopyInQueue;
     TQue<QuePosition::VECOUT, 1> sortDataCopyOutQueue;
     TBuf<TPosition::VECCALC> tempBuffer;

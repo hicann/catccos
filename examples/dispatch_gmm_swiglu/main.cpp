@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,7 +27,7 @@ using LayoutB0 = Catlass::layout::RowMajor;
 
 static uint32_t gNpuNum = 8;
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     int rankSize = atoi(argv[1]);
@@ -105,20 +106,19 @@ int main(int argc, char **argv)
     //                                          expertTokensCountOrCumsumFlag, expertTokensBeforeCapacityFlag,
     //                                          inuptXDtypeSize, quantMode, scaleDim0, aivNum, ubSize);
 
-    moeInitRoutingQuantV2TilingBase.DoTiling(m, k, topK, expertCapacity, cocTiling.expertNum, activeNum, dropPadMode,
-                                             expertTokensCountOrCumsumFlag, expertTokensBeforeCapacityFlag,
-                                             inuptXDtypeSize, quantMode, scaleDim0, aivNum, ubSize);
+    moeInitRoutingQuantV2TilingBase.DoTiling(
+        m, k, topK, expertCapacity, cocTiling.expertNum, activeNum, dropPadMode, expertTokensCountOrCumsumFlag,
+        expertTokensBeforeCapacityFlag, inuptXDtypeSize, quantMode, scaleDim0, aivNum, ubSize);
 
     size_t initRoutingWorkspace = moeInitRoutingQuantV2TilingBase.workspaceSize_;
 
-    MoeInitRoutingQuantV2Tiling moeTiling{moeInitRoutingQuantV2TilingBase.moeInitRoutingTilingData,
-                                          moeInitRoutingQuantV2TilingBase.tilingKey_};
+    MoeInitRoutingQuantV2Tiling moeTiling{
+        moeInitRoutingQuantV2TilingBase.moeInitRoutingTilingData, moeInitRoutingQuantV2TilingBase.tilingKey_};
 
     printf("tiling key: %d\n", moeInitRoutingQuantV2TilingBase.tilingKey_);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllToAllVGMMV2");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator AllToAllVGMMV2 not found!" << std::endl;
         return -1;
     }
@@ -126,30 +126,29 @@ int main(int argc, char **argv)
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, "./output");
 
-    void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
-    uint8_t *symmetricPtr = (uint8_t *)symmPtr;
+    void* symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+    uint8_t* symmetricPtr = (uint8_t*)symmPtr;
 
     size_t allToAllVGmmWorkspace = op->GetWorkspaceSize(cocTiling);
     size_t expandedRowIdxSize = (cocTiling.m + 255) / 256 * 256 * cocTiling.topK * sizeof(int32_t);
     auto workSpaceSize = expandedRowIdxSize + std::max(allToAllVGmmWorkspace, initRoutingWorkspace);
 
-    uint8_t *workspaceDevice{nullptr};
-    if (workSpaceSize > 0)
-    {
-        ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    uint8_t* workspaceDevice{nullptr};
+    if (workSpaceSize > 0) {
+        ACL_CHECK(aclrtMalloc((void**)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     }
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
-    uint8_t *expertIdxPtr = kernelParams.customPtrs[0];
+    uint8_t* aPtr = kernelParams.ptrA;
+    uint8_t* bPtr = kernelParams.ptrB;
+    uint8_t* cPtr = kernelParams.ptrC;
+    uint8_t* expertIdxPtr = kernelParams.customPtrs[0];
 
     size_t size_ = static_cast<size_t>(maxOutputSize) * cocTiling.n * sizeof(half);
     printf("cSize: %d\n", size_);
-    uint8_t *cDevice = workspaceDevice + expandedRowIdxSize +
+    uint8_t* cDevice = workspaceDevice + expandedRowIdxSize +
                        static_cast<size_t>(maxOutputSize) * cocTiling.k * sizeof(half) +
                        EP * EP * expertPerRank * sizeof(int32_t);
-    uint8_t *cHost1;
+    uint8_t* cHost1;
     // ACL_CHECK(aclrtMallocHost((void **)(&cHost1), size_));
     // ReadFile("./output/matrix_c_" + std::to_string(rankId) + ".bin", cHost1, size_);
     // ACL_CHECK(aclrtMemcpy(cDevice, size_, cHost1, size_, ACL_MEMCPY_HOST_TO_DEVICE));
@@ -157,8 +156,7 @@ int main(int argc, char **argv)
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
 
-    for (int i = 0; i < 1; i++)
-    {
+    for (int i = 0; i < 1; i++) {
         AllToAllVGMMV2<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC><<<blockNum, nullptr, stream>>>(
             fftsAddr, aPtr, bPtr, cPtr, expertIdxPtr, workspaceDevice, symmetricPtr, cocTiling, moeTiling);
     }
@@ -167,17 +165,17 @@ int main(int argc, char **argv)
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, "./output");
 
-    uint8_t *tokensPerExpertDevice = symmetricPtr + cocTiling.m * cocTiling.topK * cocTiling.k * sizeof(ElementA);
-    uint8_t *tokensPerExpertHost;
+    uint8_t* tokensPerExpertDevice = symmetricPtr + cocTiling.m * cocTiling.topK * cocTiling.k * sizeof(ElementA);
+    uint8_t* tokensPerExpertHost;
     int32_t size = cocTiling.epSize * cocTiling.epSize * expertPerRank;
-    ACL_CHECK(aclrtMallocHost((void **)(&tokensPerExpertHost), size));
-    ACL_CHECK(aclrtMemcpy(tokensPerExpertHost, size * sizeof(int32_t), tokensPerExpertDevice, size * sizeof(int32_t),
-                          ACL_MEMCPY_DEVICE_TO_HOST));
+    ACL_CHECK(aclrtMallocHost((void**)(&tokensPerExpertHost), size));
+    ACL_CHECK(aclrtMemcpy(
+        tokensPerExpertHost, size * sizeof(int32_t), tokensPerExpertDevice, size * sizeof(int32_t),
+        ACL_MEMCPY_DEVICE_TO_HOST));
 
     printf("tokensPerExpertHost: ========================\n");
-    for (int i = 0; i < size; i++)
-    {
-        printf("%d ", *(reinterpret_cast<int32_t *>(tokensPerExpertHost) + i));
+    for (int i = 0; i < size; i++) {
+        printf("%d ", *(reinterpret_cast<int32_t*>(tokensPerExpertHost) + i));
     }
     printf("=================================\n");
 
@@ -194,8 +192,7 @@ int main(int argc, char **argv)
     shmem_free(symmPtr);
 
     FreeDeviceSpace(kernelParams);
-    if (workSpaceSize > 0)
-    {
+    if (workSpaceSize > 0) {
         ACL_CHECK(aclrtFree(workspaceDevice));
     }
 

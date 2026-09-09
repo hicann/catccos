@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,8 +24,8 @@
 
 namespace Catccos::DGemm::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 /// Threadblock swizzling function for GEMMs
 template <uint32_t SWIZZLE_OFFSET = 1, uint32_t SWIZZLE_DIRECTION = 0>
@@ -37,25 +38,22 @@ struct GemmBlockSwizzleAllGatherMesh {
     GemmBlockSwizzleAllGatherMesh() = default;
 
     CATLASS_DEVICE
-    GemmBlockSwizzleAllGatherMesh(DistGemmCoord const &problemShape_, DistGemmCoord const &tileShape_) :
-        problemShape(problemShape_), tileShape(tileShape_)
+    GemmBlockSwizzleAllGatherMesh(DistGemmCoord const& problemShape_, DistGemmCoord const& tileShape_)
+        : problemShape(problemShape_), tileShape(tileShape_)
     {
         loops = CeilDiv(problemShape, tileShape);
     }
 
     CATLASS_DEVICE
-    GemmBlockSwizzleAllGatherMesh(DistGemmCoord const &problemShape_, MatrixCoord const &tileShapeMN_) :
-        problemShape(problemShape_)
+    GemmBlockSwizzleAllGatherMesh(DistGemmCoord const& problemShape_, MatrixCoord const& tileShapeMN_)
+        : problemShape(problemShape_)
     {
         tileShape = Catlass::MakeCoord<uint32_t>(tileShapeMN_[0], tileShapeMN_[1], problemShape_[2], 1);
         loops = CeilDiv(problemShape, tileShape);
     }
 
     CATLASS_DEVICE
-    uint32_t GetCoreLoops() const
-    {
-        return loops[0] * loops[1] * loops[2] * loops[3];
-    }
+    uint32_t GetCoreLoops() const { return loops[0] * loops[1] * loops[2] * loops[3]; }
 
     CATLASS_DEVICE
     DistGemmCoord GetBlockCoord(uint32_t loopIdx) const
@@ -92,10 +90,7 @@ struct GemmBlockSwizzleAllGatherMesh {
     }
 
     CATLASS_DEVICE
-    DistGemmCoord GetBlockOffset(uint32_t loopIdx) const
-    {
-        return GetBlockCoord(loopIdx) * tileShape;
-    }
+    DistGemmCoord GetBlockOffset(uint32_t loopIdx) const { return GetBlockCoord(loopIdx) * tileShape; }
 
     CATLASS_DEVICE
     DistGemmCoord GetActualBlockShapeByOffset(DistGemmCoord blockOffset) const

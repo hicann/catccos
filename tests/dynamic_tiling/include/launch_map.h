@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -12,13 +13,12 @@
 
 #include <unordered_map>
 
-using KernelFuncPtr = void (*)(void *, uint32_t, uint64_t, KernelParams &, uint8_t *, uint8_t *, CocTilingParams &,
-                               uint32_t, uint32_t);
+using KernelFuncPtr =
+    void (*)(void*, uint32_t, uint64_t, KernelParams&, uint8_t*, uint8_t*, CocTilingParams&, uint32_t, uint32_t);
 
-class KernelDispatcher
-{
-   private:
-    static std::unordered_map<int, KernelFuncPtr> &GetKernelMap()
+class KernelDispatcher {
+private:
+    static std::unordered_map<int, KernelFuncPtr>& GetKernelMap()
     {
         static std::unordered_map<int, KernelFuncPtr> kernelMap;
         return kernelMap;
@@ -26,12 +26,11 @@ class KernelDispatcher
 
     static int Hash(CocCommType commType, CocDataType dataType) { return (commType << 8) | dataType; }
 
-   public:
+public:
     static KernelFuncPtr GetKernelFunc(CocCommType commType, CocDataType dataType)
     {
-        auto &kernelMap = GetKernelMap();
-        if (auto it = kernelMap.find(Hash(commType, dataType)); it != kernelMap.end())
-        {
+        auto& kernelMap = GetKernelMap();
+        if (auto it = kernelMap.find(Hash(commType, dataType)); it != kernelMap.end()) {
             return it->second;
         }
         return nullptr;
@@ -39,23 +38,21 @@ class KernelDispatcher
 
     static void RegisterKernelFunc(CocCommType commType, CocDataType dataType, KernelFuncPtr func)
     {
-        auto &kernelMap = GetKernelMap();
+        auto& kernelMap = GetKernelMap();
         kernelMap.insert({Hash(commType, dataType), func});
     }
 };
 
-#define REGISTER_KERNEL_FUNC(kernelName, commType, dataType)                                            \
-    void Launch##kernelName##dataType(void *, uint32_t, uint64_t, KernelParams &, uint8_t *, uint8_t *, \
-                                      CocTilingParams &, uint32_t, uint32_t);                           \
-    namespace                                                                                           \
-    {                                                                                                   \
-    struct AutoRegister##kernelName##dataType                                                           \
-    {                                                                                                   \
-        AutoRegister##kernelName##dataType()                                                            \
-        {                                                                                               \
-            KernelDispatcher::RegisterKernelFunc(commType, dataType, &Launch##kernelName##dataType);    \
-        }                                                                                               \
-    } s_autoRegister##kernelName##dataType;                                                             \
+#define REGISTER_KERNEL_FUNC(kernelName, commType, dataType)                                                 \
+    void Launch##kernelName##dataType(                                                                       \
+        void*, uint32_t, uint64_t, KernelParams&, uint8_t*, uint8_t*, CocTilingParams&, uint32_t, uint32_t); \
+    namespace {                                                                                              \
+    struct AutoRegister##kernelName##dataType {                                                              \
+        AutoRegister##kernelName##dataType()                                                                 \
+        {                                                                                                    \
+            KernelDispatcher::RegisterKernelFunc(commType, dataType, &Launch##kernelName##dataType);         \
+        }                                                                                                    \
+    } s_autoRegister##kernelName##dataType;                                                                  \
     }
 
 REGISTER_KERNEL_FUNC(MatmulAllReduce, MATMUL_ALLREDUCE, FP16);
@@ -108,4 +105,4 @@ REGISTER_KERNEL_FUNC(Ascend950AllGatherMatmulUdma, ASCEND950_ALLGATHER_MATMUL_UD
 
 #undef REGISTER_KERNEL_FUNC
 
-#endif  // LAUNCH_MAP_H
+#endif // LAUNCH_MAP_H

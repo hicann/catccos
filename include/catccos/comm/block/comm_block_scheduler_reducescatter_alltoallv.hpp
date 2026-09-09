@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -22,11 +23,12 @@
 
 namespace Catccos::CommEpilogue::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
-template <class MoeConstraints_ = DGemm::DefaultMoeConstraints,
-    bool IsDynamic_ = true, class CoreSplit_ = void, uint32_t SWIZZLE_DIRECTION_ = 0, bool IS_DETERMINISTIC_ = false>
+template <
+    class MoeConstraints_ = DGemm::DefaultMoeConstraints, bool IsDynamic_ = true, class CoreSplit_ = void,
+    uint32_t SWIZZLE_DIRECTION_ = 0, bool IS_DETERMINISTIC_ = false>
 struct BlockCommSchedulerReduceScatterAllToAllV {
     using MoeConstraints = MoeConstraints_;
     using ProblemShape = DGemm::AllToAllVAllGatherProblemShape;
@@ -35,7 +37,8 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
     static constexpr bool IsDynamic = IsDynamic_;
     using CoreSplit = CoreSplit_;
 
-    static_assert((IS_DETERMINISTIC && SWIZZLE_DIRECTION == 0) || !IS_DETERMINISTIC,
+    static_assert(
+        (IS_DETERMINISTIC && SWIZZLE_DIRECTION == 0) || !IS_DETERMINISTIC,
         "Deterministic calculation requires that the swizzle direction be 0.");
 
     struct CommContext {
@@ -92,8 +95,7 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(MatrixCoord coreSplit_) 
-            : coreSplit(coreSplit_) {}
+        ParamsBase(MatrixCoord coreSplit_) : coreSplit(coreSplit_) {}
 
         CATLASS_DEVICE
         MatrixCoord CoreSplit() const { return coreSplit; }
@@ -108,20 +110,17 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
 
     CATLASS_DEVICE
     BlockCommSchedulerReduceScatterAllToAllV(
-        ProblemShape const &problemShape_,
-        uint32_t blockPerCommInRank_,
-        uint32_t srcEpIdx_,
-        MatrixCoord const &mmadBlockShape_,
-        MatrixCoord const &commBlockShape_,
-        MatrixCoord const &coreSplit_
-    ) : problemShape(problemShape_),
-        blockPerCommInRank(blockPerCommInRank_),
-        srcEpIdx(srcEpIdx_),
-        mmadBlockShape(mmadBlockShape_),
-        commBlockShape(commBlockShape_),
-        coreSplit(coreSplit_)
+        ProblemShape const& problemShape_, uint32_t blockPerCommInRank_, uint32_t srcEpIdx_,
+        MatrixCoord const& mmadBlockShape_, MatrixCoord const& commBlockShape_, MatrixCoord const& coreSplit_)
+        : problemShape(problemShape_),
+          blockPerCommInRank(blockPerCommInRank_),
+          srcEpIdx(srcEpIdx_),
+          mmadBlockShape(mmadBlockShape_),
+          commBlockShape(commBlockShape_),
+          coreSplit(coreSplit_)
     {
-        MatrixCoord commShape = Catlass::MakeCoord<uint32_t>(blockPerCommInRank * mmadBlockShape.row(), mmadBlockShape.column());
+        MatrixCoord commShape =
+            Catlass::MakeCoord<uint32_t>(blockPerCommInRank * mmadBlockShape.row(), mmadBlockShape.column());
         blockGrid = CeilDiv(commShape, commBlockShape);
         uint32_t tileCount = blockGrid.row() * blockGrid.column();
         if constexpr (IS_DETERMINISTIC) {
@@ -155,10 +154,10 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
 
         for (uint32_t rankIdx = 0; rankIdx < rankSize; ++rankIdx) {
             for (uint32_t localExpertIdx = 0; localExpertIdx < problemShape.localExpertNum(); ++localExpertIdx) {
-                outputSplitBlock[rankIdx] 
-                    += CeilDiv(problemShape.globalTokensPerLocalExpert(rankIdx, localExpertIdx), mmadBlockShape.row());
+                outputSplitBlock[rankIdx] +=
+                    CeilDiv(problemShape.globalTokensPerLocalExpert(rankIdx, localExpertIdx), mmadBlockShape.row());
             }
-            outputSplitBlock[rankIdx] *=  nLoops;
+            outputSplitBlock[rankIdx] *= nLoops;
 
             auto sendLoops = CeilDiv(outputSplitBlock[rankIdx], blockPerCommInRank);
             commLoops = Max(commLoops, sendLoops);
@@ -166,30 +165,26 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
     }
 
     CATLASS_DEVICE
-    uint32_t GetCommLoops() const
-    {
-        return commLoops;
-    }
+    uint32_t GetCommLoops() const { return commLoops; }
 
     CATLASS_DEVICE
     void UpdateCommContext(uint32_t commIdx)
     {
         commContext.commOffset = commIdx * blockPerCommInRank;
-        uint32_t actualblockPerCommInRank = Min(
-            blockPerCommInRank, ClipSub(inputSplitBlock[srcEpIdx],commContext.commOffset));
-        commContext.actualCommShape = MatrixCoord(
-            actualblockPerCommInRank * mmadBlockShape.row() , mmadBlockShape.column());
+        uint32_t actualblockPerCommInRank =
+            Min(blockPerCommInRank, ClipSub(inputSplitBlock[srcEpIdx], commContext.commOffset));
+        commContext.actualCommShape =
+            MatrixCoord(actualblockPerCommInRank * mmadBlockShape.row(), mmadBlockShape.column());
     }
 
     CATLASS_DEVICE
-    void UpdateLocalExpertContext(MatrixCoord const &blockOffset)
+    void UpdateLocalExpertContext(MatrixCoord const& blockOffset)
     {
         localExpertCtx.mmadIdx = commContext.commOffset + blockOffset.row() / mmadBlockShape.row();
-        for (; localExpertCtx.startLocalExpert < problemShape.localExpertNum(); 
-            localExpertCtx.startLocalExpert++) {
+        for (; localExpertCtx.startLocalExpert < problemShape.localExpertNum(); localExpertCtx.startLocalExpert++) {
             auto localExpertIdx = localExpertCtx.startLocalExpert;
-            if ((localExpertCtx.accumBlockNum + 
-                    inputSplitBlockInLocalExpert[srcEpIdx][localExpertIdx]) > localExpertCtx.mmadIdx) {
+            if ((localExpertCtx.accumBlockNum + inputSplitBlockInLocalExpert[srcEpIdx][localExpertIdx]) >
+                localExpertCtx.mmadIdx) {
                 break;
             }
             localExpertCtx.accumBlockNum += inputSplitBlockInLocalExpert[srcEpIdx][localExpertIdx];
@@ -213,26 +208,17 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
         uint32_t coreLoops{0};
 
         CATLASS_DEVICE
-        void Next()
-        {
-            taskIdx++;
-        }
+        void Next() { taskIdx++; }
 
         CATLASS_DEVICE
-        bool End() const
-        {
-            return taskIdx >= coreLoops;
-        }
+        bool End() const { return taskIdx >= coreLoops; }
     };
 
     CATLASS_DEVICE
-    Iter Begin() const
-    {
-        return {/*taskIdx*/0, coreLoops};
-    }
+    Iter Begin() const { return {/*taskIdx*/ 0, coreLoops}; }
 
     CATLASS_DEVICE
-    MatrixCoord GetBlockOffset(Iter const &iter) const
+    MatrixCoord GetBlockOffset(Iter const& iter) const
     {
         uint32_t m = iter.taskIdx / blockGrid.column();
         uint32_t n = iter.taskIdx - m * blockGrid.column();
@@ -241,10 +227,10 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
     }
 
     CATLASS_DEVICE
-    MatrixCoord GetSwizzleBlockOffset(Iter const &iter) const {
+    MatrixCoord GetSwizzleBlockOffset(Iter const& iter) const
+    {
         auto loops = DistMatrixCoord(blockGrid, 1);
-        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(
-            loops, coreSplit, iter.taskIdx);
+        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(loops, coreSplit, iter.taskIdx);
         if (blockCoord.IsOverflow(loops)) {
             return MatrixCoord{UINT_MAX, UINT_MAX};
         }
@@ -252,27 +238,27 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
     }
 
     struct RemapperDst {
-        using Scheduler = BlockCommSchedulerReduceScatterAllToAllV<MoeConstraints,
-            IsDynamic, CoreSplit, SWIZZLE_DIRECTION, IS_DETERMINISTIC>;
+        using Scheduler = BlockCommSchedulerReduceScatterAllToAllV<
+            MoeConstraints, IsDynamic, CoreSplit, SWIZZLE_DIRECTION, IS_DETERMINISTIC>;
 
-        Scheduler *scheduler;
+        Scheduler* scheduler;
         MatrixCoord residueInMmadBlock;
 
         CATLASS_DEVICE
-        MatrixCoord operator()(MatrixCoord const &blockOffset)
+        MatrixCoord operator()(MatrixCoord const& blockOffset)
         {
             uint32_t accumBlockNum = scheduler->localExpertCtx.accumBlockNum;
             uint32_t localExpertIdx = scheduler->localExpertCtx.startLocalExpert;
             uint32_t mmadIdxInLocalExpert = scheduler->localExpertCtx.mmadIdx - accumBlockNum;
-            
+
             auto srcEpIdx = scheduler->srcEpIdx;
-            auto &actualMmadShape = scheduler->actualMmadShapes[localExpertIdx];
-            auto &mmadBlockGrid = scheduler->mmadBlockGrids[localExpertIdx];
+            auto& actualMmadShape = scheduler->actualMmadShapes[localExpertIdx];
+            auto& mmadBlockGrid = scheduler->mmadBlockGrids[localExpertIdx];
 
             auto mmadBlockCoordMN = MatrixSwizzle<7, 1>::GetCoord(mmadBlockGrid, mmadIdxInLocalExpert);
             auto mmadBlockOffset = mmadBlockCoordMN * scheduler->mmadBlockShape;
-            auto actualMmadBlockShape = Min<uint32_t, 2>(scheduler->mmadBlockShape, 
-                    ClipSub<MatrixCoord>(actualMmadShape, mmadBlockOffset));
+            auto actualMmadBlockShape =
+                Min<uint32_t, 2>(scheduler->mmadBlockShape, ClipSub<MatrixCoord>(actualMmadShape, mmadBlockOffset));
 
             auto offsetInMmadBlock = blockOffset % scheduler->mmadBlockShape;
             residueInMmadBlock = actualMmadBlockShape - Min<uint32_t, 2>(actualMmadBlockShape, offsetInMmadBlock);
@@ -282,25 +268,22 @@ struct BlockCommSchedulerReduceScatterAllToAllV {
         }
 
         CATLASS_DEVICE
-        MatrixCoord GetResidueShape(MatrixCoord const &blockOffset) const
+        MatrixCoord GetResidueShape(MatrixCoord const& blockOffset) const
         {
             return ClipSub(scheduler->commContext.actualCommShape, blockOffset);
         }
     };
 
     CATLASS_DEVICE
-    RemapperDst GetRemapperDst()
-    {
-        return {this};
-    }
+    RemapperDst GetRemapperDst() { return {this}; }
 
     CATLASS_DEVICE
-    MatrixCoord RemapActualBlockShape(MatrixCoord const &blockOffset, RemapperDst &remapperDst) const
+    MatrixCoord RemapActualBlockShape(MatrixCoord const& blockOffset, RemapperDst& remapperDst) const
     {
         return Min(commBlockShape, remapperDst.GetResidueShape(blockOffset));
     }
 };
 
-}
+} // namespace Catccos::CommEpilogue::Block
 
 #endif // CATCCOS_COMM_BLOCK_SCHEDULER_REDUCESCATTER_ALLTOALLV

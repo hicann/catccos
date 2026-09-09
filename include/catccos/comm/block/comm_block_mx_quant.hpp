@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -20,8 +21,7 @@
 #include "catlass/layout/layout.hpp"
 #include "catlass/matrix_coord.hpp"
 
-namespace Catccos::Comm::Block
-{
+namespace Catccos::Comm::Block {
 
 using Catlass::MakeCoord;
 using Catlass::MatrixCoord;
@@ -40,9 +40,8 @@ using Catlass::MatrixCoord;
 //   - MX scale: actualRows × (N / BLOCK_SIZE) bytes (E8M0)
 // ============================================================================
 template <uint32_t UB_STAGES_, uint32_t BLOCK_SIZE_, int64_t ROUND_MODE_, class CType_, class DType_>
-class CommBlockMxQuant
-{
-   public:
+class CommBlockMxQuant {
+public:
     using DispatchPolicy = EpilogueAscend950DynamicMxQuant<UB_STAGES_, BLOCK_SIZE_, ROUND_MODE_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
@@ -52,7 +51,7 @@ class CommBlockMxQuant
     using LayoutC = typename CType_::Layout;
     using ElementD = typename DType_::Element;
     using LayoutD = typename DType_::Layout;
-    using ElementScale = float8_e8m0_t;  // E8M0
+    using ElementScale = float8_e8m0_t; // E8M0
 
     // Type traits for MX quant
     using Traits = Epilogue::Block::mx_quant_detail::MxQuantTraits<ElementC>;
@@ -62,12 +61,11 @@ class CommBlockMxQuant
     static constexpr bool IsFp4 = Epilogue::Block::mx_quant_detail::IsFp4Type<ElementD>();
     static constexpr uint32_t PACK_RATIO = IsFp4 ? 2 : 1;
 
-    static constexpr AscendC::RoundMode ROUND_MODE = (ROUND_MODE_ == 1)   ? AscendC::RoundMode::CAST_FLOOR
-                                                     : (ROUND_MODE_ == 0) ? AscendC::RoundMode::CAST_ROUND
-                                                                          : AscendC::RoundMode::CAST_RINT;
+    static constexpr AscendC::RoundMode ROUND_MODE = (ROUND_MODE_ == 1) ? AscendC::RoundMode::CAST_FLOOR :
+                                                     (ROUND_MODE_ == 0) ? AscendC::RoundMode::CAST_ROUND :
+                                                                          AscendC::RoundMode::CAST_RINT;
 
-    static constexpr IntCalcType TARGET_EMAX_FIELD = []() constexpr
-    {
+    static constexpr IntCalcType TARGET_EMAX_FIELD = []() constexpr {
         if constexpr (std::is_same_v<ElementD, float4_e2m1x2_t>)
             return Traits::FP4_E2M1_EMAX;
         else if constexpr (std::is_same_v<ElementD, float4_e1m2x2_t>)
@@ -82,20 +80,20 @@ class CommBlockMxQuant
 
     static constexpr uint32_t UB_ALIGN = 64;
 
-    struct Params
-    {
-        uint32_t N{0};  // columns per row
+    struct Params {
+        uint32_t N{0}; // columns per row
 
         CATLASS_DEVICE Params() {}
         CATLASS_DEVICE Params(uint32_t N_) : N(N_) {}
     };
 
     CATLASS_DEVICE
-    CommBlockMxQuant(Catlass::Arch::Resource<ArchTag> &resource, Params const &params = Params{})
+    CommBlockMxQuant(Catlass::Arch::Resource<ArchTag>& resource, Params const& params = Params{})
         : params(params), resourceRef(&resource)
     {
         uint32_t N = params.N;
-        if (N == 0) return;
+        if (N == 0)
+            return;
 
         uint32_t bytesPerRowInput = N * sizeof(ElementC);
         uint32_t bytesPerRowOutput = N * Catlass::SizeOfBits<ElementD>::value / Catlass::SizeOfBits<uint8_t>::value;
@@ -108,11 +106,11 @@ class CommBlockMxQuant
             bytesPerRowInput + bytesPerRowOutput + bytesPerRowScale + bytesPerRowMaxExp + bytesPerRowRecipScale;
         tileRows = AscendC::GetUBSizeInBytes() / (UB_STAGES * bytesPerRow);
         tileRows = (tileRows / UB_ALIGN) * UB_ALIGN;
-        if (tileRows == 0) tileRows = 1;
+        if (tileRows == 0)
+            tileRows = 1;
 
         size_t ubOffset = 0;
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             ubInputList[i] = resourceRef->ubBuf.template GetBufferByByte<ElementC>(ubOffset);
             ubOffset += tileRows * bytesPerRowInput;
             ubOutputList[i] = resourceRef->ubBuf.template GetBufferByByte<ElementD>(ubOffset);
@@ -134,8 +132,7 @@ class CommBlockMxQuant
     {
         int32_t eventVMTE2 = 0, eventMTE2V = 0, eventMTE3V = 0, eventVMTE3 = 0;
 
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             eventInputVtoMTE2[i] = eventVMTE2++;
             eventInputMTE2toV[i] = eventMTE2V++;
             eventOutputMTE3toV[i] = eventMTE3V++;
@@ -148,37 +145,37 @@ class CommBlockMxQuant
     CATLASS_DEVICE
     void FinalizeBlockLoop()
     {
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventInputVtoMTE2[i]);
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(eventOutputMTE3toV[i]);
         }
     }
 
     CATLASS_DEVICE
-    void operator()(AscendC::GlobalTensor<ElementC> const &gmInput, LayoutC const &layoutInput,
-                    AscendC::GlobalTensor<ElementD> const &gmQuantOut, LayoutD const &layoutQuantOut,
-                    AscendC::GlobalTensor<ElementScale> const &gmScaleOut, LayoutD const &layoutScaleOut,
-                    Catlass::MatrixCoord const &actualBlockShape)
+    void operator()(
+        AscendC::GlobalTensor<ElementC> const& gmInput, LayoutC const& layoutInput,
+        AscendC::GlobalTensor<ElementD> const& gmQuantOut, LayoutD const& layoutQuantOut,
+        AscendC::GlobalTensor<ElementScale> const& gmScaleOut, LayoutD const& layoutScaleOut,
+        Catlass::MatrixCoord const& actualBlockShape)
     {
         uint32_t actualRows = actualBlockShape.row();
         uint32_t N = actualBlockShape.column();
-        if (actualRows == 0 || N == 0) return;
+        if (actualRows == 0 || N == 0)
+            return;
 
         uint32_t numScalesPerRow = N / BLOCK_SIZE;
         uint32_t totalLoops = (actualRows + tileRows - 1) / tileRows;
 
-        for (uint32_t loopIdx = 0; loopIdx < totalLoops; ++loopIdx)
-        {
+        for (uint32_t loopIdx = 0; loopIdx < totalLoops; ++loopIdx) {
             uint32_t ubListId = loopIdx % UB_STAGES;
             uint32_t rowOffset = loopIdx * tileRows;
             uint32_t curRows = (loopIdx == totalLoops - 1) ? (actualRows - rowOffset) : tileRows;
 
-            auto &ubC = ubInputList[ubListId];
-            auto &ubD = ubOutputList[ubListId];
-            auto &ubScale = ubScaleList[ubListId];
-            auto &ubMaxExp = ubMaxExpList[ubListId];
-            auto &ubRecipScale = ubRecipScaleList[ubListId];
+            auto& ubC = ubInputList[ubListId];
+            auto& ubD = ubOutputList[ubListId];
+            auto& ubScale = ubScaleList[ubListId];
+            auto& ubMaxExp = ubMaxExpList[ubListId];
+            auto& ubRecipScale = ubRecipScaleList[ubListId];
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventInputVtoMTE2[ubListId]);
             uint32_t inputCount = curRows * N;
@@ -210,13 +207,15 @@ class CommBlockMxQuant
     }
 
     CATLASS_DEVICE
-    void QuantFromUb(AscendC::LocalTensor<ElementC> const &ubInput, AscendC::GlobalTensor<ElementD> const &gmQuantOut,
-                     LayoutD const &layoutQuantOut, AscendC::GlobalTensor<ElementScale> const &gmScaleOut,
-                     LayoutD const &layoutScaleOut, Catlass::MatrixCoord const &actualBlockShape)
+    void QuantFromUb(
+        AscendC::LocalTensor<ElementC> const& ubInput, AscendC::GlobalTensor<ElementD> const& gmQuantOut,
+        LayoutD const& layoutQuantOut, AscendC::GlobalTensor<ElementScale> const& gmScaleOut,
+        LayoutD const& layoutScaleOut, Catlass::MatrixCoord const& actualBlockShape)
     {
         uint32_t actualRows = actualBlockShape.row();
         uint32_t N = actualBlockShape.column();
-        if (actualRows == 0 || N == 0) return;
+        if (actualRows == 0 || N == 0)
+            return;
 
         uint32_t numScalesPerRow = N / BLOCK_SIZE;
         uint32_t quantBytes = N * Catlass::SizeOfBits<ElementD>::value / Catlass::SizeOfBits<uint8_t>::value;
@@ -224,14 +223,13 @@ class CommBlockMxQuant
         // Keep the same one-row execution and scratch-buffer contract as the
         // established GM-input path. The vector program is row-scoped; merging
         // rows here corrupted both quantized data and scales in device tests.
-        for (uint32_t row = 0; row < actualRows; ++row)
-        {
+        for (uint32_t row = 0; row < actualRows; ++row) {
             uint32_t ubListId = row % UB_STAGES;
             auto ubC = ubInput[row * N];
-            auto &ubD = ubOutputList[ubListId];
-            auto &ubScale = ubScaleList[ubListId];
-            auto &ubMaxExp = ubMaxExpList[ubListId];
-            auto &ubRecipScale = ubRecipScaleList[ubListId];
+            auto& ubD = ubOutputList[ubListId];
+            auto& ubScale = ubScaleList[ubListId];
+            auto& ubMaxExp = ubMaxExpList[ubListId];
+            auto& ubRecipScale = ubRecipScaleList[ubListId];
 
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(eventOutputMTE3toV[ubListId]);
             ComputeMxQuant(ubC, ubD, ubScale, ubMaxExp, ubRecipScale, 1, N);
@@ -252,17 +250,18 @@ class CommBlockMxQuant
     // established row-wise QuantFromUb path so existing users keep identical
     // scheduling and event behavior.
     CATLASS_DEVICE
-    void QuantFromUb2D(AscendC::LocalTensor<ElementC> const &ubInput, AscendC::GlobalTensor<ElementD> const &gmQuantOut,
-                       LayoutD const &layoutQuantOut, AscendC::GlobalTensor<ElementScale> const &gmScaleOut,
-                       LayoutD const &layoutScaleOut, Catlass::MatrixCoord const &actualBlockShape)
+    void QuantFromUb2D(
+        AscendC::LocalTensor<ElementC> const& ubInput, AscendC::GlobalTensor<ElementD> const& gmQuantOut,
+        LayoutD const& layoutQuantOut, AscendC::GlobalTensor<ElementScale> const& gmScaleOut,
+        LayoutD const& layoutScaleOut, Catlass::MatrixCoord const& actualBlockShape)
     {
         uint32_t actualRows = actualBlockShape.row();
         uint32_t N = actualBlockShape.column();
-        if (actualRows == 0 || N == 0) return;
+        if (actualRows == 0 || N == 0)
+            return;
 
         uint32_t numScalesPerRow = N / BLOCK_SIZE;
-        if (actualRows > tileRows || numScalesPerRow > Catlass::BYTE_PER_BLK)
-        {
+        if (actualRows > tileRows || numScalesPerRow > Catlass::BYTE_PER_BLK) {
             QuantFromUb(ubInput, gmQuantOut, layoutQuantOut, gmScaleOut, layoutScaleOut, actualBlockShape);
             FinalizeBlockLoop();
             InitBlockLoop();
@@ -270,10 +269,10 @@ class CommBlockMxQuant
         }
 
         auto ubC = ubInput;
-        auto &ubD = ubOutputList[0];
-        auto &ubScale = ubScaleList[0];
-        auto &ubMaxExp = ubMaxExpList[0];
-        auto &ubRecipScale = ubRecipScaleList[0];
+        auto& ubD = ubOutputList[0];
+        auto& ubScale = ubScaleList[0];
+        auto& ubMaxExp = ubMaxExpList[0];
+        auto& ubRecipScale = ubRecipScaleList[0];
 
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(eventOutputMTE3toV[0]);
         ComputeMxQuant(ubC, ubD, ubScale, ubMaxExp, ubRecipScale, actualRows, N);
@@ -293,14 +292,14 @@ class CommBlockMxQuant
         int64_t quantRowStrideElements = layoutQuantOut.GetOffset(rowOne) - layoutQuantOut.GetOffset(rowZero);
         uint32_t quantRowStrideBytes = static_cast<uint32_t>(
             quantRowStrideElements * Catlass::SizeOfBits<ElementD>::value / Catlass::SizeOfBits<uint8_t>::value);
-        AscendC::DataCopyExtParams quantParams{static_cast<uint16_t>(actualRows), quantBytes, 0,
-                                               quantRowStrideBytes - quantBytes, 0};
+        AscendC::DataCopyExtParams quantParams{
+            static_cast<uint16_t>(actualRows), quantBytes, 0, quantRowStrideBytes - quantBytes, 0};
         AscendC::DataCopyPad(gmQuantOut[layoutQuantOut.GetOffset(rowZero)], ubD, quantParams);
 
         int64_t scaleRowStrideElements = layoutScaleOut.GetOffset(rowOne) - layoutScaleOut.GetOffset(rowZero);
         uint32_t scaleRowStrideBytes = static_cast<uint32_t>(scaleRowStrideElements * sizeof(ElementScale));
-        AscendC::DataCopyExtParams scaleParams{static_cast<uint16_t>(actualRows), numScalesPerRow, 0,
-                                               scaleRowStrideBytes - numScalesPerRow, 0};
+        AscendC::DataCopyExtParams scaleParams{
+            static_cast<uint16_t>(actualRows), numScalesPerRow, 0, scaleRowStrideBytes - numScalesPerRow, 0};
         AscendC::DataCopyPad(gmScaleOut[layoutScaleOut.GetOffset(rowZero)], ubScalePadded, scaleParams);
 
         // The producer may reuse both input planes immediately after this
@@ -316,28 +315,27 @@ class CommBlockMxQuant
     // This is the routing-side producer consumed directly by the packed
     // AllToAllV dispatch path; no expanded BF16 tensor is materialized.
     CATLASS_DEVICE
-    void QuantScatterPacked(AscendC::GlobalTensor<ElementC> const &gmInput,
-                            AscendC::GlobalTensor<int32_t> const &gmExpandedRowIdx,
-                            AscendC::GlobalTensor<uint8_t> const &gmPackedOut, uint32_t tokenBegin, uint32_t tokenCount,
-                            uint32_t topK)
+    void QuantScatterPacked(
+        AscendC::GlobalTensor<ElementC> const& gmInput, AscendC::GlobalTensor<int32_t> const& gmExpandedRowIdx,
+        AscendC::GlobalTensor<uint8_t> const& gmPackedOut, uint32_t tokenBegin, uint32_t tokenCount, uint32_t topK)
     {
         uint32_t N = params.N;
-        if (tokenCount == 0 || N == 0 || topK == 0) return;
+        if (tokenCount == 0 || N == 0 || topK == 0)
+            return;
 
         uint32_t quantBytes = N * Catlass::SizeOfBits<ElementD>::value / Catlass::SizeOfBits<uint8_t>::value;
         uint32_t scaleBytesRaw = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
         uint32_t scaleBytes = ((scaleBytesRaw + 1) / 2) * 2;
         uint32_t packedRowBytes = quantBytes + scaleBytes;
 
-        for (uint32_t localToken = 0; localToken < tokenCount; ++localToken)
-        {
+        for (uint32_t localToken = 0; localToken < tokenCount; ++localToken) {
             uint32_t tokenIdx = tokenBegin + localToken;
             uint32_t ubListId = localToken % UB_STAGES;
-            auto &ubC = ubInputList[ubListId];
-            auto &ubD = ubOutputList[ubListId];
-            auto &ubScale = ubScaleList[ubListId];
-            auto &ubMaxExp = ubMaxExpList[ubListId];
-            auto &ubRecipScale = ubRecipScaleList[ubListId];
+            auto& ubC = ubInputList[ubListId];
+            auto& ubD = ubOutputList[ubListId];
+            auto& ubScale = ubScaleList[ubListId];
+            auto& ubMaxExp = ubMaxExpList[ubListId];
+            auto& ubRecipScale = ubRecipScaleList[ubListId];
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventInputVtoMTE2[ubListId]);
             AscendC::DataCopyExtParams inputParams{1, static_cast<uint32_t>(N * sizeof(ElementC)), 0, 0, 0};
@@ -356,10 +354,10 @@ class CommBlockMxQuant
             auto ubScaleBytes = ubScale.template ReinterpretCast<uint8_t>();
             AscendC::DataCopyExtParams quantParams{1, quantBytes, 0, 0, 0};
             AscendC::DataCopyExtParams scaleParams{1, scaleBytes, 0, 0, 0};
-            for (uint32_t route = 0; route < topK; ++route)
-            {
+            for (uint32_t route = 0; route < topK; ++route) {
                 int32_t dstRow = gmExpandedRowIdx(static_cast<int64_t>(tokenIdx) * topK + route);
-                if (dstRow < 0) continue;
+                if (dstRow < 0)
+                    continue;
                 int64_t packedOffset = static_cast<int64_t>(dstRow) * packedRowBytes;
                 AscendC::DataCopyPad(gmPackedOut[packedOffset], ubQuantBytes, quantParams);
                 AscendC::DataCopyPad(gmPackedOut[packedOffset + quantBytes], ubScaleBytes, scaleParams);
@@ -368,20 +366,20 @@ class CommBlockMxQuant
         }
     }
 
-   private:
+private:
     CATLASS_DEVICE
-    void PadMxScaleRows(AscendC::LocalTensor<ElementScale> &ubScale, AscendC::LocalTensor<ElementScale> &ubScalePadded,
-                        uint32_t actualRows, uint32_t numScalesPerRow)
+    void PadMxScaleRows(
+        AscendC::LocalTensor<ElementScale>& ubScale, AscendC::LocalTensor<ElementScale>& ubScalePadded,
+        uint32_t actualRows, uint32_t numScalesPerRow)
     {
-        auto srcAddr = reinterpret_cast<__ubuf__ int8_t *>(ubScale.GetPhyAddr());
-        auto dstAddr = reinterpret_cast<__ubuf__ int8_t *>(ubScalePadded.GetPhyAddr());
+        auto srcAddr = reinterpret_cast<__ubuf__ int8_t*>(ubScale.GetPhyAddr());
+        auto dstAddr = reinterpret_cast<__ubuf__ int8_t*>(ubScalePadded.GetPhyAddr());
         uint16_t rows = static_cast<uint16_t>(actualRows);
         uint16_t scales = static_cast<uint16_t>(numScalesPerRow);
 
         __VEC_SCOPE__
         {
-            for (uint16_t row = 0; row < rows; ++row)
-            {
+            for (uint16_t row = 0; row < rows; ++row) {
                 uint32_t elementNum = scales;
                 AscendC::MicroAPI::MaskReg mask = AscendC::MicroAPI::UpdateMask<int8_t>(elementNum);
                 AscendC::MicroAPI::RegTensor<int8_t> scaleReg;
@@ -411,20 +409,21 @@ class CommBlockMxQuant
     static constexpr uint16_t MX_E5M2_EMAX = 0x0780;
 
     CATLASS_DEVICE
-    void ComputeMxQuant(AscendC::LocalTensor<ElementC> &ubC, AscendC::LocalTensor<ElementD> &ubD,
-                        AscendC::LocalTensor<ElementScale> &ubScale, AscendC::LocalTensor<uint16_t> &ubMaxExp,
-                        AscendC::LocalTensor<uint16_t> &ubRecipScale, uint32_t curRows, uint32_t N)
+    void ComputeMxQuant(
+        AscendC::LocalTensor<ElementC>& ubC, AscendC::LocalTensor<ElementD>& ubD,
+        AscendC::LocalTensor<ElementScale>& ubScale, AscendC::LocalTensor<uint16_t>& ubMaxExp,
+        AscendC::LocalTensor<uint16_t>& ubRecipScale, uint32_t curRows, uint32_t N)
     {
         uint32_t numGrp = N / BLOCK_SIZE;
         uint32_t numGrpA = ((numGrp + 1) / 2) * 2;
         uint32_t totalBlk = curRows * numGrpA;
         uint16_t loop2VF = (totalBlk + ELEM_AFTER_REDUCE - 1) / ELEM_AFTER_REDUCE;
         uint16_t loop1VF = (totalBlk + VF_LEN_16 - 1) / VF_LEN_16;
-        auto xAddr = reinterpret_cast<__ubuf__ ElementC *>(ubC.GetPhyAddr());
-        auto yAddr = reinterpret_cast<__ubuf__ int8_t *>(ubD.GetPhyAddr());
-        auto sAddr = reinterpret_cast<__ubuf__ uint16_t *>(ubScale.GetPhyAddr());
-        auto meAddr = reinterpret_cast<__ubuf__ uint16_t *>(ubMaxExp.GetPhyAddr());
-        auto rsAddr = reinterpret_cast<__ubuf__ uint16_t *>(ubRecipScale.GetPhyAddr());
+        auto xAddr = reinterpret_cast<__ubuf__ ElementC*>(ubC.GetPhyAddr());
+        auto yAddr = reinterpret_cast<__ubuf__ int8_t*>(ubD.GetPhyAddr());
+        auto sAddr = reinterpret_cast<__ubuf__ uint16_t*>(ubScale.GetPhyAddr());
+        auto meAddr = reinterpret_cast<__ubuf__ uint16_t*>(ubMaxExp.GetPhyAddr());
+        auto rsAddr = reinterpret_cast<__ubuf__ uint16_t*>(ubRecipScale.GetPhyAddr());
         uint16_t fpEmax = TARGET_EMAX_FIELD;
 
         // Phase 1: ComputeMaxExp
@@ -443,15 +442,14 @@ class CommBlockMxQuant
                 AscendC::MicroAPI::MaskReg Mask =
                     AscendC::MicroAPI::CreateMask<uint16_t, AscendC::MicroAPI::MaskPattern::ALL>();
                 AscendC::MicroAPI::UnalignReg ureg;
-                for (uint16_t i = 0; i < loop2VF; i++)
-                {
-                    AscendC::MicroAPI::LoadAlign<ElementC, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                 AscendC::MicroAPI::LoadDist::DIST_DINTLV_B16>(
-                        vdExp0, vdExp1, xLocalAddr, VF_LEN_16_DBL);
-                    AscendC::MicroAPI::And(vdExpExtract0, (AscendC::MicroAPI::RegTensor<uint16_t> &)vdExp0, expMaskBF16,
-                                           Mask);
-                    AscendC::MicroAPI::And(vdExpExtract1, (AscendC::MicroAPI::RegTensor<uint16_t> &)vdExp1, expMaskBF16,
-                                           Mask);
+                for (uint16_t i = 0; i < loop2VF; i++) {
+                    AscendC::MicroAPI::LoadAlign<
+                        ElementC, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                        AscendC::MicroAPI::LoadDist::DIST_DINTLV_B16>(vdExp0, vdExp1, xLocalAddr, VF_LEN_16_DBL);
+                    AscendC::MicroAPI::And(
+                        vdExpExtract0, (AscendC::MicroAPI::RegTensor<uint16_t>&)vdExp0, expMaskBF16, Mask);
+                    AscendC::MicroAPI::And(
+                        vdExpExtract1, (AscendC::MicroAPI::RegTensor<uint16_t>&)vdExp1, expMaskBF16, Mask);
                     AscendC::MicroAPI::Max(vdMaxExp, vdExpExtract0, vdExpExtract1, Mask);
                     AscendC::MicroAPI::ReduceMaxWithDataBlock(vdMaxExp, vdMaxExp, Mask);
                     AscendC::MicroAPI::StoreUnAlign<uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE>(
@@ -490,26 +488,26 @@ class CommBlockMxQuant
                 AscendC::MicroAPI::RegTensor<uint16_t> specialExpRegTensor;
                 AscendC::MicroAPI::Duplicate(specialExpRegTensor, MX_SPECIAL_EXP);
                 AscendC::MicroAPI::MaskReg cmpResult, zeroMask, invalidDataMask, specialDataMask, preMaskScale;
-                for (uint16_t i = 0; i < loop1VF; i++)
-                {
+                for (uint16_t i = 0; i < loop1VF; i++) {
                     preMaskScale = AscendC::MicroAPI::UpdateMask<uint16_t>(totalBlk);
                     AscendC::MicroAPI::LoadAlign<uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE>(
                         vdMaxExp, maxExpAddr, VF_LEN_16);
-                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::NE>(cmpResult, vdMaxExp, expMask,
-                                                                               preMaskScale);
-                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::LE>(invalidDataMask, vdMaxExp, maxExpValue,
-                                                                               preMaskScale);
+                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::NE>(
+                        cmpResult, vdMaxExp, expMask, preMaskScale);
+                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::LE>(
+                        invalidDataMask, vdMaxExp, maxExpValue, preMaskScale);
                     AscendC::MicroAPI::Select<uint16_t>(vdMaxExp, maxExpValue, vdMaxExp, invalidDataMask);
                     AscendC::MicroAPI::Sub(sharedExp, vdMaxExp, maxExpValue, preMaskScale);
                     AscendC::MicroAPI::ShiftRights(scaleValue, sharedExp, MX_SHR_NUM, preMaskScale);
                     AscendC::MicroAPI::Select<uint16_t>(scaleValue, scaleValue, fpNanRegTensor, cmpResult);
-                    AscendC::MicroAPI::StoreAlign<uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                  AscendC::MicroAPI::StoreDist::DIST_PACK_B16>(
+                    AscendC::MicroAPI::StoreAlign<
+                        uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                        AscendC::MicroAPI::StoreDist::DIST_PACK_B16>(
                         mxScaleLocalAddr, scaleValue, VF_LEN_32, preMaskScale);
-                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::NE>(zeroMask, sharedExp, zeroRegTensor,
-                                                                               preMaskScale);
-                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::EQ>(specialDataMask, sharedExp, scaleBias,
-                                                                               preMaskScale);
+                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::NE>(
+                        zeroMask, sharedExp, zeroRegTensor, preMaskScale);
+                    AscendC::MicroAPI::Compare<uint16_t, AscendC::CMPMODE::EQ>(
+                        specialDataMask, sharedExp, scaleBias, preMaskScale);
                     AscendC::MicroAPI::Sub(halfScale, scaleBias, sharedExp, preMaskScale);
                     AscendC::MicroAPI::Select<uint16_t>(halfScale, halfScale, nanRegTensor, cmpResult);
                     AscendC::MicroAPI::Select<uint16_t>(halfScale, halfScale, zeroRegTensor, zeroMask);
@@ -523,8 +521,7 @@ class CommBlockMxQuant
         AscendC::PipeBarrier<PIPE_V>();
 
         // Phase 3: ComputeData
-        if constexpr (IsFp4)
-        {
+        if constexpr (IsFp4) {
             // FP4 path (bf16 input): bf16 * recipScale → interleave → Cast<fp4x2> + DIST_PACK4_B32
             static constexpr uint32_t OUT_ELE_NUM_ONE_BLK = 64;
             {
@@ -540,35 +537,35 @@ class CommBlockMxQuant
                     static constexpr AscendC::MicroAPI::CastTrait cFP4 = {
                         AscendC::MicroAPI::RegLayout::ZERO, AscendC::MicroAPI::SatMode::UNKNOWN,
                         AscendC::MicroAPI::MaskMergeMode::ZEROING, ROUND_MODE};
-                    for (uint16_t i = 0; i < loop2VF; i++)
-                    {
-                        AscendC::MicroAPI::LoadAlign<ElementC, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                     AscendC::MicroAPI::LoadDist::DIST_DINTLV_B16>(
-                            vdExp0, vdExp1, xLocalAddr, VF_LEN_16_DBL);
-                        AscendC::MicroAPI::LoadAlign<uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                     AscendC::MicroAPI::LoadDist::DIST_E2B_B16>(
+                    for (uint16_t i = 0; i < loop2VF; i++) {
+                        AscendC::MicroAPI::LoadAlign<
+                            ElementC, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::LoadDist::DIST_DINTLV_B16>(vdExp0, vdExp1, xLocalAddr, VF_LEN_16_DBL);
+                        AscendC::MicroAPI::LoadAlign<
+                            uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::LoadDist::DIST_E2B_B16>(
                             halfScaleForMul, recipScaleLocalAddr, ELEM_AFTER_REDUCE);
-                        AscendC::MicroAPI::Mul(vdExp0, vdExp0,
-                                               (AscendC::MicroAPI::RegTensor<ElementC> &)halfScaleForMul, dataMaskB16);
-                        AscendC::MicroAPI::Mul(vdExp1, vdExp1,
-                                               (AscendC::MicroAPI::RegTensor<ElementC> &)halfScaleForMul, dataMaskB16);
+                        AscendC::MicroAPI::Mul(
+                            vdExp0, vdExp0, (AscendC::MicroAPI::RegTensor<ElementC>&)halfScaleForMul, dataMaskB16);
+                        AscendC::MicroAPI::Mul(
+                            vdExp1, vdExp1, (AscendC::MicroAPI::RegTensor<ElementC>&)halfScaleForMul, dataMaskB16);
                         AscendC::MicroAPI::Interleave(vdExp0, vdExp1, vdExp0, vdExp1);
                         AscendC::MicroAPI::Cast<ElementD, ElementC, cFP4>(vdExp0FP4, vdExp0, dataMaskB16);
                         AscendC::MicroAPI::Cast<ElementD, ElementC, cFP4>(vdExp1FP4, vdExp1, dataMaskB16);
-                        AscendC::MicroAPI::StoreAlign<int8_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                      AscendC::MicroAPI::StoreDist::DIST_PACK4_B32>(
-                            yLocalAddr, (AscendC::MicroAPI::RegTensor<int8_t> &)vdExp0FP4, OUT_ELE_NUM_ONE_BLK,
+                        AscendC::MicroAPI::StoreAlign<
+                            int8_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::StoreDist::DIST_PACK4_B32>(
+                            yLocalAddr, (AscendC::MicroAPI::RegTensor<int8_t>&)vdExp0FP4, OUT_ELE_NUM_ONE_BLK,
                             dataMaskB16);
-                        AscendC::MicroAPI::StoreAlign<int8_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                      AscendC::MicroAPI::StoreDist::DIST_PACK4_B32>(
-                            yLocalAddr, (AscendC::MicroAPI::RegTensor<int8_t> &)vdExp1FP4, OUT_ELE_NUM_ONE_BLK,
+                        AscendC::MicroAPI::StoreAlign<
+                            int8_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::StoreDist::DIST_PACK4_B32>(
+                            yLocalAddr, (AscendC::MicroAPI::RegTensor<int8_t>&)vdExp1FP4, OUT_ELE_NUM_ONE_BLK,
                             dataMaskB16);
                     }
                 }
             }
-        }
-        else
-        {
+        } else {
             // FP8 path: bf16 * recipScale → float → Cast<fp8> + DIST_NORM_B8
             {
                 auto xLocalAddr = xAddr;
@@ -604,18 +601,18 @@ class CommBlockMxQuant
                         AscendC::MicroAPI::RegLayout::THREE, AscendC::MicroAPI::SatMode::SAT,
                         AscendC::MicroAPI::MaskMergeMode::ZEROING, AscendC::RoundMode::CAST_RINT};
                     constexpr float fp8Max = std::is_same_v<ElementD, float8_e4m3_t> ? 448.0f : 57344.0f;
-                    for (uint16_t i = 0; i < loop2VF; i++)
-                    {
-                        AscendC::MicroAPI::LoadAlign<ElementC, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                     AscendC::MicroAPI::LoadDist::DIST_DINTLV_B16>(
-                            vdExp0, vdExp1, xLocalAddr, VF_LEN_16_DBL);
-                        AscendC::MicroAPI::LoadAlign<uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                     AscendC::MicroAPI::LoadDist::DIST_E2B_B16>(
+                    for (uint16_t i = 0; i < loop2VF; i++) {
+                        AscendC::MicroAPI::LoadAlign<
+                            ElementC, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::LoadDist::DIST_DINTLV_B16>(vdExp0, vdExp1, xLocalAddr, VF_LEN_16_DBL);
+                        AscendC::MicroAPI::LoadAlign<
+                            uint16_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::LoadDist::DIST_E2B_B16>(
                             halfScaleForMul, recipScaleLocalAddr, ELEM_AFTER_REDUCE);
-                        AscendC::MicroAPI::Mul(vdExp0, vdExp0,
-                                               (AscendC::MicroAPI::RegTensor<ElementC> &)halfScaleForMul, dataMask1);
-                        AscendC::MicroAPI::Mul(vdExp1, vdExp1,
-                                               (AscendC::MicroAPI::RegTensor<ElementC> &)halfScaleForMul, dataMask1);
+                        AscendC::MicroAPI::Mul(
+                            vdExp0, vdExp0, (AscendC::MicroAPI::RegTensor<ElementC>&)halfScaleForMul, dataMask1);
+                        AscendC::MicroAPI::Mul(
+                            vdExp1, vdExp1, (AscendC::MicroAPI::RegTensor<ElementC>&)halfScaleForMul, dataMask1);
                         AscendC::MicroAPI::Cast<float, ElementC, castTraitZero>(vdExp0FP32Zero, vdExp0, dataMask1);
                         AscendC::MicroAPI::Cast<float, ElementC, castTraitOne>(vdExp0FP32One, vdExp0, dataMask1);
                         AscendC::MicroAPI::Cast<float, ElementC, castTraitZero>(vdExp1FP32Zero, vdExp1, dataMask2);
@@ -632,29 +629,32 @@ class CommBlockMxQuant
                         AscendC::MicroAPI::Mins(vdExp1FP32One, vdExp1FP32One, fp8Max, dataMask4);
                         AscendC::MicroAPI::Maxs(vdExp1FP32One, vdExp1FP32One, -fp8Max, dataMask4);
 
-                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to80>(vdExp0FP8Zero, vdExp0FP32Zero,
-                                                                                  dataMask3);
-                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to82>(vdExp0FP8One, vdExp0FP32One,
-                                                                                  dataMask3);
-                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to81>(vdExp1FP8Zero, vdExp1FP32Zero,
-                                                                                  dataMask4);
-                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to83>(vdExp1FP8One, vdExp1FP32One,
-                                                                                  dataMask4);
+                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to80>(
+                            vdExp0FP8Zero, vdExp0FP32Zero, dataMask3);
+                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to82>(
+                            vdExp0FP8One, vdExp0FP32One, dataMask3);
+                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to81>(
+                            vdExp1FP8Zero, vdExp1FP32Zero, dataMask4);
+                        AscendC::MicroAPI::Cast<ElementD, float, castTrait32to83>(
+                            vdExp1FP8One, vdExp1FP32One, dataMask4);
 
-                        AscendC::MicroAPI::Add((AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp0FP8Zero,
-                                               (AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp0FP8Zero,
-                                               (AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp0FP8One, dataMask5);
-                        AscendC::MicroAPI::Add((AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp1FP8Zero,
-                                               (AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp1FP8Zero,
-                                               (AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp1FP8One, dataMask5);
-                        AscendC::MicroAPI::Add((AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp0FP8Zero,
-                                               (AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp0FP8Zero,
-                                               (AscendC::MicroAPI::RegTensor<uint8_t> &)vdExp1FP8Zero, dataMask5);
+                        AscendC::MicroAPI::Add(
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp0FP8Zero,
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp0FP8Zero,
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp0FP8One, dataMask5);
+                        AscendC::MicroAPI::Add(
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp1FP8Zero,
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp1FP8Zero,
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp1FP8One, dataMask5);
+                        AscendC::MicroAPI::Add(
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp0FP8Zero,
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp0FP8Zero,
+                            (AscendC::MicroAPI::RegTensor<uint8_t>&)vdExp1FP8Zero, dataMask5);
 
-                        AscendC::MicroAPI::StoreAlign<int8_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
-                                                      AscendC::MicroAPI::StoreDist::DIST_NORM_B8>(
-                            yLocalAddr, (AscendC::MicroAPI::RegTensor<int8_t> &)vdExp0FP8Zero, VF_LEN_16_DBL,
-                            dataMask5);
+                        AscendC::MicroAPI::StoreAlign<
+                            int8_t, AscendC::MicroAPI::PostLiteral::POST_MODE_UPDATE,
+                            AscendC::MicroAPI::StoreDist::DIST_NORM_B8>(
+                            yLocalAddr, (AscendC::MicroAPI::RegTensor<int8_t>&)vdExp0FP8Zero, VF_LEN_16_DBL, dataMask5);
                     }
                 }
             }
@@ -663,7 +663,7 @@ class CommBlockMxQuant
     }
 
     Params params;
-    Catlass::Arch::Resource<ArchTag> *resourceRef{nullptr};
+    Catlass::Arch::Resource<ArchTag>* resourceRef{nullptr};
     AscendC::LocalTensor<ElementC> ubInputList[UB_STAGES];
     AscendC::LocalTensor<ElementD> ubOutputList[UB_STAGES];
     AscendC::LocalTensor<ElementScale> ubScaleList[UB_STAGES];
@@ -676,6 +676,6 @@ class CommBlockMxQuant
     uint32_t tileRows{0};
 };
 
-}  // namespace Catccos::Comm::Block
+} // namespace Catccos::Comm::Block
 
-#endif  // CATCCOS_COMM_BLOCK_COMM_BLOCK_MX_QUANT_HPP
+#endif // CATCCOS_COMM_BLOCK_COMM_BLOCK_MX_QUANT_HPP

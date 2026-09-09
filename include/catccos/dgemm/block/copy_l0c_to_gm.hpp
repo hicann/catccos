@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -16,41 +17,31 @@
 namespace Catlass::Gemm::Tile {
 
 template <
-    class ArchTag,
-    class ElementAccumulator,
-    class GmType,
-    ScaleGranularity DEQUANT_GRANULARITY = ScaleGranularity::NO_QUANT,
-    bool ReluEnable = false
->
+    class ArchTag, class ElementAccumulator, class GmType,
+    ScaleGranularity DEQUANT_GRANULARITY = ScaleGranularity::NO_QUANT, bool ReluEnable = false>
 struct CatccosCopyL0CToGm {
     static_assert(DEPENDENT_FALSE<ArchTag>, "Unsupported copy l0c to gm, can not find the specialization.");
 };
 
 // Fixpipe with quant VDEQF16
-template <
-    class ElementAccumulator_,
-    class ElementDst_,
-    bool ReluEnable_
->
-struct CatccosCopyL0CToGm<Catlass::Arch::AtlasA2,
-                   ElementAccumulator_,
-                   Gemm::GemmType<ElementDst_, layout::RowMajor>,
-                   ScaleGranularity::PER_CHANNEL,
-                   ReluEnable_>
-{
+template <class ElementAccumulator_, class ElementDst_, bool ReluEnable_>
+struct CatccosCopyL0CToGm<
+    Catlass::Arch::AtlasA2, ElementAccumulator_, Gemm::GemmType<ElementDst_, layout::RowMajor>,
+    ScaleGranularity::PER_CHANNEL, ReluEnable_> {
     using ArchTag = Catlass::Arch::AtlasA2;
     using ElementDst = ElementDst_;
     using ElementSrc = ElementAccumulator_;
     using LayoutSrc = Catlass::layout::zN;
     using LayoutDst = Catlass::layout::RowMajor;
-    static constexpr auto quantPre = CopyL0CToGmQuantMode<ArchTag, ElementSrc, ElementDst,
-        ScaleGranularity::PER_CHANNEL>::VALUE;
+    static constexpr auto quantPre =
+        CopyL0CToGmQuantMode<ArchTag, ElementSrc, ElementDst, ScaleGranularity::PER_CHANNEL>::VALUE;
     static constexpr auto reluEn = ReluEnable_;
 
     CATLASS_DEVICE
-    void operator()(AscendC::GlobalTensor<ElementDst> const &dst, AscendC::LocalTensor<ElementSrc> const &src,
-                    AscendC::LocalTensor<uint64_t> cbufWorkspace, LayoutDst const &dstLayout,
-                    LayoutSrc const &srcLayout, uint8_t unitFlag = 0)
+    void operator()(
+        AscendC::GlobalTensor<ElementDst> const& dst, AscendC::LocalTensor<ElementSrc> const& src,
+        AscendC::LocalTensor<uint64_t> cbufWorkspace, LayoutDst const& dstLayout, LayoutSrc const& srcLayout,
+        uint8_t unitFlag = 0)
     {
         AscendC::FixpipeParamsV220 intriParams;
 
@@ -72,6 +63,6 @@ struct CatccosCopyL0CToGm<Catlass::Arch::AtlasA2,
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-}  // namespace Catlass::Gemm::Tile
+} // namespace Catlass::Gemm::Tile
 
 #endif // CATLASS_GEMM_TILE_COPY_L0C_TO_GM_EXPAND_HPP

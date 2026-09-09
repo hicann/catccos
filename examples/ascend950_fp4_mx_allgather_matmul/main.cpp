@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -26,13 +27,12 @@ using ElementMxScaleA = float8_e8m0_t;
 using ElementMxScaleB = float8_e8m0_t;
 using ElementC = half;
 
-using Config =
-    Ascend950Fp4MxAllGatherMatmulConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA,
-                                               ElementMxScaleB, LayoutMxScaleB, ElementC, LayoutC>;
+using Config = Ascend950Fp4MxAllGatherMatmulConfig_M0_128<
+    ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA, LayoutMxScaleA, ElementMxScaleB, LayoutMxScaleB, ElementC,
+    LayoutC>;
 using DeviceOp = Config::Device;
 
-struct Options
-{
+struct Options {
     static constexpr auto HELPER = "Usage: allgather_matmul rank_size rank_id ip_port m n k [device_id_list]\n";
 
     int rankSize;
@@ -44,10 +44,9 @@ struct Options
     std::string dataPath;
     std::vector<int> deviceIdList{};
 
-    int Parse(int argc, char **argv)
+    int Parse(int argc, char** argv)
     {
-        enum class ArgsIndex
-        {
+        enum class ArgsIndex {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -59,8 +58,7 @@ struct Options
             INDEX_MAX
         };
 
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX))
-        {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
             printf(HELPER);
             return -1;
         }
@@ -72,18 +70,13 @@ struct Options
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
-        {
-            char *idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ","))
-            {
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char* idListStr = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
+            for (char* idToken = std::strtok(idListStr, ","); idToken; idToken = std::strtok(nullptr, ",")) {
                 deviceIdList.push_back(std::atoi(idToken));
             }
-        }
-        else
-        {
-            for (size_t i = 0; i < rankSize; ++i)
-            {
+        } else {
+            for (size_t i = 0; i < rankSize; ++i) {
                 deviceIdList.push_back(i);
             }
         }
@@ -93,12 +86,11 @@ struct Options
     std::string GetDataPath() const { return dataPath; }
 };
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0)
-    {
+    if (options.Parse(argc, argv) != 0) {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -125,8 +117,7 @@ int main(int argc, char **argv)
     cocTiling.commBlockM = 64;
     cocTiling.rankSize = rankSize;
 
-    if (cocTiling.commNpuSplit > cocTiling.rankSize)
-    {
+    if (cocTiling.commNpuSplit > cocTiling.rankSize) {
         std::cout << "[ERROR] CommNpuSplit must <= npu num!" << std::endl;
         return -1;
     }
@@ -146,15 +137,14 @@ int main(int argc, char **argv)
     auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
 
     auto op = OperatorRegistry::Instance().CreateOperator("Ascend950Fp4MxAllGatherMatmul");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator Ascend950Fp4MxAllGatherMatmul not found!" << std::endl;
         return -1;
     }
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());
-    void *symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
-    uint8_t *symmetricPtr = reinterpret_cast<uint8_t *>(symmPtr);
+    void* symmPtr = aclshmem_calloc(1, SHMEM_BUFF_BYTES);
+    uint8_t* symmetricPtr = reinterpret_cast<uint8_t*>(symmPtr);
 
     // Construct DeviceDGemm Arguments
     Catlass::GemmCoord problemShape{m, n, k};
@@ -162,25 +152,26 @@ int main(int argc, char **argv)
     Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
     Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
-    uint8_t *aMxScalePtr = kernelParams.customPtrs[0];
-    uint8_t *bMxScalePtr = kernelParams.customPtrs[1];
+    uint8_t* aPtr = kernelParams.ptrA;
+    uint8_t* bPtr = kernelParams.ptrB;
+    uint8_t* cPtr = kernelParams.ptrC;
+    uint8_t* aMxScalePtr = kernelParams.customPtrs[0];
+    uint8_t* bMxScalePtr = kernelParams.customPtrs[1];
 
-    DeviceOp::Arguments args{problemShape,
-                             static_cast<uint32_t>(rankId),
-                             static_cast<uint32_t>(rankSize),
-                             cocTiling.commInterval,
-                             aPtr,
-                             bPtr,
-                             aMxScalePtr,
-                             bMxScalePtr,
-                             cPtr,
-                             symmetricPtr,
-                             commCoreSplit,
-                             commBlockShape,
-                             commTileShape};
+    DeviceOp::Arguments args{
+        problemShape,
+        static_cast<uint32_t>(rankId),
+        static_cast<uint32_t>(rankSize),
+        cocTiling.commInterval,
+        aPtr,
+        bPtr,
+        aMxScalePtr,
+        bMxScalePtr,
+        cPtr,
+        symmetricPtr,
+        commCoreSplit,
+        commBlockShape,
+        commTileShape};
 
     DeviceOp deviceOp;
     deviceOp.Initialize(args);
@@ -188,16 +179,14 @@ int main(int argc, char **argv)
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "Before calling FP4_MX_AG_MM kernel " << std::endl;
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++)
-    {
+    for (int i = 0; i < 1; i++) {
         deviceOp.Run(stream, blockNum, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "After calling FP4_MX_AG_MM kernel " << std::endl;
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
-    if (rankId == 0)
-    {
+    if (rankId == 0) {
         std::printf("test finished\n");
     }
 

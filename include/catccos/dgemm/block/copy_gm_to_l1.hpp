@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -15,15 +16,12 @@
 
 namespace Catlass::Gemm::Tile {
 /// Partial specialization for nZ in and nZ out.
-template <
-    class ArchTag,
-    class Element
->
+template <class ArchTag, class Element>
 struct CopyGmToL1<ArchTag, Gemm::GemmType<Element, layout::VectorLayout>> {
     using LayoutDst = layout::VectorLayout;
     using LayoutSrc = layout::VectorLayout;
 
-    static constexpr uint32_t ELE_NUM_PER_C0 = BYTE_PER_C0 / sizeof(Element);   // int64, 32/8=4
+    static constexpr uint32_t ELE_NUM_PER_C0 = BYTE_PER_C0 / sizeof(Element); // int64, 32/8=4
 
     // Mehtods
 
@@ -32,9 +30,8 @@ struct CopyGmToL1<ArchTag, Gemm::GemmType<Element, layout::VectorLayout>> {
 
     CATLASS_DEVICE
     void operator()(
-        AscendC::LocalTensor<Element> const &dstTensor,
-        AscendC::GlobalTensor<Element> const &srcTensor,
-        LayoutDst const &layoutDst, LayoutSrc const &layoutSrc)
+        AscendC::LocalTensor<Element> const& dstTensor, AscendC::GlobalTensor<Element> const& srcTensor,
+        LayoutDst const& layoutDst, LayoutSrc const& layoutSrc)
     {
         uint32_t blockCount = 1;
         uint32_t blockLen = CeilDiv<ELE_NUM_PER_C0>(layoutSrc.shape(0));

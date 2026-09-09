@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -19,8 +20,7 @@
 #include "shmem.h"
 #include "tla/tensor.hpp"
 
-namespace Catccos::DGemm::Kernel
-{
+namespace Catccos::DGemm::Kernel {
 
 using Catlass::GemmCoord;
 using Catlass::MatrixCoord;
@@ -31,11 +31,11 @@ using Catlass::MatrixCoord;
 /// first and keeps the partial result in L0C. AIV only sends remote-rank chunks.
 /// After each remote URMA stage finishes, AIC consumes remote chunks and writes C
 /// after the final accumulated rank.
-template <class BlockMmad_, class BlockUdmaAllToAll_, class BlockUdmaAllToAllScale_, class BlockScheduler_,
-          uint32_t WORKSPACE_STAGES_>
-class Ascend950AllToAllMatmulSplitKUrma
-{
-   public:
+template <
+    class BlockMmad_, class BlockUdmaAllToAll_, class BlockUdmaAllToAllScale_, class BlockScheduler_,
+    uint32_t WORKSPACE_STAGES_>
+class Ascend950AllToAllMatmulSplitKUrma {
+public:
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
     using L1TileShape = typename BlockMmad::L1TileShape;
@@ -64,26 +64,26 @@ class Ascend950AllToAllMatmulSplitKUrma
     static constexpr uint32_t L1_TILE_M = tla::get<0>(L1TileShape{});
     static constexpr uint32_t L1_TILE_N = tla::get<1>(L1TileShape{});
     static constexpr uint32_t L1_TILE_K = tla::get<2>(L1TileShape{});
-    static_assert(WORKSPACE_STAGES * 2 <= Catlass::Arch::FFTS_MAX_FLAG + 1,
-                  "split-K URMA kernel uses two cross-core flags per workspace stage.");
+    static_assert(
+        WORKSPACE_STAGES * 2 <= Catlass::Arch::FFTS_MAX_FLAG + 1,
+        "split-K URMA kernel uses two cross-core flags per workspace stage.");
 
-    struct Params
-    {
+    struct Params {
         GemmCoord problemShape;
 
         uint32_t rankIdx;
         uint32_t rankSize;
         uint32_t commInterval;
 
-        __gm__ ElementA *ptrA;
+        __gm__ ElementA* ptrA;
         LayoutA layoutA;
-        __gm__ ElementB *ptrB;
+        __gm__ ElementB* ptrB;
         LayoutB layoutB;
-        __gm__ ElementMxScaleA *ptrMxScaleA;
+        __gm__ ElementMxScaleA* ptrMxScaleA;
         LayoutMxScaleA layoutMxScaleA;
-        __gm__ ElementMxScaleB *ptrMxScaleB;
+        __gm__ ElementMxScaleB* ptrMxScaleB;
         LayoutMxScaleB layoutMxScaleB;
-        __gm__ ElementC *ptrC;
+        __gm__ ElementC* ptrC;
         LayoutC layoutC;
         LayoutAllToAllSrc layoutAllToAllSrc;
         LayoutAllToAllScaleSrc layoutAllToAllScaleSrc;
@@ -93,34 +93,33 @@ class Ascend950AllToAllMatmulSplitKUrma
         Params() {}
 
         CATLASS_HOST_DEVICE
-        Params(GemmCoord const &problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
-               LayoutAllToAllSrc layoutAllToAllSrc_, LayoutAllToAllScaleSrc layoutAllToAllScaleSrc_, GM_ADDR ptrA_,
-               LayoutA const &layoutA_, GM_ADDR ptrB_, LayoutB const &layoutB_, GM_ADDR ptrMxScaleA_,
-               LayoutMxScaleA const &layoutMxScaleA_, GM_ADDR ptrMxScaleB_, LayoutMxScaleB const &layoutMxScaleB_,
-               GM_ADDR ptrC_, LayoutC const &layoutC_, GM_ADDR ptrSymmetric_)
+        Params(
+            GemmCoord const& problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
+            LayoutAllToAllSrc layoutAllToAllSrc_, LayoutAllToAllScaleSrc layoutAllToAllScaleSrc_, GM_ADDR ptrA_,
+            LayoutA const& layoutA_, GM_ADDR ptrB_, LayoutB const& layoutB_, GM_ADDR ptrMxScaleA_,
+            LayoutMxScaleA const& layoutMxScaleA_, GM_ADDR ptrMxScaleB_, LayoutMxScaleB const& layoutMxScaleB_,
+            GM_ADDR ptrC_, LayoutC const& layoutC_, GM_ADDR ptrSymmetric_)
             : problemShape(problemShape_),
               rankIdx(rank_),
               rankSize(rankSize_),
               commInterval(commInterval_),
-              ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
               layoutA(layoutA_),
-              ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
               layoutB(layoutB_),
-              ptrMxScaleA(reinterpret_cast<__gm__ ElementMxScaleA *>(ptrMxScaleA_)),
+              ptrMxScaleA(reinterpret_cast<__gm__ ElementMxScaleA*>(ptrMxScaleA_)),
               layoutMxScaleA(layoutMxScaleA_),
-              ptrMxScaleB(reinterpret_cast<__gm__ ElementMxScaleB *>(ptrMxScaleB_)),
+              ptrMxScaleB(reinterpret_cast<__gm__ ElementMxScaleB*>(ptrMxScaleB_)),
               layoutMxScaleB(layoutMxScaleB_),
-              ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
               layoutC(layoutC_),
               layoutAllToAllSrc(layoutAllToAllSrc_),
               layoutAllToAllScaleSrc(layoutAllToAllScaleSrc_),
               ptrSymmetric(ptrSymmetric_)
-        {
-        }
+        {}
     };
 
-    struct Arguments
-    {
+    struct Arguments {
         GemmCoord problemShape;
         uint32_t rankIdx;
         uint32_t rankSize;
@@ -133,9 +132,9 @@ class Ascend950AllToAllMatmulSplitKUrma
         GM_ADDR ptrSymmetric;
     };
 
-    static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+    static size_t GetWorkspaceSize(Arguments const& args) { return 0; }
 
-    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    static Params ToUnderlyingArguments(Arguments const& args, uint8_t* workspace = nullptr)
     {
         (void)workspace;
         uint32_t m = args.problemShape.m();
@@ -158,26 +157,26 @@ class Ascend950AllToAllMatmulSplitKUrma
         auto layoutMxScaleA = tla::MakeMxScaleLayout<ElementMxScaleA, LayoutTagA, false>(m, localScaleK);
         auto layoutMxScaleB = tla::MakeMxScaleLayout<ElementMxScaleB, LayoutTagB, true>(fullScaleK, n);
 
-        return Params(args.problemShape, args.rankIdx, args.rankSize, args.commInterval, layoutAllToAllSrc,
-                      layoutAllToAllScaleSrc, args.ptrA, layoutA, args.ptrB, layoutB, args.ptrMxScaleA, layoutMxScaleA,
-                      args.ptrMxScaleB, layoutMxScaleB, args.ptrC, layoutC, args.ptrSymmetric);
+        return Params(
+            args.problemShape, args.rankIdx, args.rankSize, args.commInterval, layoutAllToAllSrc,
+            layoutAllToAllScaleSrc, args.ptrA, layoutA, args.ptrB, layoutB, args.ptrMxScaleA, layoutMxScaleA,
+            args.ptrMxScaleB, layoutMxScaleB, args.ptrC, layoutC, args.ptrSymmetric);
     }
 
     CATLASS_DEVICE
     Ascend950AllToAllMatmulSplitKUrma()
     {
-        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx)
-        {
+        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx + WORKSPACE_STAGES);
         }
     }
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE void operator()(Params &params);
+    CATLASS_DEVICE void operator()(Params& params);
 
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIC>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx();
         uint32_t aicoreNum = AscendC::GetBlockNum();
@@ -199,7 +198,7 @@ class Ascend950AllToAllMatmulSplitKUrma
             static_cast<int64_t>(params.rankSize) * commSizeM * static_cast<int64_t>(alignedLocalScaleK);
         uint64_t aWorkspaceBytes = static_cast<uint64_t>(WORKSPACE_STAGES) * aStageStride *
                                    Catlass::SizeOfBits<ElementA>::value / Catlass::SizeOfBits<uint8_t>::value;
-        auto ptrScaleSymmetricBase = reinterpret_cast<__gm__ ElementMxScaleA *>(params.ptrSymmetric + aWorkspaceBytes);
+        auto ptrScaleSymmetricBase = reinterpret_cast<__gm__ ElementMxScaleA*>(params.ptrSymmetric + aWorkspaceBytes);
 
         BlockMmad blockMmad(resource);
 
@@ -214,8 +213,7 @@ class Ascend950AllToAllMatmulSplitKUrma
         auto tensorMxScaleB = tla::MakeTensor(gmMxScaleB, params.layoutMxScaleB, Catlass::Arch::PositionGM{});
         auto tensorC = tla::MakeTensor(gmC, params.layoutC, Catlass::Arch::PositionGM{});
 
-        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-        {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;
             uint32_t actualCommSizeM = Min(commSizeM, chunkM - commIdx * commSizeM);
             auto actualProblemShape = Catlass::MakeCoord<uint32_t>(actualCommSizeM, params.problemShape.n(), localK, 1);
@@ -226,12 +224,11 @@ class Ascend950AllToAllMatmulSplitKUrma
             AscendC::GlobalTensor<ElementA> gmLocalAStage;
             gmLocalAStage.SetGlobalBuffer(params.ptrA + params.layoutAllToAllSrc.GetOffset(localSrcOffset));
             AscendC::GlobalTensor<ElementMxScaleA> gmLocalMxScaleAStage;
-            gmLocalMxScaleAStage.SetGlobalBuffer(params.ptrMxScaleA +
-                                                 params.layoutAllToAllScaleSrc.GetOffset(localSrcOffset));
+            gmLocalMxScaleAStage.SetGlobalBuffer(
+                params.ptrMxScaleA + params.layoutAllToAllScaleSrc.GetOffset(localSrcOffset));
 
             bool waitedAiv = false;
-            for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum)
-            {
+            for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum) {
                 auto blockOffset = mmadScheduler.GetBlockOffset(loopIdx);
                 auto actualBlockShape = mmadScheduler.GetActualBlockShapeByOffset(blockOffset);
 
@@ -239,14 +236,16 @@ class Ascend950AllToAllMatmulSplitKUrma
                 MatrixCoord offsetBLocal{params.rankIdx * localK + offsetBInLocal.row(), offsetBInLocal.column()};
                 MatrixCoord offsetC{commIdx * commSizeM + blockOffset.m(), blockOffset.n()};
 
-                auto tensorBlockBLocal = GetTile(tensorB, tla::MakeCoord(offsetBLocal.row(), offsetBLocal.column()),
-                                                 tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
+                auto tensorBlockBLocal = GetTile(
+                    tensorB, tla::MakeCoord(offsetBLocal.row(), offsetBLocal.column()),
+                    tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
                 auto tensorBlockMxScaleBLocal = GetTile(
                     tensorMxScaleB,
                     tla::MakeCoord(offsetBLocal.row() / Catlass::MX_SCALE_GROUP_NUM, offsetBLocal.column()),
                     tla::MakeShape(CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k()), actualBlockShape.n()));
-                auto tensorBlockC = GetTile(tensorC, tla::MakeCoord(offsetC.row(), offsetC.column()),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
+                auto tensorBlockC = GetTile(
+                    tensorC, tla::MakeCoord(offsetC.row(), offsetC.column()),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
 
                 uint32_t beforeRankNum = params.rankIdx;
                 uint32_t afterRankStart = params.rankIdx + 1;
@@ -255,30 +254,28 @@ class Ascend950AllToAllMatmulSplitKUrma
                 uint32_t afterK = afterRankNum * localK;
 
                 bool localOnly = params.rankSize == 1;
-                blockMmad(gmLocalAStage, gmLocalMxScaleAStage, tensorBlockBLocal, tensorBlockC,
-                          actualBlockShape.GetCoordMNK(), blockOffset.m(), commSizeM, localK, alignedLocalK,
-                          localScaleK, alignedLocalScaleK, tensorBlockMxScaleBLocal, Catlass::EmptyClass{}, true,
-                          localOnly, localOnly);
+                blockMmad(
+                    gmLocalAStage, gmLocalMxScaleAStage, tensorBlockBLocal, tensorBlockC,
+                    actualBlockShape.GetCoordMNK(), blockOffset.m(), commSizeM, localK, alignedLocalK, localScaleK,
+                    alignedLocalScaleK, tensorBlockMxScaleBLocal, Catlass::EmptyClass{}, true, localOnly, localOnly);
 
-                if (!waitedAiv)
-                {
+                if (!waitedAiv) {
                     Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
                     AscendC::PipeBarrier<PIPE_ALL>();
                     waitedAiv = true;
                 }
 
-                if (beforeK > 0)
-                {
+                if (beforeK > 0) {
                     AscendC::GlobalTensor<ElementA> gmSymmetricBeforeStage;
-                    gmSymmetricBeforeStage.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric) +
-                                                           stageId * aStageStride);
+                    gmSymmetricBeforeStage.SetGlobalBuffer(
+                        reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric) + stageId * aStageStride);
                     AscendC::GlobalTensor<ElementMxScaleA> gmMxScaleSymmetricBeforeStage;
                     gmMxScaleSymmetricBeforeStage.SetGlobalBuffer(ptrScaleSymmetricBase + stageId * scaleStageStride);
 
                     MatrixCoord offsetBRemote{0, offsetBInLocal.column()};
-                    auto tensorBlockBRemote =
-                        GetTile(tensorB, tla::MakeCoord(offsetBRemote.row(), offsetBRemote.column()),
-                                tla::MakeShape(beforeK, actualBlockShape.n()));
+                    auto tensorBlockBRemote = GetTile(
+                        tensorB, tla::MakeCoord(offsetBRemote.row(), offsetBRemote.column()),
+                        tla::MakeShape(beforeK, actualBlockShape.n()));
                     auto tensorBlockMxScaleBRemote = GetTile(
                         tensorMxScaleB,
                         tla::MakeCoord(offsetBRemote.row() / Catlass::MX_SCALE_GROUP_NUM, offsetBRemote.column()),
@@ -286,47 +283,45 @@ class Ascend950AllToAllMatmulSplitKUrma
 
                     GemmCoord groupShape{actualBlockShape.m(), actualBlockShape.n(), beforeK};
                     bool storeResult = afterK == 0;
-                    blockMmad(gmSymmetricBeforeStage, gmMxScaleSymmetricBeforeStage, tensorBlockBRemote, tensorBlockC,
-                              groupShape, blockOffset.m(), commSizeM, localK, alignedLocalK, localScaleK,
-                              alignedLocalScaleK, tensorBlockMxScaleBRemote, Catlass::EmptyClass{}, false, storeResult,
-                              storeResult);
+                    blockMmad(
+                        gmSymmetricBeforeStage, gmMxScaleSymmetricBeforeStage, tensorBlockBRemote, tensorBlockC,
+                        groupShape, blockOffset.m(), commSizeM, localK, alignedLocalK, localScaleK, alignedLocalScaleK,
+                        tensorBlockMxScaleBRemote, Catlass::EmptyClass{}, false, storeResult, storeResult);
                 }
 
-                if (afterK > 0)
-                {
+                if (afterK > 0) {
                     AscendC::GlobalTensor<ElementA> gmSymmetricAfterStage;
                     gmSymmetricAfterStage.SetGlobalBuffer(
-                        reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric) + stageId * aStageStride +
+                        reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric) + stageId * aStageStride +
                         static_cast<int64_t>(afterRankStart) * commSizeM * alignedLocalK);
                     AscendC::GlobalTensor<ElementMxScaleA> gmMxScaleSymmetricAfterStage;
-                    gmMxScaleSymmetricAfterStage.SetGlobalBuffer(ptrScaleSymmetricBase + stageId * scaleStageStride +
-                                                                 static_cast<int64_t>(afterRankStart) * commSizeM *
-                                                                     alignedLocalScaleK);
+                    gmMxScaleSymmetricAfterStage.SetGlobalBuffer(
+                        ptrScaleSymmetricBase + stageId * scaleStageStride +
+                        static_cast<int64_t>(afterRankStart) * commSizeM * alignedLocalScaleK);
 
                     MatrixCoord offsetBRemote{afterRankStart * localK, offsetBInLocal.column()};
-                    auto tensorBlockBRemote =
-                        GetTile(tensorB, tla::MakeCoord(offsetBRemote.row(), offsetBRemote.column()),
-                                tla::MakeShape(afterK, actualBlockShape.n()));
+                    auto tensorBlockBRemote = GetTile(
+                        tensorB, tla::MakeCoord(offsetBRemote.row(), offsetBRemote.column()),
+                        tla::MakeShape(afterK, actualBlockShape.n()));
                     auto tensorBlockMxScaleBRemote = GetTile(
                         tensorMxScaleB,
                         tla::MakeCoord(offsetBRemote.row() / Catlass::MX_SCALE_GROUP_NUM, offsetBRemote.column()),
                         tla::MakeShape(CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(afterK), actualBlockShape.n()));
 
                     GemmCoord groupShape{actualBlockShape.m(), actualBlockShape.n(), afterK};
-                    blockMmad(gmSymmetricAfterStage, gmMxScaleSymmetricAfterStage, tensorBlockBRemote, tensorBlockC,
-                              groupShape, blockOffset.m(), commSizeM, localK, alignedLocalK, localScaleK,
-                              alignedLocalScaleK, tensorBlockMxScaleBRemote, Catlass::EmptyClass{}, false, true, true);
+                    blockMmad(
+                        gmSymmetricAfterStage, gmMxScaleSymmetricAfterStage, tensorBlockBRemote, tensorBlockC,
+                        groupShape, blockOffset.m(), commSizeM, localK, alignedLocalK, localScaleK, alignedLocalScaleK,
+                        tensorBlockMxScaleBRemote, Catlass::EmptyClass{}, false, true, true);
                 }
             }
 
-            if (!waitedAiv)
-            {
+            if (!waitedAiv) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAivFinishCompute[stageId]);
                 AscendC::PipeBarrier<PIPE_ALL>();
             }
 
-            if (commIdx + WORKSPACE_STAGES < commLoops)
-            {
+            if (commIdx + WORKSPACE_STAGES < commLoops) {
                 Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
             }
         }
@@ -334,7 +329,7 @@ class Ascend950AllToAllMatmulSplitKUrma
     }
 
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIV>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t subcoreIdx = AscendC::GetSubBlockIdx();
@@ -361,10 +356,10 @@ class Ascend950AllToAllMatmulSplitKUrma
         AscendC::GlobalTensor<ElementMxScaleA> gmMxScaleA;
         gmMxScaleA.SetGlobalBuffer(params.ptrMxScaleA);
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric));
         AscendC::GlobalTensor<ElementMxScaleA> gmMxScaleSymmetric;
         gmMxScaleSymmetric.SetGlobalBuffer(
-            reinterpret_cast<__gm__ ElementMxScaleA *>(params.ptrSymmetric + aWorkspaceBytes));
+            reinterpret_cast<__gm__ ElementMxScaleA*>(params.ptrSymmetric + aWorkspaceBytes));
 
         auto layoutSymmetric =
             Catlass::layout::RowMajor(WORKSPACE_STAGES * params.rankSize * commSizeM, localK, alignedLocalK);
@@ -373,12 +368,10 @@ class Ascend950AllToAllMatmulSplitKUrma
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
-        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-        {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;
 
-            if (commIdx >= WORKSPACE_STAGES)
-            {
+            if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAicFinishStore[stageId]);
                 aclshmemx_barrier_all_vec();
             }
@@ -388,8 +381,7 @@ class Ascend950AllToAllMatmulSplitKUrma
             MatrixCoord actualScaleCommShape{actualCommSizeM, localScaleK};
             MatrixCoord commDstOffset{layoutSymmetricRow(Catlass::MakeCoord<int>(stageId, params.rankIdx, 0)), 0};
 
-            if (subcoreIdx == 0 && aicoreIdx < params.rankSize && aicoreIdx != params.rankIdx)
-            {
+            if (subcoreIdx == 0 && aicoreIdx < params.rankSize && aicoreIdx != params.rankIdx) {
                 uint32_t remoteRankIdx = aicoreIdx;
                 MatrixCoord commSrcOffset{remoteRankIdx * chunkM + commIdx * commSizeM, 0};
 
@@ -407,8 +399,9 @@ class Ascend950AllToAllMatmulSplitKUrma
                 auto gmScaleBlockDst = gmMxScaleSymmetric[layoutScaleSymmetric.GetOffset(commScaleDstOffset)];
                 auto layoutScaleBlockDst = layoutScaleSymmetric.GetTileLayout(actualScaleCommShape);
 
-                udmaAllToAllScale(gmScaleBlockSrc, layoutScaleBlockSrc, gmScaleBlockDst, layoutScaleBlockDst,
-                                  actualScaleCommShape, remoteRankIdx);
+                udmaAllToAllScale(
+                    gmScaleBlockSrc, layoutScaleBlockSrc, gmScaleBlockDst, layoutScaleBlockDst, actualScaleCommShape,
+                    remoteRankIdx);
             }
 
             aclshmemx_barrier_all_vec();
@@ -417,12 +410,12 @@ class Ascend950AllToAllMatmulSplitKUrma
         AscendC::PipeBarrier<PIPE_ALL>();
     }
 
-   private:
+private:
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
     Catlass::Arch::Resource<ArchTag> resource;
 };
 
-}  // namespace Catccos::DGemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_DGEMM_KERNEL_ASCEND950_ALLTOALL_MATMUL_SPLIT_K_URMA_HPP
+#endif // CATCCOS_DGEMM_KERNEL_ASCEND950_ALLTOALL_MATMUL_SPLIT_K_URMA_HPP

@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -35,19 +36,8 @@ namespace CatccosKernel {
  * @param rankSize number of ranks
  */
 void catccos_allgather_matmul_wrapper(
-    uint32_t blockDim,
-    aclrtStream stream,
-    uint64_t fftsAddr,
-    uint8_t* aPtr,
-    uint8_t* bPtr,
-    uint8_t* cPtr,
-    uint8_t* gmSymmetric,
-    uint32_t m,
-    uint32_t n,
-    uint32_t k,
-    int rankId,
-    int rankSize
-    );
+    uint32_t blockDim, aclrtStream stream, uint64_t fftsAddr, uint8_t* aPtr, uint8_t* bPtr, uint8_t* cPtr,
+    uint8_t* gmSymmetric, uint32_t m, uint32_t n, uint32_t k, int rankId, int rankSize);
 
 } // namespace CatccosKernel
 

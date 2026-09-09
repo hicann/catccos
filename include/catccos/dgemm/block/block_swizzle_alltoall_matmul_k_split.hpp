@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -18,8 +19,7 @@
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
 
-namespace Catccos::DGemm::Block
-{
+namespace Catccos::DGemm::Block {
 
 using Catlass::MatrixCoord;
 
@@ -33,8 +33,7 @@ using Catlass::MatrixCoord;
 /// non-trivial logical-K to physical-rank mapping is handled inside the
 /// catccos K-split MMAD block.
 template <uint32_t SWIZZLE_OFFSET = 1, uint32_t SWIZZLE_DIRECTION = 0>
-struct GemmBlockSwizzleAllToAllMatmulKSplit
-{
+struct GemmBlockSwizzleAllToAllMatmulKSplit {
     DistGemmCoord problemShape;
     DistGemmCoord loops;
     DistGemmCoord tileShape;
@@ -45,8 +44,8 @@ struct GemmBlockSwizzleAllToAllMatmulKSplit
     GemmBlockSwizzleAllToAllMatmulKSplit() = default;
 
     CATLASS_DEVICE
-    GemmBlockSwizzleAllToAllMatmulKSplit(DistGemmCoord const &problemShape_, MatrixCoord const &tileShapeMN_,
-                                         uint32_t commRows_, int64_t alignedLocalK_)
+    GemmBlockSwizzleAllToAllMatmulKSplit(
+        DistGemmCoord const& problemShape_, MatrixCoord const& tileShapeMN_, uint32_t commRows_, int64_t alignedLocalK_)
         : problemShape(problemShape_), commRows(commRows_), alignedLocalK(alignedLocalK_)
     {
         tileShape = Catlass::MakeCoord<uint32_t>(tileShapeMN_[0], tileShapeMN_[1], problemShape_[2], 1);
@@ -62,8 +61,7 @@ struct GemmBlockSwizzleAllToAllMatmulKSplit
         uint32_t rows = loops[0] * loops[3];
         uint32_t cols = loops[1];
         uint32_t rowIdx{}, colIdx{};
-        if constexpr (SWIZZLE_DIRECTION == 0)
-        {
+        if constexpr (SWIZZLE_DIRECTION == 0) {
             uint32_t groupSize = SWIZZLE_OFFSET * cols;
             uint32_t groupIdx = loopIdx / groupSize;
             uint32_t groupOffset = loopIdx - groupIdx * groupSize;
@@ -72,13 +70,10 @@ struct GemmBlockSwizzleAllToAllMatmulKSplit
             colIdx = groupOffset / inGroupRows;
             uint32_t inGroupRowIdx = groupOffset - colIdx * inGroupRows;
             rowIdx = groupIdx * SWIZZLE_OFFSET + inGroupRowIdx;
-            if ((groupIdx & 0b1) == 1)
-            {
+            if ((groupIdx & 0b1) == 1) {
                 colIdx = cols - colIdx - 1;
             }
-        }
-        else if constexpr (SWIZZLE_DIRECTION == 1)
-        {
+        } else if constexpr (SWIZZLE_DIRECTION == 1) {
             uint32_t groupSize = SWIZZLE_OFFSET * rows;
             uint32_t groupIdx = loopIdx / groupSize;
             uint32_t groupOffset = loopIdx - groupIdx * groupSize;
@@ -87,8 +82,7 @@ struct GemmBlockSwizzleAllToAllMatmulKSplit
             rowIdx = groupOffset / inGroupCols;
             uint32_t inGroupColIdx = groupOffset - rowIdx * inGroupCols;
             colIdx = groupIdx * SWIZZLE_OFFSET + inGroupColIdx;
-            if ((groupIdx & 0b1) == 1)
-            {
+            if ((groupIdx & 0b1) == 1) {
                 rowIdx = rows - rowIdx - 1;
             }
         }
@@ -118,6 +112,6 @@ struct GemmBlockSwizzleAllToAllMatmulKSplit
     }
 };
 
-}  // namespace Catccos::DGemm::Block
+} // namespace Catccos::DGemm::Block
 
-#endif  // CATCCOS_DGEMM_BLOCK_SWIZZLE_ALLTOALL_MATMUL_K_SPLIT_HPP
+#endif // CATCCOS_DGEMM_BLOCK_SWIZZLE_ALLTOALL_MATMUL_K_SPLIT_HPP

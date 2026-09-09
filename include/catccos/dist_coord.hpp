@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -30,65 +31,39 @@ struct DistMatrixCoord : public Catlass::Coord<3, uint32_t> {
     DistMatrixCoord() = default;
 
     CATLASS_HOST_DEVICE
-    DistMatrixCoord(Base const &coord) : Base(coord)
-    {
-    }
+    DistMatrixCoord(Base const& coord) : Base(coord) {}
 
     CATLASS_HOST_DEVICE
-    DistMatrixCoord(Index row, Index column, Index rank) : Base(Catlass::MakeCoord<Index>(row, column, rank))
-    {
-    }
+    DistMatrixCoord(Index row, Index column, Index rank) : Base(Catlass::MakeCoord<Index>(row, column, rank)) {}
 
     CATLASS_HOST_DEVICE
     DistMatrixCoord(Catlass::Coord<2, Index> matrixCoord, Index rank)
         : Base(Catlass::MakeCoord<Index>(matrixCoord[0], matrixCoord[1], rank))
-    {
-    }
+    {}
 
     CATLASS_HOST_DEVICE
-    Index const &row() const
-    {
-        return this->At(ROW_INDEX);
-    }
+    Index const& row() const { return this->At(ROW_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &row()
-    {
-        return this->At(ROW_INDEX);
-    }
+    Index& row() { return this->At(ROW_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index const &column() const
-    {
-        return this->At(COLUMN_INDEX);
-    }
+    Index const& column() const { return this->At(COLUMN_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &column()
-    {
-        return this->At(COLUMN_INDEX);
-    }
+    Index& column() { return this->At(COLUMN_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index const &rank() const
-    {
-        return this->At(RANK_INDEX);
-    }
+    Index const& rank() const { return this->At(RANK_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &rank()
-    {
-        return this->At(RANK_INDEX);
-    }
+    Index& rank() { return this->At(RANK_INDEX); }
 
     CATLASS_HOST_DEVICE
-    auto GetCoordInRank() const
-    {
-        return this->GetCoordByAxis<ROW_INDEX, COLUMN_INDEX>();
-    }
+    auto GetCoordInRank() const { return this->GetCoordByAxis<ROW_INDEX, COLUMN_INDEX>(); }
 
     CATLASS_HOST_DEVICE
-    bool IsOverflow(DistMatrixCoord const &bound) const
+    bool IsOverflow(DistMatrixCoord const& bound) const
     {
         return this->rank() >= bound.rank() || this->row() >= bound.row() || this->column() >= bound.column();
     }
@@ -106,88 +81,48 @@ struct DistGemmCoord : public Catlass::Coord<4, uint32_t> {
     DistGemmCoord() = default;
 
     CATLASS_HOST_DEVICE
-    DistGemmCoord(Base const &coord) : Base(coord)
-    {
-    }
+    DistGemmCoord(Base const& coord) : Base(coord) {}
 
     CATLASS_HOST_DEVICE
-    DistGemmCoord(Index m, Index n, Index k, Index rank) : Base(Catlass::MakeCoord<Index>(m, n, k, rank))
-    {
-    }
+    DistGemmCoord(Index m, Index n, Index k, Index rank) : Base(Catlass::MakeCoord<Index>(m, n, k, rank)) {}
 
     CATLASS_HOST_DEVICE
-    Index const &m() const
-    {
-        return this->At(M_INDEX);
-    }
+    Index const& m() const { return this->At(M_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index const &n() const
-    {
-        return this->At(N_INDEX);
-    }
+    Index const& n() const { return this->At(N_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index const &k() const
-    {
-        return this->At(K_INDEX);
-    }
+    Index const& k() const { return this->At(K_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index const &rank() const
-    {
-        return this->At(RANK_INDEX);
-    }
+    Index const& rank() const { return this->At(RANK_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &m()
-    {
-        return this->At(M_INDEX);
-    }
+    Index& m() { return this->At(M_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &n()
-    {
-        return this->At(N_INDEX);
-    }
+    Index& n() { return this->At(N_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &k()
-    {
-        return this->At(K_INDEX);
-    }
+    Index& k() { return this->At(K_INDEX); }
 
     CATLASS_HOST_DEVICE
-    Index &rank()
-    {
-        return this->At(RANK_INDEX);
-    }
+    Index& rank() { return this->At(RANK_INDEX); }
 
     CATLASS_HOST_DEVICE
-    auto GetCoordMN() const
-    {
-        return this->GetCoordByAxis<M_INDEX, N_INDEX>();
-    }
+    auto GetCoordMN() const { return this->GetCoordByAxis<M_INDEX, N_INDEX>(); }
 
     CATLASS_HOST_DEVICE
-    auto GetCoordMK() const
-    {
-        return this->GetCoordByAxis<M_INDEX, K_INDEX>();
-    }
+    auto GetCoordMK() const { return this->GetCoordByAxis<M_INDEX, K_INDEX>(); }
 
     CATLASS_HOST_DEVICE
-    auto GetCoordKN() const
-    {
-        return this->GetCoordByAxis<K_INDEX, N_INDEX>();
-    }
+    auto GetCoordKN() const { return this->GetCoordByAxis<K_INDEX, N_INDEX>(); }
 
     CATLASS_HOST_DEVICE
-    auto GetCoordMNK() const
-    {
-        return this->GetCoordByAxis<M_INDEX, N_INDEX, K_INDEX>();
-    }
+    auto GetCoordMNK() const { return this->GetCoordByAxis<M_INDEX, N_INDEX, K_INDEX>(); }
 };
 
-}  // namespace Catccos
+} // namespace Catccos
 
-#endif  // CATCCOS_DIST_COORD_HPP
+#endif // CATCCOS_DIST_COORD_HPP

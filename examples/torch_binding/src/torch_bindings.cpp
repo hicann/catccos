@@ -1,4 +1,5 @@
 
+
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -29,11 +30,9 @@
 #include "shmem_init.h"
 #include "utils.h"
 
-namespace
-{
+namespace {
 
-struct CatccosTorchOpState
-{
+struct CatccosTorchOpState {
     bool initialized = false;
     void* symmPtr = nullptr;
     size_t symmBytes = 0;
@@ -50,23 +49,21 @@ CatccosTorchOpState& get_catccos_state()
 void* get_catccos_symm_ptr(size_t bytes)
 {
     auto& state = get_catccos_state();
-    TORCH_CHECK(state.initialized,
-                "catccos TORCH_LIBRARY not initialized, "
-                "call torch.ops.catccos.init(...) first");
+    TORCH_CHECK(
+        state.initialized, "catccos TORCH_LIBRARY not initialized, "
+                           "call torch.ops.catccos.init(...) first");
 
-    if (state.symmPtr == nullptr)
-    {
+    if (state.symmPtr == nullptr) {
         state.symmPtr = shmem_malloc(bytes);
         TORCH_CHECK(state.symmPtr != nullptr, "catccos TORCH_LIBRARY shmem_malloc failed, bytes=", bytes);
         state.symmBytes = bytes;
 
         auto ret = aclrtMemset(state.symmPtr, bytes, 0, bytes);
         TORCH_CHECK(ret == ACL_SUCCESS, "aclrtMemset failed, ret=", ret);
-    }
-    else
-    {
-        TORCH_CHECK(state.symmBytes >= bytes, "existing symm buffer too small, existing=", state.symmBytes,
-                    ", required=", bytes);
+    } else {
+        TORCH_CHECK(
+            state.symmBytes >= bytes, "existing symm buffer too small, existing=", state.symmBytes,
+            ", required=", bytes);
     }
 
     return state.symmPtr;
@@ -74,25 +71,23 @@ void* get_catccos_symm_ptr(size_t bytes)
 
 uint64_t get_catccos_ffts()
 {
-    TORCH_CHECK(get_catccos_state().initialized,
-                "catccos TORCH_LIBRARY not initialized, "
-                "call torch.ops.catccos.init(...) first");
+    TORCH_CHECK(
+        get_catccos_state().initialized, "catccos TORCH_LIBRARY not initialized, "
+                                         "call torch.ops.catccos.init(...) first");
 
     uint64_t addr = shmemx_get_ffts_config();
     TORCH_CHECK(addr != 0, "shmemx_get_ffts_config returned 0");
     return addr;
 }
 
-}  // namespace
+} // namespace
 
-namespace catccos
-{
+namespace catccos {
 
 int64_t init(int64_t rank_id, int64_t rank_size, int64_t local_mem_size, const std::string& ip_port)
 {
     auto& state = get_catccos_state();
-    if (state.initialized)
-    {
+    if (state.initialized) {
         return 0;
     }
 
@@ -106,8 +101,9 @@ int64_t init(int64_t rank_id, int64_t rank_size, int64_t local_mem_size, const s
 
     aclshmemx_uniqueid_t default_flag_uid{};
     aclshmemx_init_attr_t attributes{};
-    int32_t ret = set_attr(static_cast<int32_t>(rank_id), static_cast<int32_t>(rank_size),
-                           static_cast<uint64_t>(local_mem_size), ip_port.c_str(), &attributes, &default_flag_uid);
+    int32_t ret = set_attr(
+        static_cast<int32_t>(rank_id), static_cast<int32_t>(rank_size), static_cast<uint64_t>(local_mem_size),
+        ip_port.c_str(), &attributes, &default_flag_uid);
     TORCH_CHECK(ret == ACLSHMEM_SUCCESS, "set_attr failed, ret=", ret);
 
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
@@ -124,9 +120,9 @@ at::Tensor allgather_matmul(const at::Tensor& a, const at::Tensor& b, int64_t ra
     c10_npu::OptionalNPUGuard guard(a.device());
 
     auto& state = get_catccos_state();
-    TORCH_CHECK(state.initialized,
-                "catccos TORCH_LIBRARY not initialized, "
-                "call torch.ops.catccos.init(...) first");
+    TORCH_CHECK(
+        state.initialized, "catccos TORCH_LIBRARY not initialized, "
+                           "call torch.ops.catccos.init(...) first");
     TORCH_CHECK(rank_size == state.rankSize, "rank_size mismatch: input=", rank_size, ", initialized=", state.rankSize);
 
     TORCH_CHECK(a.dtype() == at::kHalf, "Only float16 supported for a, got ", a.dtype());
@@ -165,14 +161,12 @@ at::Tensor allgather_matmul(const at::Tensor& a, const at::Tensor& b, int64_t ra
     cmd.Input(a_contig);
     cmd.Input(b_contig);
     cmd.Output(c);
-    cmd.SetCustomHandler(
-        [stream, ffts, aPtr, bPtr, cPtr, symmPtr, m, n, k, my_pe, n_pes]() -> int
-        {
-            CatccosKernel::catccos_allgather_matmul_wrapper(BLOCK_NUM, stream, ffts, aPtr, bPtr, cPtr, symmPtr,
-                                                            static_cast<uint32_t>(m), static_cast<uint32_t>(n),
-                                                            static_cast<uint32_t>(k), my_pe, n_pes);
-            return 0;
-        });
+    cmd.SetCustomHandler([stream, ffts, aPtr, bPtr, cPtr, symmPtr, m, n, k, my_pe, n_pes]() -> int {
+        CatccosKernel::catccos_allgather_matmul_wrapper(
+            BLOCK_NUM, stream, ffts, aPtr, bPtr, cPtr, symmPtr, static_cast<uint32_t>(m), static_cast<uint32_t>(n),
+            static_cast<uint32_t>(k), my_pe, n_pes);
+        return 0;
+    });
     cmd.Run();
 
     return c;
@@ -181,16 +175,13 @@ at::Tensor allgather_matmul(const at::Tensor& a, const at::Tensor& b, int64_t ra
 int64_t finalize()
 {
     auto& state = get_catccos_state();
-    if (!state.initialized)
-    {
+    if (!state.initialized) {
         return 0;
     }
 
-    if (state.symmPtr != nullptr)
-    {
+    if (state.symmPtr != nullptr) {
         aclrtStream stream = c10_npu::getCurrentNPUStream().stream(false);
-        if (stream != nullptr)
-        {
+        if (stream != nullptr) {
             auto sync_ret = aclrtSynchronizeStream(stream);
             TORCH_CHECK(sync_ret == ACL_SUCCESS, "aclrtSynchronizeStream before shmem_free failed, ret=", sync_ret);
         }
@@ -207,7 +198,7 @@ int64_t finalize()
     return 0;
 }
 
-}  // namespace catccos
+} // namespace catccos
 
 TORCH_LIBRARY(catccos, m)
 {

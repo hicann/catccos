@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -45,10 +46,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct AllGatherMatmulRemoteReadConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct AllGatherMatmulRemoteReadConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     static constexpr bool ENABLE_UNIT_FLAG = true;
@@ -74,28 +75,26 @@ struct AllGatherMatmulRemoteReadConfig
     using LocalCopyDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
-    using TileLocalCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, LocalCopySrcType, LocalCopyDstType, void,
-                                                     CopyDirect::Get, CopyTransport::Mte>;
+    using TileLocalCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, LocalCopySrcType, LocalCopyDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using LocalCopyDispatchPolicy = Comm::AtlasA2CommLocalCopy<UB_STAGES, IS_DYNAMIC>;
-    using BlockLocalCopy = Comm::Block::CommBlock<LocalCopyDispatchPolicy, LocalCopySrcType, LocalCopyDstType, void,
-                                                  TileLocalCopy, TileScheduler>;
+    using BlockLocalCopy = Comm::Block::CommBlock<
+        LocalCopyDispatchPolicy, LocalCopySrcType, LocalCopyDstType, void, TileLocalCopy, TileScheduler>;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockComm =
         Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
 #if ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT
-    using Kernel =
-        DGemm::Kernel::AllGatherMatmulWithRemoteReadLocalMmOpt<BlockMmad, BlockLocalCopy, BlockComm, BlockMmadScheduler,
-                                                               BlockCommScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::AllGatherMatmulWithRemoteReadLocalMmOpt<
+        BlockMmad, BlockLocalCopy, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 #else
-    using Kernel =
-        DGemm::Kernel::AllGatherMatmulWithRemoteRead<BlockMmad, BlockLocalCopy, BlockComm, BlockMmadScheduler,
-                                                     BlockCommScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::AllGatherMatmulWithRemoteRead<
+        BlockMmad, BlockLocalCopy, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 #endif
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
@@ -109,4 +108,4 @@ template <class ElementA, class LayoutA, class ElementB, class LayoutB, class El
 using AllGatherMatmulRemoteReadConfig_M0_256 =
     AllGatherMatmulRemoteReadConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256, 128, 256>;
 
-#endif  // ALLGATHER_MATMUL_REMOTE_READ_KERNEL_H
+#endif // ALLGATHER_MATMUL_REMOTE_READ_KERNEL_H

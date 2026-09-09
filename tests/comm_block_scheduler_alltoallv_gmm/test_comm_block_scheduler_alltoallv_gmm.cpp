@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -16,8 +17,7 @@
 #include "acl/acl.h"
 #include "catccos/comm/block/comm_block_scheduler_alltoallv_gmm.hpp"
 
-namespace
-{
+namespace {
 
 using Scheduler = Catlass::Gemm::Block::BlockCommSchedulerAllToAllVGmm;
 
@@ -27,7 +27,7 @@ constexpr uint32_t RESULT_COUNT = 16;
 CATLASS_DEVICE void FlushResult(GM_ADDR resultData)
 {
     AscendC::GlobalTensor<uint8_t> result;
-    result.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t *>(resultData));
+    result.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(resultData));
     __asm__ __volatile__("");
     AscendC::DataCacheCleanAndInvalid<uint8_t, AscendC::CacheLine::SINGLE_CACHE_LINE, AscendC::DcciDst::CACHELINE_OUT>(
         result);
@@ -37,10 +37,10 @@ CATLASS_DEVICE void FlushResult(GM_ADDR resultData)
 CATLASS_GLOBAL void TestSetCommCore(GM_ADDR tokenData, GM_ADDR resultData)
 {
     AscendC::GlobalTensor<int32_t> tokenPerExpert;
-    tokenPerExpert.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(tokenData), TOKEN_COUNT);
+    tokenPerExpert.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(tokenData), TOKEN_COUNT);
 
     AscendC::GlobalTensor<int32_t> result;
-    result.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(resultData), RESULT_COUNT);
+    result.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(resultData), RESULT_COUNT);
 
     Scheduler scheduler;
     scheduler.rank = 2;
@@ -76,19 +76,18 @@ CATLASS_GLOBAL void TestSetCommCore(GM_ADDR tokenData, GM_ADDR resultData)
     FlushResult(resultData);
 }
 
-bool CheckAcl(aclError status, const char *operation)
+bool CheckAcl(aclError status, const char* operation)
 {
-    if (status == ACL_ERROR_NONE)
-    {
+    if (status == ACL_ERROR_NONE) {
         return true;
     }
     std::cerr << "[FAILED] " << operation << ", aclError=" << status << std::endl;
     return false;
 }
 
-}  // namespace
+} // namespace
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int32_t deviceId = argc > 1 ? std::atoi(argv[1]) : 0;
     std::array<int32_t, TOKEN_COUNT> tokenData{};
@@ -96,40 +95,37 @@ int main(int argc, char **argv)
     const std::array<int32_t, RESULT_COUNT> expected = {
         1, 3, 0, 0, 42, 1, 1, 4, 4, 0, 0, 4, 0, 10, 2, 3,
     };
-    for (uint32_t i = 0; i < TOKEN_COUNT; ++i)
-    {
+    for (uint32_t i = 0; i < TOKEN_COUNT; ++i) {
         tokenData[i] = static_cast<int32_t>(i + 1);
     }
 
     aclrtStream stream = nullptr;
-    uint8_t *tokenDevice = nullptr;
-    uint8_t *resultDevice = nullptr;
+    uint8_t* tokenDevice = nullptr;
+    uint8_t* resultDevice = nullptr;
     bool aclInitialized = false;
     bool deviceSet = false;
     bool passed = false;
 
-    do
-    {
-        if (!CheckAcl(aclInit(nullptr), "aclInit"))
-        {
+    do {
+        if (!CheckAcl(aclInit(nullptr), "aclInit")) {
             break;
         }
         aclInitialized = true;
-        if (!CheckAcl(aclrtSetDevice(deviceId), "aclrtSetDevice"))
-        {
+        if (!CheckAcl(aclrtSetDevice(deviceId), "aclrtSetDevice")) {
             break;
         }
         deviceSet = true;
         if (!CheckAcl(aclrtCreateStream(&stream), "aclrtCreateStream") ||
             !CheckAcl(
-                aclrtMalloc(reinterpret_cast<void **>(&tokenDevice), sizeof(tokenData), ACL_MEM_MALLOC_HUGE_FIRST),
+                aclrtMalloc(reinterpret_cast<void**>(&tokenDevice), sizeof(tokenData), ACL_MEM_MALLOC_HUGE_FIRST),
                 "aclrtMalloc(tokens)") ||
-            !CheckAcl(aclrtMalloc(reinterpret_cast<void **>(&resultDevice), sizeof(actual), ACL_MEM_MALLOC_HUGE_FIRST),
-                      "aclrtMalloc(result)") ||
-            !CheckAcl(aclrtMemcpy(tokenDevice, sizeof(tokenData), tokenData.data(), sizeof(tokenData),
-                                  ACL_MEMCPY_HOST_TO_DEVICE),
-                      "aclrtMemcpy(tokens)"))
-        {
+            !CheckAcl(
+                aclrtMalloc(reinterpret_cast<void**>(&resultDevice), sizeof(actual), ACL_MEM_MALLOC_HUGE_FIRST),
+                "aclrtMalloc(result)") ||
+            !CheckAcl(
+                aclrtMemcpy(
+                    tokenDevice, sizeof(tokenData), tokenData.data(), sizeof(tokenData), ACL_MEMCPY_HOST_TO_DEVICE),
+                "aclrtMemcpy(tokens)")) {
             break;
         }
 
@@ -137,47 +133,36 @@ int main(int argc, char **argv)
         if (!CheckAcl(aclrtSynchronizeStream(stream), "aclrtSynchronizeStream") ||
             !CheckAcl(
                 aclrtMemcpy(actual.data(), sizeof(actual), resultDevice, sizeof(actual), ACL_MEMCPY_DEVICE_TO_HOST),
-                "aclrtMemcpy(result)"))
-        {
+                "aclrtMemcpy(result)")) {
             break;
         }
 
         passed = actual == expected;
-        if (!passed)
-        {
-            for (uint32_t i = 0; i < RESULT_COUNT; ++i)
-            {
-                if (actual[i] != expected[i])
-                {
+        if (!passed) {
+            for (uint32_t i = 0; i < RESULT_COUNT; ++i) {
+                if (actual[i] != expected[i]) {
                     std::cerr << "[FAILED] result[" << i << "]: expected " << expected[i] << ", got " << actual[i]
                               << std::endl;
                 }
             }
-        }
-        else
-        {
+        } else {
             std::cout << "[PASSED] BlockCommSchedulerAllToAllVGmm::SetCommCore" << std::endl;
         }
     } while (false);
 
-    if (resultDevice != nullptr)
-    {
+    if (resultDevice != nullptr) {
         aclrtFree(resultDevice);
     }
-    if (tokenDevice != nullptr)
-    {
+    if (tokenDevice != nullptr) {
         aclrtFree(tokenDevice);
     }
-    if (stream != nullptr)
-    {
+    if (stream != nullptr) {
         aclrtDestroyStream(stream);
     }
-    if (deviceSet)
-    {
+    if (deviceSet) {
         aclrtResetDevice(deviceId);
     }
-    if (aclInitialized)
-    {
+    if (aclInitialized) {
         aclFinalize();
     }
     return passed ? 0 : 1;

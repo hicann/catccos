@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -35,10 +36,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct AllGatherMatmulWithGatherResultConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct AllGatherMatmulWithGatherResultConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     static constexpr bool ENABLE_UNIT_FLAG = true;
@@ -65,10 +66,10 @@ struct AllGatherMatmulWithGatherResultConfig
     using RemoteDstType = GatherAType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Put, CopyTransport::Mte>;
-    using GatherATileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                             CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
+    using GatherATileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     static constexpr uint32_t UB_STAGES = 2;
@@ -80,9 +81,9 @@ struct AllGatherMatmulWithGatherResultConfig
     using BlockCopyGatherA =
         Comm::Block::CommBlock<CopyGatherADispatchPolicy, AType, GatherAType, void, TileRemoteCopy, TileScheduler>;
 
-    using Kernel =
-        DGemm::Kernel::AllGatherMatmulWithGatherResult<BlockMmad, BlockComm, BlockCopyGatherA, BlockScheduler,
-                                                       BlockCommScheduler, BlockCopyGatherAScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::AllGatherMatmulWithGatherResult<
+        BlockMmad, BlockComm, BlockCopyGatherA, BlockScheduler, BlockCommScheduler, BlockCopyGatherAScheduler,
+        WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };

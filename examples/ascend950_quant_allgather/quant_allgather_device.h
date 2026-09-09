@@ -1,3 +1,4 @@
+
 #ifndef QUANT_ALLGATHER_DEVICE_H
 #define QUANT_ALLGATHER_DEVICE_H
 
@@ -26,13 +27,11 @@
 #include "catccos/detail/remote_copy_type.hpp"
 #include "catccos/comm/kernel/quant_allgather.hpp"
 
-
 using namespace AscendC;
 using namespace Catccos;
 
 template <class LayoutType>
-CATLASS_DEVICE
-uint32_t GetLayoutStride(uint32_t m, uint32_t n)
+CATLASS_DEVICE uint32_t GetLayoutStride(uint32_t m, uint32_t n)
 {
     if constexpr (std::is_same_v<LayoutType, Catlass::layout::RowMajor>) {
         return n;
@@ -42,56 +41,31 @@ uint32_t GetLayoutStride(uint32_t m, uint32_t n)
 }
 
 template <class ElementOutput>
-CATLASS_DEVICE
-void SetupPeerMemory(
-    GM_ADDR symmetricPtr,
-    uint32_t rank,
-    uint32_t rankSize,
-    uint32_t magic,
-    __gm__ ElementOutput *peerMems[MAX_RANK_SIZE],
-    __gm__ ElementOutput *anotherPeerMems[MAX_RANK_SIZE]
-)
+CATLASS_DEVICE void SetupPeerMemory(
+    GM_ADDR symmetricPtr, uint32_t rank, uint32_t rankSize, uint32_t magic,
+    __gm__ ElementOutput* peerMems[MAX_RANK_SIZE], __gm__ ElementOutput* anotherPeerMems[MAX_RANK_SIZE])
 {
     constexpr uint32_t IPC_BUFF_STRIDE = IPC_BUFF_MAX_SIZE / PING_PONG_SIZE + IPC_DATA_OFFSET;
     uint32_t pingOffset = (magic % PING_PONG_SIZE) * IPC_BUFF_STRIDE;
     uint32_t pongOffset = ((magic + 1) % PING_PONG_SIZE) * IPC_BUFF_STRIDE;
     for (int i = 0; i < rankSize; ++i) {
         if (i == rank) {
-            peerMems[i] = reinterpret_cast<__gm__ ElementOutput *>(symmetricPtr + pingOffset);
-            anotherPeerMems[i] = reinterpret_cast<__gm__ ElementOutput *>(symmetricPtr + pongOffset);
+            peerMems[i] = reinterpret_cast<__gm__ ElementOutput*>(symmetricPtr + pingOffset);
+            anotherPeerMems[i] = reinterpret_cast<__gm__ ElementOutput*>(symmetricPtr + pongOffset);
         } else {
-            auto remoteBase = reinterpret_cast<GM_ADDR>(aclshmem_ptr(reinterpret_cast<__gm__ void *>(symmetricPtr), i));
-            peerMems[i] = reinterpret_cast<__gm__ ElementOutput *>(remoteBase + pingOffset);
-            anotherPeerMems[i] = reinterpret_cast<__gm__ ElementOutput *>(remoteBase + pongOffset);
+            auto remoteBase = reinterpret_cast<GM_ADDR>(aclshmem_ptr(reinterpret_cast<__gm__ void*>(symmetricPtr), i));
+            peerMems[i] = reinterpret_cast<__gm__ ElementOutput*>(remoteBase + pingOffset);
+            anotherPeerMems[i] = reinterpret_cast<__gm__ ElementOutput*>(remoteBase + pongOffset);
         }
     }
 }
 
 template <
-    class ArchTag,
-    class ElementInput,
-    class LayoutInput,
-    class ElementOutput,
-    class LayoutOutput,
-    class ElementScale
->
-CATLASS_DEVICE
-void QuantAllGatherImpl(
-    Catlass::GemmCoord& problemShape,
-    GM_ADDR gmInput,
-    LayoutInput &layoutInput,
-    GM_ADDR gmScales,
-    GM_ADDR gmOutput,
-    LayoutOutput &layoutOutput,
-    uint32_t commInterval,
-    Catlass::MatrixCoord &commCoreSplit,
-    uint32_t &commBlockShape,
-    Catlass::MatrixCoord &commTileShape,
-    GM_ADDR symmetricPtr, 
-    uint32_t magic,
-    uint32_t rank,
-    uint32_t rankSize
-)
+    class ArchTag, class ElementInput, class LayoutInput, class ElementOutput, class LayoutOutput, class ElementScale>
+CATLASS_DEVICE void QuantAllGatherImpl(
+    Catlass::GemmCoord& problemShape, GM_ADDR gmInput, LayoutInput& layoutInput, GM_ADDR gmScales, GM_ADDR gmOutput,
+    LayoutOutput& layoutOutput, uint32_t commInterval, Catlass::MatrixCoord& commCoreSplit, uint32_t& commBlockShape,
+    Catlass::MatrixCoord& commTileShape, GM_ADDR symmetricPtr, uint32_t magic, uint32_t rank, uint32_t rankSize)
 {
     constexpr bool IS_DYNAMIC = true;
     constexpr uint32_t UB_STAGES = 2;
@@ -104,46 +78,25 @@ void QuantAllGatherImpl(
     using TileSchedulerForQuant = Catlass::Epilogue::Tile::EpilogueHorizontalTileSwizzle;
 
     using BlockQuant = Catlass::Epilogue::Block::BlockEpilogue<
-        QuantDispatchPolicy,
-        InputType,
-        OutputType,
-        ElementScale,
-        TileSchedulerForQuant
-    >;
+        QuantDispatchPolicy, InputType, OutputType, ElementScale, TileSchedulerForQuant>;
     using RemoteSrcType = OutputType;
     using RemoteDstType = OutputType;
 
     using AllToAllDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockAllToAll = Comm::Block::CommBlock<
-        AllToAllDispatch,
-        RemoteSrcType,
-        RemoteDstType,
-        void
-    >;
+    using BlockAllToAll = Comm::Block::CommBlock<AllToAllDispatch, RemoteSrcType, RemoteDstType, void>;
     using QuantScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
     using AllToAllScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
 
     using QuantAllGatherKernel = Comm::Kernel::QuantAllGather<
-        BlockQuant,
-        BlockAllToAll,
-        QuantScheduler,
-        AllToAllScheduler,
-        KERNEL_WORKSPACE_STAGES
-    >;
+        BlockQuant, BlockAllToAll, QuantScheduler, AllToAllScheduler, KERNEL_WORKSPACE_STAGES>;
 
-    typename BlockAllToAll::Params blockParams {
-        commBlockShape
-    };
-    typename QuantScheduler::Params quantSwizzleParams {
-        commCoreSplit
-    };
+    typename BlockAllToAll::Params blockParams{commBlockShape};
+    typename QuantScheduler::Params quantSwizzleParams{commCoreSplit};
 
-    typename AllToAllScheduler::Params allToAllSwizzleParams {
-        commCoreSplit
-    };
+    typename AllToAllScheduler::Params allToAllSwizzleParams{commCoreSplit};
 
-    __gm__ ElementOutput *peerMems[MAX_RANK_SIZE] = {};
-    __gm__ ElementOutput *anotherPeerMems[MAX_RANK_SIZE] = {};
+    __gm__ ElementOutput* peerMems[MAX_RANK_SIZE] = {};
+    __gm__ ElementOutput* anotherPeerMems[MAX_RANK_SIZE] = {};
     SetupPeerMemory<ElementOutput>(symmetricPtr, rank, rankSize, magic, peerMems, anotherPeerMems);
     typename QuantAllGatherKernel::Params params{};
     params.problemShape = problemShape;
@@ -151,10 +104,10 @@ void QuantAllGatherImpl(
     params.rankSize = rankSize;
     params.commInterval = commInterval;
     params.magic = magic;
-    params.ptrInput = reinterpret_cast<__gm__ ElementInput *>(gmInput);
+    params.ptrInput = reinterpret_cast<__gm__ ElementInput*>(gmInput);
     params.layoutInput = layoutInput;
-    params.ptrScales = reinterpret_cast<__gm__ ElementScale *>(gmScales);
-    params.ptrOutput = reinterpret_cast<__gm__ ElementOutput *>(gmOutput);
+    params.ptrScales = reinterpret_cast<__gm__ ElementScale*>(gmScales);
+    params.ptrOutput = reinterpret_cast<__gm__ ElementOutput*>(gmOutput);
     params.layoutOutput = layoutOutput;
     params.ptrSymmetric = reinterpret_cast<GM_ADDR>(peerMems[rank]);
     params.AllGatherParams = blockParams;
@@ -168,23 +121,10 @@ void QuantAllGatherImpl(
     quantAllGatherKernel(params);
 }
 
-template <
-    class ElementInput,
-    class LayoutInput,
-    class ElementOutput,
-    class LayoutOutput,
-    class ElementScale
->
-CATLASS_GLOBAL
-void QuantAllGather(
-    uint64_t fftsAddr,
-    GM_ADDR gmInput,
-    GM_ADDR gmScales,
-    GM_ADDR gmOutput,
-    GM_ADDR commArgsPtr,
-    CocTilingParams cocTiling,
-    uint32_t magic
-)
+template <class ElementInput, class LayoutInput, class ElementOutput, class LayoutOutput, class ElementScale>
+CATLASS_GLOBAL void QuantAllGather(
+    uint64_t fftsAddr, GM_ADDR gmInput, GM_ADDR gmScales, GM_ADDR gmOutput, GM_ADDR commArgsPtr,
+    CocTilingParams cocTiling, uint32_t magic)
 {
     AscendC::SetSyncBaseAddr(fftsAddr);
     using ArchTag = Catlass::Arch::Ascend950;
@@ -210,21 +150,8 @@ void QuantAllGather(
     LayoutInput layoutInput{m, n, strideInput};
     LayoutOutput layoutOutput{m, n, strideOutput};
     QuantAllGatherImpl<ArchTag, ElementInput, LayoutInput, ElementOutput, LayoutOutput, ElementScale>(
-        problemShape,
-        gmInput,
-        layoutInput,
-        gmScales,
-        gmOutput,
-        layoutOutput,
-        commInterval,
-        commCoreSplit,
-        commBlockShape,
-        commTileShape,
-        commArgsPtr,
-        magic,
-        rank,
-        rankSize
-    );
+        problemShape, gmInput, layoutInput, gmScales, gmOutput, layoutOutput, commInterval, commCoreSplit,
+        commBlockShape, commTileShape, commArgsPtr, magic, rank, rankSize);
 }
 
 #endif // QUANT_ALLGATHER_DEVICE_H

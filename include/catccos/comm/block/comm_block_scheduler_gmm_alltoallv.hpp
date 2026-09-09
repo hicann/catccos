@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -53,25 +54,18 @@ struct BlockCommSchedulerGmmAllToAllV {
 
     CATLASS_DEVICE
     BlockCommSchedulerGmmAllToAllV(
-            uint32_t rank_,
-            uint32_t rankSize_,
-            int32_t expertPerRank_,
-            int32_t EP_,
-            GemmCoord problemShape_,
-            uint32_t coreIdx_,
-            uint32_t coreNum_,
-            AscendC::GlobalTensor<int32_t> &tokenPerExpert_,
-            AscendC::GlobalTensor<int32_t> &cumsumMM_,
-            Arch::Resource<ArchTag> const &resource
-    ) : rank(rank_),
-        rankSize(rankSize_),
-        expertPerRank(expertPerRank_),
-        EP(EP_),
-        problemShape(problemShape_),
-        coreIdx(coreIdx_),
-        coreNum(coreNum_),
-        cumsumMM(cumsumMM_),
-        tokenPerExpert(tokenPerExpert_)
+        uint32_t rank_, uint32_t rankSize_, int32_t expertPerRank_, int32_t EP_, GemmCoord problemShape_,
+        uint32_t coreIdx_, uint32_t coreNum_, AscendC::GlobalTensor<int32_t>& tokenPerExpert_,
+        AscendC::GlobalTensor<int32_t>& cumsumMM_, Arch::Resource<ArchTag> const& resource)
+        : rank(rank_),
+          rankSize(rankSize_),
+          expertPerRank(expertPerRank_),
+          EP(EP_),
+          problemShape(problemShape_),
+          coreIdx(coreIdx_),
+          coreNum(coreNum_),
+          cumsumMM(cumsumMM_),
+          tokenPerExpert(tokenPerExpert_)
     {
         if (coreIdx < EP) {
             for (int32_t i = 0; i < rank * expertPerRank; i++) {
@@ -108,35 +102,33 @@ struct BlockCommSchedulerGmmAllToAllV {
     }
 
     CATLASS_DEVICE
-    MatrixCoord GetBlockOffset(uint32_t commIdx) {
+    MatrixCoord GetBlockOffset(uint32_t commIdx)
+    {
         uint32_t dstEpIdx = coreIdx + commIdx * coreNum;
         return {dstEpIdx, 0};
     }
 
     CATLASS_DEVICE
-    void GetCumsumForMMAIV(AscendC::GlobalTensor<int32_t> &tokenPerExpert, AscendC::GlobalTensor<int32_t> &result,
-                           Arch::Resource<ArchTag> const &resource)
+    void GetCumsumForMMAIV(
+        AscendC::GlobalTensor<int32_t>& tokenPerExpert, AscendC::GlobalTensor<int32_t>& result,
+        Arch::Resource<ArchTag> const& resource)
     {
         int32_t expertPerRankAligned = (expertPerRank + 8 - 1) / 8 * 8;
         AscendC::LocalTensor<int32_t> tmpBuffer = resource.ubBuf.template GetBufferByByte<int32_t>(0);
 
         AscendC::DataCopyPad(
-            tmpBuffer,
-            tokenPerExpert[rank * expertPerRank],
-            {
-                static_cast<uint16_t>(EP),
-                static_cast<uint16_t>(expertPerRank * sizeof(int32_t)),
-                static_cast<uint16_t>((EP - 1) * expertPerRank * sizeof(int32_t)),
-                0
-            },
-            {}
-        );
+            tmpBuffer, tokenPerExpert[rank * expertPerRank],
+            {static_cast<uint16_t>(EP), static_cast<uint16_t>(expertPerRank * sizeof(int32_t)),
+             static_cast<uint16_t>((EP - 1) * expertPerRank * sizeof(int32_t)), 0},
+            {});
 
         AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(EVENT_ID0);
 
         for (uint32_t i = 1; i < EP; ++i) {
-            AscendC::Add(tmpBuffer[i * expertPerRankAligned], tmpBuffer[i * expertPerRankAligned], tmpBuffer[(i - 1) * expertPerRankAligned], expertPerRank);
+            AscendC::Add(
+                tmpBuffer[i * expertPerRankAligned], tmpBuffer[i * expertPerRankAligned],
+                tmpBuffer[(i - 1) * expertPerRankAligned], expertPerRank);
             AscendC::PipeBarrier<PIPE_V>();
         }
 
@@ -144,23 +136,15 @@ struct BlockCommSchedulerGmmAllToAllV {
         AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(EVENT_ID0);
 
         AscendC::DataCopyPad(
-            result,
-            tmpBuffer,
-            {static_cast<uint16_t>(EP), static_cast<uint16_t>((expertPerRank) * sizeof(int32_t)), 0, 0}
-        );
+            result, tmpBuffer,
+            {static_cast<uint16_t>(EP), static_cast<uint16_t>((expertPerRank) * sizeof(int32_t)), 0, 0});
     }
 
     CATLASS_DEVICE
-    void UpdateLocalExpertIdx(int32_t localExpertIdx)
-    {
-        commContext.localExpertIdx = localExpertIdx;
-    }
+    void UpdateLocalExpertIdx(int32_t localExpertIdx) { commContext.localExpertIdx = localExpertIdx; }
 
     CATLASS_DEVICE
-    int32_t GetLocalExpertIdx()
-    {
-        return commContext.localExpertIdx;
-    }
+    int32_t GetLocalExpertIdx() { return commContext.localExpertIdx; }
 
     CATLASS_DEVICE
     void UpdatePrevGroupSum()
@@ -169,29 +153,20 @@ struct BlockCommSchedulerGmmAllToAllV {
     }
 
     CATLASS_DEVICE
-    void UpdateSrcPrevSum(uint32_t rows)
-    {
-        commContext.prevSum += rows;
-    }
+    void UpdateSrcPrevSum(uint32_t rows) { commContext.prevSum += rows; }
 
     CATLASS_DEVICE
-    int32_t GetPrevGroupSum()
-    {
-        return commContext.prevGroupSum;
-    }
+    int32_t GetPrevGroupSum() { return commContext.prevGroupSum; }
 
     CATLASS_DEVICE
-    int32_t GetSrcPrevSum()
-    {
-        return commContext.prevSum;
-    }
+    int32_t GetSrcPrevSum() { return commContext.prevSum; }
 
     struct RemapperSrc {
         using Scheduler = BlockCommSchedulerGmmAllToAllV;
-        Scheduler *scheduler;
+        Scheduler* scheduler;
 
         CATLASS_DEVICE
-        MatrixCoord operator()(MatrixCoord const &blockOffset) const
+        MatrixCoord operator()(MatrixCoord const& blockOffset) const
         {
             if (blockOffset.row() == 0) {
                 return MatrixCoord{static_cast<uint32_t>(scheduler->GetPrevGroupSum()), 0};
@@ -203,27 +178,25 @@ struct BlockCommSchedulerGmmAllToAllV {
         }
 
         CATLASS_DEVICE
-        MatrixCoord GetResidueShape(MatrixCoord const &blockOffset) const
+        MatrixCoord GetResidueShape(MatrixCoord const& blockOffset) const
         {
             int32_t rowInExpertPerRank = blockOffset.row() * scheduler->EP * scheduler->expertPerRank;
-            int32_t tokenOffset = rowInExpertPerRank + scheduler->rank * scheduler->expertPerRank + scheduler->GetLocalExpertIdx();
+            int32_t tokenOffset =
+                rowInExpertPerRank + scheduler->rank * scheduler->expertPerRank + scheduler->GetLocalExpertIdx();
             uint32_t tokenNum = scheduler->tokenPerExpert(tokenOffset);
             return Catlass::MakeCoord<uint32_t>(tokenNum, scheduler->problemShape.n());
         }
     };
 
     CATLASS_DEVICE
-    const RemapperSrc GetRemapperSrc()
-    {
-        return {this};
-    }
+    const RemapperSrc GetRemapperSrc() { return {this}; }
 
     CATLASS_DEVICE
-    MatrixCoord RemapActualBlockShape(MatrixCoord const &blockOffset, RemapperSrc const &remapperSrc) const
+    MatrixCoord RemapActualBlockShape(MatrixCoord const& blockOffset, RemapperSrc const& remapperSrc) const
     {
         return remapperSrc.GetResidueShape(blockOffset);
     }
 };
-}
+} // namespace Catlass::Gemm::Block
 
 #endif

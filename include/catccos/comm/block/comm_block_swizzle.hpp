@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,14 +24,15 @@ namespace Catccos::Comm::Block {
 
 using Catlass::MatrixCoord;
 
-template<bool IsDynamic_, class CoreSplit_, uint32_t SWIZZLE_DIRECTION_ = 0, bool IS_DETERMINISTIC_ = false>
+template <bool IsDynamic_, class CoreSplit_, uint32_t SWIZZLE_DIRECTION_ = 0, bool IS_DETERMINISTIC_ = false>
 struct BlockCommSwizzle {
     static constexpr uint32_t SWIZZLE_DIRECTION = SWIZZLE_DIRECTION_;
     static constexpr uint32_t IS_DETERMINISTIC = IS_DETERMINISTIC_;
     static constexpr bool IsDynamic = IsDynamic_;
     using CoreSplit = CoreSplit_;
 
-    static_assert((IS_DETERMINISTIC && SWIZZLE_DIRECTION == 0) || !IS_DETERMINISTIC,
+    static_assert(
+        (IS_DETERMINISTIC && SWIZZLE_DIRECTION == 0) || !IS_DETERMINISTIC,
         "Deterministic calculation requires that the swizzle direction be 0.");
 
     DistMatrixCoord problemShape;
@@ -59,8 +61,7 @@ struct BlockCommSwizzle {
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(MatrixCoord coreSplit_) 
-            : coreSplit(coreSplit_) {}
+        ParamsBase(MatrixCoord coreSplit_) : coreSplit(coreSplit_) {}
 
         CATLASS_DEVICE
         MatrixCoord CoreSplit() const { return coreSplit; }
@@ -74,8 +75,9 @@ struct BlockCommSwizzle {
     BlockCommSwizzle() {}
 
     CATLASS_DEVICE
-    BlockCommSwizzle(DistMatrixCoord const &problemShape_, MatrixCoord const &blockShapeInRank_,
-        MatrixCoord const &coreSplit_, MatrixCoord const &loopsInRank_)
+    BlockCommSwizzle(
+        DistMatrixCoord const& problemShape_, MatrixCoord const& blockShapeInRank_, MatrixCoord const& coreSplit_,
+        MatrixCoord const& loopsInRank_)
         : problemShape(problemShape_), coreSplit(coreSplit_)
     {
         blockShape = Catlass::MakeCoord<uint32_t>(blockShapeInRank_.row(), blockShapeInRank_.column(), 1);
@@ -87,8 +89,7 @@ struct BlockCommSwizzle {
     }
 
     CATLASS_DEVICE
-    BlockCommSwizzle(MatrixCoord const &blockShapeInRank_, MatrixCoord const &coreSplit_)
-        : coreSplit(coreSplit_)
+    BlockCommSwizzle(MatrixCoord const& blockShapeInRank_, MatrixCoord const& coreSplit_) : coreSplit(coreSplit_)
     {
         blockShape = Catlass::MakeCoord<uint32_t>(blockShapeInRank_.row(), blockShapeInRank_.column(), 1);
 
@@ -98,7 +99,7 @@ struct BlockCommSwizzle {
     }
 
     CATLASS_DEVICE
-    BlockCommSwizzle(DistMatrixCoord const &blockShape_, MatrixCoord const &coreSplit_)
+    BlockCommSwizzle(DistMatrixCoord const& blockShape_, MatrixCoord const& coreSplit_)
         : blockShape(blockShape_), coreSplit(coreSplit_)
     {
         if constexpr (IS_DETERMINISTIC) {
@@ -107,21 +108,21 @@ struct BlockCommSwizzle {
     }
 
     CATLASS_DEVICE
-    void UpdateProblem(DistMatrixCoord const &problemShape_, DistMatrixCoord const &loops_)
+    void UpdateProblem(DistMatrixCoord const& problemShape_, DistMatrixCoord const& loops_)
     {
         problemShape = problemShape_;
         loops = loops_;
     }
 
     CATLASS_DEVICE
-    void UpdateProblem(DistMatrixCoord const &problemShape_, MatrixCoord const &loopsInRank_)
+    void UpdateProblem(DistMatrixCoord const& problemShape_, MatrixCoord const& loopsInRank_)
     {
         problemShape = problemShape_;
         loops = Catlass::MakeCoord<uint32_t>(loopsInRank_.row(), loopsInRank_.column(), problemShape_.rank());
     }
 
     CATLASS_DEVICE
-    void UpdateProblem(DistMatrixCoord const &problemShape_)
+    void UpdateProblem(DistMatrixCoord const& problemShape_)
     {
         problemShape = problemShape_;
         loops = CeilDiv(problemShape, blockShape);
@@ -138,31 +139,27 @@ struct BlockCommSwizzle {
     }
 
     CATLASS_DEVICE
-    uint32_t GetRealCore() const
-    {
-        return coreSplit.row() * coreSplit.column();
-    }
+    uint32_t GetRealCore() const { return coreSplit.row() * coreSplit.column(); }
 
     CATLASS_DEVICE
     DistMatrixCoord GetBlockCoord(uint32_t taskIdx) const
     {
-        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(
-            loops, coreSplit, taskIdx);
+        auto blockCoord = CommSwizzle<SWIZZLE_DIRECTION, IS_DETERMINISTIC>::GetCoord(loops, coreSplit, taskIdx);
         return blockCoord;
     }
 
     CATLASS_DEVICE
     MatrixCoord GetBlockOffset(DistMatrixCoord blockCoord) const
     {
-        if (blockCoord.rank() >= loops.rank()
-            || blockCoord.row() >= loops.row()
-            || blockCoord.column() >= loops.column()) {
+        if (blockCoord.rank() >= loops.rank() || blockCoord.row() >= loops.row() ||
+            blockCoord.column() >= loops.column()) {
             return MatrixCoord{UINT_MAX, UINT_MAX};
         }
 
         auto layoutRowLogicShape = Catlass::MakeCoord<uint32_t>(loops.rank(), loops.row());
         auto layoutRowExpandRank = layout::AffineRankN<2, uint32_t>::Packed(layoutRowLogicShape);
-        uint32_t rowCoordPostRank = layoutRowExpandRank(Catlass::MakeCoord<uint32_t>(blockCoord.rank(), blockCoord.row()));
+        uint32_t rowCoordPostRank =
+            layoutRowExpandRank(Catlass::MakeCoord<uint32_t>(blockCoord.rank(), blockCoord.row()));
         return MatrixCoord{rowCoordPostRank, blockCoord.column()} * blockShape.GetCoordInRank();
     }
 
@@ -184,7 +181,8 @@ struct BlockCommSwizzle {
     }
 
     CATLASS_DEVICE
-    MatrixCoord GetActualBlockShape(MatrixCoord blockCoordInRank) const {
+    MatrixCoord GetActualBlockShape(MatrixCoord blockCoordInRank) const
+    {
         auto blockOffset = GetBlockOffsetInRank(blockCoordInRank);
         auto residue = problemShape.GetCoordInRank() - Min<uint32_t, 2>(problemShape.GetCoordInRank(), blockOffset);
         auto actualBlockShape = Min(blockShape.GetCoordInRank(), residue);
@@ -201,23 +199,19 @@ struct BlockSchedulerCopyGatherA {
     BlockSchedulerCopyGatherA() = default;
 
     CATLASS_DEVICE
-    BlockSchedulerCopyGatherA(DistMatrixCoord const &problemShape_, DistMatrixCoord const &tileShape_) :
-        problemShape(problemShape_), tileShape(tileShape_)
+    BlockSchedulerCopyGatherA(DistMatrixCoord const& problemShape_, DistMatrixCoord const& tileShape_)
+        : problemShape(problemShape_), tileShape(tileShape_)
     {
         gridShape = CeilDiv(problemShape, tileShape);
     }
 
     CATLASS_DEVICE
-    BlockSchedulerCopyGatherA(DistMatrixCoord const &problemShape_, MatrixCoord const &tileShapeMN_) :
-        BlockSchedulerCopyGatherA(problemShape_, DistMatrixCoord{tileShapeMN_.row(), tileShapeMN_.column(), 1})
-    {
-    }
+    BlockSchedulerCopyGatherA(DistMatrixCoord const& problemShape_, MatrixCoord const& tileShapeMN_)
+        : BlockSchedulerCopyGatherA(problemShape_, DistMatrixCoord{tileShapeMN_.row(), tileShapeMN_.column(), 1})
+    {}
 
     CATLASS_DEVICE
-    uint32_t GetCoreLoops() const
-    {
-        return Numel(gridShape);
-    }
+    uint32_t GetCoreLoops() const { return Numel(gridShape); }
 
     CATLASS_DEVICE
     DistMatrixCoord GetBlockCoord(uint32_t loopIdx) const
@@ -229,25 +223,22 @@ struct BlockSchedulerCopyGatherA {
     }
 
     CATLASS_DEVICE
-    DistMatrixCoord GetBlockOffset(uint32_t loopIdx) const
-    {
-        return GetBlockCoord(loopIdx) * tileShape;
-    }
+    DistMatrixCoord GetBlockOffset(uint32_t loopIdx) const { return GetBlockCoord(loopIdx) * tileShape; }
 
     CATLASS_DEVICE
-    DistMatrixCoord GetActualBlockShapeByOffset(DistMatrixCoord const &blockOffset) const
+    DistMatrixCoord GetActualBlockShapeByOffset(DistMatrixCoord const& blockOffset) const
     {
         return Min(tileShape, problemShape - blockOffset);
     }
 
     CATLASS_DEVICE
-    DistMatrixCoord GetActualBlockShape(DistMatrixCoord const &blockCoord) const
+    DistMatrixCoord GetActualBlockShape(DistMatrixCoord const& blockCoord) const
     {
         auto blockOffset = blockCoord * tileShape;
         return GetActualBlockShapeByOffset(blockOffset);
     }
 };
 
-}  // namespace Catccos::Comm::Block
+} // namespace Catccos::Comm::Block
 
 #endif // CATCCOS_COMM_BLOCK_SWIZZLE_HPP

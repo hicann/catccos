@@ -1,4 +1,5 @@
 
+
 #ifndef MX_QUANT_ALLGATHER_DEVICE_H
 #define MX_QUANT_ALLGATHER_DEVICE_H
 
@@ -24,27 +25,24 @@ using namespace Catccos;
 template <class LayoutType>
 CATLASS_DEVICE uint32_t GetLayoutStride(uint32_t m, uint32_t n)
 {
-    if constexpr (std::is_same_v<LayoutType, Catlass::layout::RowMajor>)
-    {
+    if constexpr (std::is_same_v<LayoutType, Catlass::layout::RowMajor>) {
         return n;
-    }
-    else
-    {
+    } else {
         return m;
     }
 }
 
 template <class ArchTag, class ElementInput, class LayoutInput, class ElementOutput, class LayoutOutput>
-CATLASS_DEVICE void MxQuantAllGatherImpl(Catlass::GemmCoord &problemShape, GM_ADDR gmInput, LayoutInput &layoutInput,
-                                         GM_ADDR gmOutput, LayoutOutput &layoutOutput, GM_ADDR gmMxScale,
-                                         uint32_t commInterval, Catlass::MatrixCoord &commCoreSplit,
-                                         uint32_t &commBlockShape, Catlass::MatrixCoord &commTileShape,
-                                         GM_ADDR symmetricPtr, uint32_t rank, uint32_t rankSize)
+CATLASS_DEVICE void MxQuantAllGatherImpl(
+    Catlass::GemmCoord& problemShape, GM_ADDR gmInput, LayoutInput& layoutInput, GM_ADDR gmOutput,
+    LayoutOutput& layoutOutput, GM_ADDR gmMxScale, uint32_t commInterval, Catlass::MatrixCoord& commCoreSplit,
+    uint32_t& commBlockShape, Catlass::MatrixCoord& commTileShape, GM_ADDR symmetricPtr, uint32_t rank,
+    uint32_t rankSize)
 {
     constexpr bool IS_DYNAMIC = true;
     constexpr uint32_t UB_STAGES = 2;
     constexpr uint32_t BLOCK_SIZE = 32;
-    constexpr int64_t ROUND_MODE = 2;  // CAST_RINT
+    constexpr int64_t ROUND_MODE = 2; // CAST_RINT
     constexpr uint32_t KERNEL_WORKSPACE_STAGES = 4;
 
     using InputType = Catlass::Gemm::GemmType<ElementInput, LayoutInput>;
@@ -59,27 +57,26 @@ CATLASS_DEVICE void MxQuantAllGatherImpl(Catlass::GemmCoord &problemShape, GM_AD
     using RemoteDstType = OutputType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopyQuant = Catccos::Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType,
-                                                                    void, CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopyQuant = Catccos::Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
     using CommDispatchPolicy = Catccos::Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockAllGather = Catccos::Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void,
-                                                           TileRemoteCopyQuant, TileScheduler>;
+    using BlockAllGather = Catccos::Comm::Block::CommBlock<
+        CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopyQuant, TileScheduler>;
 
     // Scale gather comm block (uint8_t element type for E8M0 scales)
     using ScaleSrcType = Catlass::Gemm::GemmType<float8_e8m0_t, LayoutOutput>;
     using ScaleDstType = ScaleSrcType;
-    using TileRemoteCopyScale = Catccos::Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, ScaleSrcType, ScaleDstType,
-                                                                    void, CopyDirect::Get, CopyTransport::Mte>;
-    using BlockScaleGather = Catccos::Comm::Block::CommBlock<CommDispatchPolicy, ScaleSrcType, ScaleDstType, void,
-                                                             TileRemoteCopyScale, TileScheduler>;
+    using TileRemoteCopyScale = Catccos::Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, ScaleSrcType, ScaleDstType, void, CopyDirect::Get, CopyTransport::Mte>;
+    using BlockScaleGather = Catccos::Comm::Block::CommBlock<
+        CommDispatchPolicy, ScaleSrcType, ScaleDstType, void, TileRemoteCopyScale, TileScheduler>;
 
     using QuantScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
     using AllToAllScheduler = Catccos::Comm::Block::BlockCommSwizzle<IS_DYNAMIC, void, 0>;
 
-    using MxQuantAllGatherKernel =
-        Comm::Kernel::MxQuantAllGather<BlockMxQuant, BlockAllGather, BlockScaleGather, QuantScheduler,
-                                       AllToAllScheduler, KERNEL_WORKSPACE_STAGES>;
+    using MxQuantAllGatherKernel = Comm::Kernel::MxQuantAllGather<
+        BlockMxQuant, BlockAllGather, BlockScaleGather, QuantScheduler, AllToAllScheduler, KERNEL_WORKSPACE_STAGES>;
 
     typename BlockAllGather::TileRemoteCopy::Params tileParams{commTileShape};
     typename BlockAllGather::Params blockParams{Catlass::MatrixCoord{commBlockShape, 1}, tileParams};
@@ -93,11 +90,11 @@ CATLASS_DEVICE void MxQuantAllGatherImpl(Catlass::GemmCoord &problemShape, GM_AD
     params.rankIdx = rank;
     params.rankSize = rankSize;
     params.commInterval = commInterval;
-    params.ptrInput = reinterpret_cast<__gm__ ElementInput *>(gmInput);
+    params.ptrInput = reinterpret_cast<__gm__ ElementInput*>(gmInput);
     params.layoutInput = layoutInput;
-    params.ptrOutput = reinterpret_cast<__gm__ ElementOutput *>(gmOutput);
+    params.ptrOutput = reinterpret_cast<__gm__ ElementOutput*>(gmOutput);
     params.layoutOutput = layoutOutput;
-    params.ptrMxScale = reinterpret_cast<__gm__ float8_e8m0_t *>(gmMxScale);
+    params.ptrMxScale = reinterpret_cast<__gm__ float8_e8m0_t*>(gmMxScale);
     params.ptrSymmetric = symmetricPtr;
     params.AllGatherParams = blockParams;
     params.ScaleGatherParams = scaleBlockParams;
@@ -109,8 +106,9 @@ CATLASS_DEVICE void MxQuantAllGatherImpl(Catlass::GemmCoord &problemShape, GM_AD
 }
 
 template <class ElementInput, class LayoutInput, class ElementOutput, class LayoutOutput>
-CATLASS_GLOBAL void MxQuantAllGather(uint64_t fftsAddr, GM_ADDR gmInput, GM_ADDR gmOutput, GM_ADDR gmMxScale,
-                                     GM_ADDR commArgsPtr, CocTilingParams cocTiling, uint32_t magic)
+CATLASS_GLOBAL void MxQuantAllGather(
+    uint64_t fftsAddr, GM_ADDR gmInput, GM_ADDR gmOutput, GM_ADDR gmMxScale, GM_ADDR commArgsPtr,
+    CocTilingParams cocTiling, uint32_t magic)
 {
     using ArchTag = Catlass::Arch::Ascend950;
     Catlass::Arch::Resource<ArchTag> resource;
@@ -141,4 +139,4 @@ CATLASS_GLOBAL void MxQuantAllGather(uint64_t fftsAddr, GM_ADDR gmInput, GM_ADDR
         commBlockShape, commTileShape, commArgsPtr, rank, rankSize);
 }
 
-#endif  // MX_QUANT_ALLGATHER_DEVICE_H
+#endif // MX_QUANT_ALLGATHER_DEVICE_H

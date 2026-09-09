@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,23 +24,23 @@
 #define WARN_LOG(fmt, args...) fprintf(stdout, "[WARN] " fmt "\n", ##args)
 #define ERROR_LOG(fmt, args...) fprintf(stdout, "[ERROR] " fmt "\n", ##args)
 
-#define ACL_CHECK(status)                                                                                              \
-    do {                                                                                                               \
-        aclError error = status;                                                                                       \
-        if (error != ACL_ERROR_NONE) {                                                                                 \
-            std::cerr << __FILE__ << ":" << __LINE__ << " aclError:" << error << std::endl;                            \
-        }                                                                                                              \
-    } while(0)             
-
-#define RT_CHECK(status)                                                                                               \
-    do {                                                                                                               \
-        rtError_t error = status;                                                                                      \
-        if (error != RT_ERROR_NONE) {                                                                                  \
-            std::cerr << __FILE__ << ":" << __LINE__ << " rtError:" << error << std::endl;                             \
-        }                                                                                                              \
+#define ACL_CHECK(status)                                                                   \
+    do {                                                                                    \
+        aclError error = status;                                                            \
+        if (error != ACL_ERROR_NONE) {                                                      \
+            std::cerr << __FILE__ << ":" << __LINE__ << " aclError:" << error << std::endl; \
+        }                                                                                   \
     } while (0)
 
-inline bool ReadFile(const std::string &filePath, void *buffer, size_t bufferSize)
+#define RT_CHECK(status)                                                                   \
+    do {                                                                                   \
+        rtError_t error = status;                                                          \
+        if (error != RT_ERROR_NONE) {                                                      \
+            std::cerr << __FILE__ << ":" << __LINE__ << " rtError:" << error << std::endl; \
+        }                                                                                  \
+    } while (0)
+
+inline bool ReadFile(const std::string& filePath, void* buffer, size_t bufferSize)
 {
     struct stat sBuf;
     int fileStatus = stat(filePath.data(), &sBuf);
@@ -59,7 +60,7 @@ inline bool ReadFile(const std::string &filePath, void *buffer, size_t bufferSiz
         return false;
     }
 
-    std::filebuf *buf = file.rdbuf();
+    std::filebuf* buf = file.rdbuf();
     size_t size = buf->pubseekoff(0, std::ios::end, std::ios::in);
     if (size == 0) {
         ERROR_LOG("File size is 0");
@@ -72,12 +73,12 @@ inline bool ReadFile(const std::string &filePath, void *buffer, size_t bufferSiz
         return false;
     }
     buf->pubseekpos(0, std::ios::in);
-    buf->sgetn(static_cast<char *>(buffer), size);
+    buf->sgetn(static_cast<char*>(buffer), size);
     file.close();
     return true;
 }
 
-inline bool WriteFile(const std::string &filePath, const void *buffer, size_t size, size_t offset = 0)
+inline bool WriteFile(const std::string& filePath, const void* buffer, size_t size, size_t offset = 0)
 {
     if (buffer == nullptr) {
         ERROR_LOG("Write file failed. Buffer is nullptr.");
@@ -105,7 +106,7 @@ inline bool WriteFile(const std::string &filePath, const void *buffer, size_t si
     }
 
     // write data
-    if (write(fd, static_cast<const char *>(buffer), size) != static_cast<ssize_t>(size)) {
+    if (write(fd, static_cast<const char*>(buffer), size) != static_cast<ssize_t>(size)) {
         std::cerr << "Failed to write to file: " << strerror(errno) << std::endl;
     }
 
@@ -116,4 +117,4 @@ inline bool WriteFile(const std::string &filePath, const void *buffer, size_t si
     return true;
 }
 
-#endif //UTILS_H
+#endif // UTILS_H

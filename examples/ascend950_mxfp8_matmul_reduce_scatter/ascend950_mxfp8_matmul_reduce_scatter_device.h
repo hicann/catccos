@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -38,14 +39,9 @@ using namespace Catlass;
 using namespace tla;
 
 template <
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementAScale, class LayoutAScale,
-    class ElementBScale, class LayoutBScale,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD,
-    uint32_t M0_, uint32_t N0_, uint32_t K0_
->
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
+    class ElementBScale, class LayoutBScale, class ElementC, class LayoutC, class ElementD, class LayoutD, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
 struct Ascend950MxFp8MatmulReduceScatterConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
@@ -57,13 +53,10 @@ struct Ascend950MxFp8MatmulReduceScatterConfig {
     using L0TileShape = tla::Shape<tla::Int<M0_>, tla::Int<N0_>, tla::Int<128>>;
 
     using TileCopy = Catlass::Gemm::Tile::PackedMxTileCopyTla<
-        ArchTag, ElementA, LayoutA, ElementB, LayoutB,
-        ElementAScale, LayoutAScale, ElementBScale, LayoutBScale,
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale, LayoutBScale,
         ElementC, LayoutC, void>;
     using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
-        MmadDispatchPolicy, L1TileShape, L0TileShape,
-        ElementA, ElementB, ElementC, void, TileCopy
-    >;
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementC, void, TileCopy>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -75,43 +68,33 @@ struct Ascend950MxFp8MatmulReduceScatterConfig {
     using RemoteDstType = DType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    using BlockComm = Comm::Block::CommBlock<
-        CommDispatchPolicy,
-        RemoteSrcType, RemoteDstType,
-        void,
-        TileRemoteCopy, TileScheduler
-    >;
+    using BlockComm =
+        Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
     using Kernel = DGemm::Kernel::MatmulReduceScatterMxTla<
-        BlockMmad,
-        BlockComm,
-        BlockMmadScheduler,
-        BlockCommScheduler,
-        WORKSPACE_STAGES
-    >;
+        BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 // Pre-defined tiling configurations
-template <class ElementA, class LayoutA, class ElementB, class LayoutB,
-          class ElementAScale, class LayoutAScale, class ElementBScale, class LayoutBScale,
-          class ElementC, class LayoutC, class ElementD, class LayoutD>
-using Ascend950MxFp8MatmulReduceScatterConfig_M0_128 =
-    Ascend950MxFp8MatmulReduceScatterConfig<ElementA, LayoutA, ElementB, LayoutB,
-        ElementAScale, LayoutAScale, ElementBScale, LayoutBScale,
-        ElementC, LayoutC, ElementD, LayoutD, 128, 256, 256>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
+    class ElementBScale, class LayoutBScale, class ElementC, class LayoutC, class ElementD, class LayoutD>
+using Ascend950MxFp8MatmulReduceScatterConfig_M0_128 = Ascend950MxFp8MatmulReduceScatterConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale, LayoutBScale, ElementC, LayoutC,
+    ElementD, LayoutD, 128, 256, 256>;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB,
-          class ElementAScale, class LayoutAScale, class ElementBScale, class LayoutBScale,
-          class ElementC, class LayoutC, class ElementD, class LayoutD>
-using Ascend950MxFp8MatmulReduceScatterConfig_M0_256 =
-    Ascend950MxFp8MatmulReduceScatterConfig<ElementA, LayoutA, ElementB, LayoutB,
-        ElementAScale, LayoutAScale, ElementBScale, LayoutBScale,
-        ElementC, LayoutC, ElementD, LayoutD, 256, 256, 256>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementAScale, class LayoutAScale,
+    class ElementBScale, class LayoutBScale, class ElementC, class LayoutC, class ElementD, class LayoutD>
+using Ascend950MxFp8MatmulReduceScatterConfig_M0_256 = Ascend950MxFp8MatmulReduceScatterConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementAScale, LayoutAScale, ElementBScale, LayoutBScale, ElementC, LayoutC,
+    ElementD, LayoutD, 256, 256, 256>;
 
 #endif // ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER_KERNEL_H

@@ -1,4 +1,5 @@
 
+
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
@@ -13,10 +14,8 @@ BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULA
 #ifndef ASCENDC_DISPATCH_FFN_COMBINE_TILING_BASE_H
 #define ASCENDC_DISPATCH_FFN_COMBINE_TILING_BASE_H
 
-namespace optiling
-{
-struct AiCoreParams
-{
+namespace optiling {
+struct AiCoreParams {
     uint64_t ubSize;
     uint64_t blockDim;
     uint64_t aicNum;
@@ -27,40 +26,34 @@ struct AiCoreParams
     uint64_t l0cSize;
 };
 
-class TilingBaseClass
-{
-   public:
-    bool DoTiling(int64_t m, int64_t cols, int64_t topK, int64_t expertCapacity, int64_t expertNum, int64_t activeNum,
-                  int64_t dropPadMode, int64_t expertTokensCountOrCumsumFlag, bool expertTokensBeforeCapacityFlag,
-                  int64_t inuptXDtypeSize, int64_t quantMode, int64_t scaleDim0, int64_t aivCoreNum,
-                  int64_t ubSizePlatForm)
+class TilingBaseClass {
+public:
+    bool DoTiling(
+        int64_t m, int64_t cols, int64_t topK, int64_t expertCapacity, int64_t expertNum, int64_t activeNum,
+        int64_t dropPadMode, int64_t expertTokensCountOrCumsumFlag, bool expertTokensBeforeCapacityFlag,
+        int64_t inuptXDtypeSize, int64_t quantMode, int64_t scaleDim0, int64_t aivCoreNum, int64_t ubSizePlatForm)
     {
-        bool ret = GetShapeAttrsInfo(m, cols, topK, expertCapacity, expertNum, activeNum, dropPadMode,
-                                     expertTokensCountOrCumsumFlag, expertTokensBeforeCapacityFlag, inuptXDtypeSize,
-                                     quantMode, scaleDim0);
+        bool ret = GetShapeAttrsInfo(
+            m, cols, topK, expertCapacity, expertNum, activeNum, dropPadMode, expertTokensCountOrCumsumFlag,
+            expertTokensBeforeCapacityFlag, inuptXDtypeSize, quantMode, scaleDim0);
 
-        if (!ret)
-        {
+        if (!ret) {
             return ret;
         }
         ret = GetPlatformInfo(aivCoreNum, ubSizePlatForm);
-        if (!ret)
-        {
+        if (!ret) {
             return ret;
         }
         ret = DoOpTiling();
-        if (!ret)
-        {
+        if (!ret) {
             return ret;
         }
         ret = GetWorkspaceSize();
-        if (!ret)
-        {
+        if (!ret) {
             return ret;
         }
         ret = PostTiling();
-        if (!ret)
-        {
+        if (!ret) {
             return ret;
         }
         tilingKey_ = GetTilingKey();
@@ -70,10 +63,10 @@ class TilingBaseClass
 
     // protected:
     virtual bool GetPlatformInfo(int64_t aivCoreNum, int64_t ubSizePlatForm) = 0;
-    virtual bool GetShapeAttrsInfo(int64_t m, int64_t cols, int64_t topK, int64_t expertCapacity, int64_t expertNum,
-                                   int64_t activeNum, int64_t dropPadMode, int64_t expertTokensCountOrCumsumFlag,
-                                   bool expertTokensBeforeCapacityFlag, int64_t inuptXDtypeSize, int64_t quantMode,
-                                   int64_t scaleDim0) = 0;
+    virtual bool GetShapeAttrsInfo(
+        int64_t m, int64_t cols, int64_t topK, int64_t expertCapacity, int64_t expertNum, int64_t activeNum,
+        int64_t dropPadMode, int64_t expertTokensCountOrCumsumFlag, bool expertTokensBeforeCapacityFlag,
+        int64_t inuptXDtypeSize, int64_t quantMode, int64_t scaleDim0) = 0;
 
     virtual bool DoOpTiling() = 0;
     virtual bool GetWorkspaceSize() = 0;
@@ -86,5 +79,5 @@ class TilingBaseClass
     AiCoreParams aicoreParams_{0, 0, 0, 0, 0, 0, 0};
 };
 
-}  // namespace optiling
-#endif  // ASCENDC_DISPATCH_FFN_COMBINE_TILING_BASE_H
+} // namespace optiling
+#endif // ASCENDC_DISPATCH_FFN_COMBINE_TILING_BASE_H

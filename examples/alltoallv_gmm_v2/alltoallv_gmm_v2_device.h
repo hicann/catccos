@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -40,10 +41,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct AllToAllVGMMV2Config
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct AllToAllVGMMV2Config {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     static constexpr bool enableUnitFlag = true;
@@ -55,8 +56,8 @@ struct AllToAllVGMMV2Config
     static constexpr uint32_t l0BStages = 2;
     static constexpr uint32_t l0CStages = 1;
 
-    using DispatchPolicy = Catlass::Gemm::MmadAtlasA2PreloadAsync<preloadStages, l1Stages, l0AStages, l0BStages,
-                                                                  l0CStages, enableUnitFlag, enableShuffleK>;
+    using DispatchPolicy = Catlass::Gemm::MmadAtlasA2PreloadAsync<
+        preloadStages, l1Stages, l0AStages, l0BStages, l0CStages, enableUnitFlag, enableShuffleK>;
     using L1TileShape = GemmShape<M0_, N0_, K0_>;
     using L0TileShape = GemmShape<M0_, N0_, 64>;
     using AType = Catlass::Gemm::GemmType<ElementA, LayoutA>;
@@ -76,29 +77,29 @@ struct AllToAllVGMMV2Config
     using RemoteCommDispatch = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Catccos::Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                               CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopy = Catccos::Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
-    using RemoteCommBlock = Catccos::Comm::Block::CommBlock<RemoteCommDispatch, RemoteSrcType, RemoteDstType, void,
-                                                            TileRemoteCopy, TileScheduler>;
+    using RemoteCommBlock = Catccos::Comm::Block::CommBlock<
+        RemoteCommDispatch, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
     // local copy
     using CopySrcType = AType;
     using CopyDstType = AType;
     using LocalCopyBlockShape = Catlass::MatrixShape<48, UINT_MAX / 2>;
     using LocalCopyTileShape = Catlass::MatrixShape<48, 1024>;
-    using TileLocalCopy = Catccos::Comm::Tile::TileRemoteCopy<ArchTag, false, RemoteSrcType, RemoteDstType,
-                                                              LocalCopyTileShape, CopyDirect::Get, CopyTransport::Mte>;
+    using TileLocalCopy = Catccos::Comm::Tile::TileRemoteCopy<
+        ArchTag, false, RemoteSrcType, RemoteDstType, LocalCopyTileShape, CopyDirect::Get, CopyTransport::Mte>;
     using LocalCopyDispatch = Comm::AtlasA2CommLocalCopy<UB_STAGES_VAL>;
-    using LocalCopyBlock = Catccos::Comm::Block::CommBlock<LocalCopyDispatch, CopySrcType, CopyDstType,
-                                                           LocalCopyBlockShape, TileLocalCopy, TileScheduler>;
+    using LocalCopyBlock = Catccos::Comm::Block::CommBlock<
+        LocalCopyDispatch, CopySrcType, CopyDstType, LocalCopyBlockShape, TileLocalCopy, TileScheduler>;
 
     using BlockCommScheduler = typename Catlass::Gemm::Block::BlockCommSchedulerAllToAllVGmm;
 
     // kernel level
     using ElementGroupList = int64_t;
-    using Kernel = Catccos::DGemm::Kernel::AlltoallvGMMKernel<BlockMmad, BlockScheduler, ElementGroupList,
-                                                              LocalCopyBlock, RemoteCommBlock, BlockCommScheduler>;
+    using Kernel = Catccos::DGemm::Kernel::AlltoallvGMMKernel<
+        BlockMmad, BlockScheduler, ElementGroupList, LocalCopyBlock, RemoteCommBlock, BlockCommScheduler>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };

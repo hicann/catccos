@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -20,11 +21,11 @@ namespace Catccos::Gemm {
 // Block Mmad Policies
 
 template <bool ENABLE_UNIT_FLAG_ = false>
-struct MmadAtlasA2PingpongOptionalBias : public Catlass::Gemm::MmadAtlasA2  {
+struct MmadAtlasA2PingpongOptionalBias : public Catlass::Gemm::MmadAtlasA2 {
     static constexpr uint32_t STAGES = 2;
     static constexpr bool ENABLE_UNIT_FLAG = ENABLE_UNIT_FLAG_;
 };
 
-}
+} // namespace Catccos::Gemm
 
-#endif  // CATCCOS_GEMM_DISPATCH_POLICY_HPP
+#endif // CATCCOS_GEMM_DISPATCH_POLICY_HPP

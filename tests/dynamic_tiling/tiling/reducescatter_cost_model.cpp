@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -17,44 +18,36 @@
 #include "mte_cost_model.h"
 #include "remote_copy_cost_model.h"
 
-namespace
-{
+namespace {
 
 // Each communication round has one barrier before and one after remote copy.
 constexpr uint32_t SYNC_COUNT_PER_COMM = 2;
 
 uint64_t CeilDiv(uint64_t dividend, uint64_t divisor) { return (dividend + divisor - 1) / divisor; }
 
-bool IsValidConfig(COCMatMulInfo const &info, uint32_t rankSize, CostModelConfig const &config,
-                   CostModelHardwareConfig const &hardware)
+bool IsValidConfig(
+    COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config,
+    CostModelHardwareConfig const& hardware)
 {
     if (info.m <= 0 || info.k <= 0 || info.n <= 0 || rankSize == 0 ||
-        rankSize > std::numeric_limits<uint32_t>::max() / 2)
-    {
+        rankSize > std::numeric_limits<uint32_t>::max() / 2) {
         return false;
     }
-    if (info.m % rankSize != 0)
-    {
+    if (info.m % rankSize != 0) {
         return false;
     }
     if (info.m > std::numeric_limits<uint32_t>::max() || info.k > std::numeric_limits<uint32_t>::max() ||
-        info.n > std::numeric_limits<uint32_t>::max())
-    {
+        info.n > std::numeric_limits<uint32_t>::max()) {
         return false;
     }
-    if (config.commIntervalList.empty() || config.m0List.empty())
-    {
+    if (config.commIntervalList.empty() || config.m0List.empty()) {
         return false;
     }
-    if (config.hardwareType == CostModelHardwareType::A5)
-    {
-        if (config.commTileList.empty() || config.splitCandidates.empty())
-        {
+    if (config.hardwareType == CostModelHardwareType::A5) {
+        if (config.commTileList.empty() || config.splitCandidates.empty()) {
             return false;
         }
-    }
-    else if (config.aivCoreList.empty())
-    {
+    } else if (config.aivCoreList.empty()) {
         return false;
     }
     uint64_t requestBits = static_cast<uint64_t>(hardware.remoteReadRequestBytes) * 8;
@@ -65,37 +58,36 @@ bool IsValidConfig(COCMatMulInfo const &info, uint32_t rankSize, CostModelConfig
            hardware.fullCoreHitEfficiency > 0.0;
 }
 
-double EstimateReduceScatterAivWindowTime(uint64_t blockCountInRank, uint32_t n, uint32_t m0, uint32_t n0,
-                                          uint32_t commTileM, uint32_t commBlockM, uint32_t aivCoreNum,
-                                          uint32_t rankSize, CostModelHardwareConfig const &hardware)
+double EstimateReduceScatterAivWindowTime(
+    uint64_t blockCountInRank, uint32_t n, uint32_t m0, uint32_t n0, uint32_t commTileM, uint32_t commBlockM,
+    uint32_t aivCoreNum, uint32_t rankSize, CostModelHardwareConfig const& hardware)
 {
     uint32_t tileWidth = std::min(n, n0);
-    RemoteCopyWindow window{blockCountInRank * m0,
-                            tileWidth,
-                            commBlockM,
-                            n0,
-                            std::max<uint32_t>(1, commTileM / 2),
-                            n0,
-                            std::min(hardware.coreNum, aivCoreNum),
-                            rankSize,
-                            true};
+    RemoteCopyWindow window{
+        blockCountInRank * m0,
+        tileWidth,
+        commBlockM,
+        n0,
+        std::max<uint32_t>(1, commTileM / 2),
+        n0,
+        std::min(hardware.coreNum, aivCoreNum),
+        rankSize,
+        true};
     return EstimateRemoteCopyWindowTime(window, hardware);
 }
 
-}  // namespace
+} // namespace
 
-CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t rankSize, CostModelConfig const &config)
+CostModelResult SelectReduceScatterTiling(COCMatMulInfo const& info, uint32_t rankSize, CostModelConfig const& config)
 {
     CostModelResult best;
     CostModelHardwareConfig hardware;
     auto hardwareStatus = GetCostModelHardwareConfig(config, hardware);
-    if (hardwareStatus != CostModelStatus::SUCCESS)
-    {
+    if (hardwareStatus != CostModelStatus::SUCCESS) {
         best.status = hardwareStatus;
         return best;
     }
-    if (!IsValidConfig(info, rankSize, config, hardware))
-    {
+    if (!IsValidConfig(info, rankSize, config, hardware)) {
         best.status = CostModelStatus::INVALID_ARGUMENT;
         return best;
     }
@@ -106,10 +98,8 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
     uint32_t k0 = config.k0;
     MTECostModel mteModel{hardware};
 
-    for (uint32_t m0 : config.m0List)
-    {
-        if (m0 != 128 && m0 != 256)
-        {
+    for (uint32_t m0 : config.m0List) {
+        if (m0 != 128 && m0 != 256) {
             continue;
         }
         uint32_t n0 = m0 == 128 ? 256 : 128;
@@ -126,10 +116,8 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
         double nd2nzHitTimePerCore = leftHitTime + rightHitTime;
         double cubeTimePerCore = (2.0 * m0 * k * n0) / hardware.cubeFlopsPerUs;
 
-        for (uint32_t p : config.commIntervalList)
-        {
-            if (p == 0 || (static_cast<uint64_t>(hardware.coreNum) * p) % rankSize != 0)
-            {
+        for (uint32_t p : config.commIntervalList) {
+            if (p == 0 || (static_cast<uint64_t>(hardware.coreNum) * p) % rankSize != 0) {
                 continue;
             }
 
@@ -137,35 +125,26 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
             uint64_t commCount = CeilDiv(totalRankBlocks, blocksPerComm);
 
             std::vector<CostModelTiling> candidates;
-            if (config.hardwareType == CostModelHardwareType::A5)
-            {
-                for (uint32_t commTileM : config.commTileList)
-                {
-                    if (commTileM == 0 || commTileM % WORKSPACE_STAGES != 0)
-                    {
+            if (config.hardwareType == CostModelHardwareType::A5) {
+                for (uint32_t commTileM : config.commTileList) {
+                    if (commTileM == 0 || commTileM % WORKSPACE_STAGES != 0) {
                         continue;
                     }
-                    for (auto const &split : config.splitCandidates)
-                    {
+                    for (auto const& split : config.splitCandidates) {
                         uint64_t activeAivCoreNum = static_cast<uint64_t>(split.commNpuSplit) * split.commDataSplit;
                         if (split.commNpuSplit == 0 || split.commDataSplit == 0 ||
-                            activeAivCoreNum > std::numeric_limits<uint32_t>::max())
-                        {
+                            activeAivCoreNum > std::numeric_limits<uint32_t>::max()) {
                             continue;
                         }
-                        candidates.push_back(CostModelTiling{m0, k0, n0, commTileM, p, split.commNpuSplit,
-                                                             split.commDataSplit, commTileM});
+                        candidates.push_back(CostModelTiling{
+                            m0, k0, n0, commTileM, p, split.commNpuSplit, split.commDataSplit, commTileM});
                     }
                 }
-            }
-            else
-            {
+            } else {
                 // Keep the existing A2/A3 candidate space unchanged.
                 uint32_t blockM = 2 * rankSize;
-                for (uint32_t aivCoreNum : config.aivCoreList)
-                {
-                    if (aivCoreNum != 16 && aivCoreNum != 20)
-                    {
+                for (uint32_t aivCoreNum : config.aivCoreList) {
+                    if (aivCoreNum != 16 && aivCoreNum != 20) {
                         continue;
                     }
                     candidates.push_back(
@@ -173,10 +152,8 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
                 }
             }
 
-            for (auto const &candidate : candidates)
-            {
-                if (!config.IsCandidateValid(candidate))
-                {
+            for (auto const& candidate : candidates) {
+                if (!config.IsCandidateValid(candidate)) {
                     continue;
                 }
                 uint32_t activeAivCoreNum = candidate.commNpuSplit * candidate.commDataSplit;
@@ -185,16 +162,15 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
                 std::vector<double> aivTimes;
                 aicTimes.reserve(commCount);
                 aivTimes.reserve(commCount);
-                for (uint64_t i = 0; i < commCount; ++i)
-                {
+                for (uint64_t i = 0; i < commCount; ++i) {
                     uint64_t actualBlocks = std::min(blocksPerComm, totalRankBlocks - i * blocksPerComm);
                     uint64_t aicRounds = CeilDiv(actualBlocks, hardware.coreNum);
                     aicTimes.push_back(std::max(cubeTimePerCore * aicRounds, nd2nzHitTimePerCore * aicRounds));
 
                     uint64_t blockCountInRank = CeilDiv(actualBlocks, rankSize);
-                    double aivTime =
-                        EstimateReduceScatterAivWindowTime(blockCountInRank, n, m0, n0, candidate.commTileM,
-                                                           candidate.commBlockM, activeAivCoreNum, rankSize, hardware);
+                    double aivTime = EstimateReduceScatterAivWindowTime(
+                        blockCountInRank, n, m0, n0, candidate.commTileM, candidate.commBlockM, activeAivCoreNum,
+                        rankSize, hardware);
                     aivTimes.push_back(aivTime + hardware.syncTimeUs * SYNC_COUNT_PER_COMM);
                 }
 
@@ -202,8 +178,7 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
                 double totalTime = (pipelineTime + hardware.launchTimeUs);
                 totalTime = ApplyCommBlockM64Penalty(totalTime, candidate.commBlockM);
 
-                if (!std::isfinite(totalTime) || totalTime >= best.cost)
-                {
+                if (!std::isfinite(totalTime) || totalTime >= best.cost) {
                     continue;
                 }
 
@@ -214,8 +189,7 @@ CostModelResult SelectReduceScatterTiling(COCMatMulInfo const &info, uint32_t ra
         }
     }
 
-    if (!best.IsSuccess())
-    {
+    if (!best.IsSuccess()) {
         best.status = CostModelStatus::NO_VALID_CANDIDATE;
     }
     return best;

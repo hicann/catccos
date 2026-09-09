@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -18,20 +19,16 @@
 
 namespace Catccos::Comm::Tile {
 
-template <
-    class ArchTag,
-    class GmSrcType,
-    class GMDstType
->
+template <class ArchTag, class GmSrcType, class GMDstType>
 struct CopyUb2Gm {
     static_assert(DEPENDENT_FALSE<ArchTag>, "Unsupported copy ub to gm, can not find the specialization.");
 };
 
 // new add vectorlayout version
 template <typename Element>
-struct CopyUb2Gm<Arch::AtlasA2, 
-        Gemm::GemmType<Element, Catlass::layout::RowMajor>,
-        Gemm::GemmType<Element, Catlass::layout::VectorLayout>> {
+struct CopyUb2Gm<
+    Arch::AtlasA2, Gemm::GemmType<Element, Catlass::layout::RowMajor>,
+    Gemm::GemmType<Element, Catlass::layout::VectorLayout>> {
     using LayoutSrc = Catlass::layout::RowMajor;
     using LayoutDst = Catlass::layout::VectorLayout;
 
@@ -42,22 +39,15 @@ struct CopyUb2Gm<Arch::AtlasA2,
 
     CATLASS_DEVICE
     void operator()(
-        AscendC::GlobalTensor<Element> const &dstTensor,
-        AscendC::LocalTensor<Element> const &srcTensor,
-        LayoutDst const &layoutDst,
-        LayoutSrc const &layoutSrc)
+        AscendC::GlobalTensor<Element> const& dstTensor, AscendC::LocalTensor<Element> const& srcTensor,
+        LayoutDst const& layoutDst, LayoutSrc const& layoutSrc)
     {
         AscendC::DataCopyExtParams dataCopyParams(
-            layoutDst.shape(0),
-            sizeof(Element),
-            (layoutSrc.stride(0) - layoutSrc.shape(1)) / ELE_NUM_PER_BLK,
-            0,
-            0
-        );
+            layoutDst.shape(0), sizeof(Element), (layoutSrc.stride(0) - layoutSrc.shape(1)) / ELE_NUM_PER_BLK, 0, 0);
         AscendC::DataCopyPad(dstTensor, srcTensor, dataCopyParams);
     };
 };
 
-}  // Catccos::Comm::Tile
+} // namespace Catccos::Comm::Tile
 
 #endif // CATCCOS_COMM_TILE_TILE_COPY_UB_TO_GM_HPP

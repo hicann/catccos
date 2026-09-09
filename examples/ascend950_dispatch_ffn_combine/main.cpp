@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -32,22 +33,20 @@ using LayoutB0 = Catlass::layout::ColumnMajor;
 
 static uint32_t gNpuNum = 8;
 
-std::vector<int32_t> ParseDeviceIdList(char *deviceIdList)
+std::vector<int32_t> ParseDeviceIdList(char* deviceIdList)
 {
     std::vector<int32_t> result;
-    if (deviceIdList == nullptr)
-    {
+    if (deviceIdList == nullptr) {
         return result;
     }
 
-    for (char *idToken = std::strtok(deviceIdList, ","); idToken; idToken = std::strtok(nullptr, ","))
-    {
+    for (char* idToken = std::strtok(deviceIdList, ","); idToken; idToken = std::strtok(nullptr, ",")) {
         result.push_back(std::atoi(idToken));
     }
     return result;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     int rankSize = atoi(argv[1]);
@@ -68,8 +67,7 @@ int main(int argc, char **argv)
     uint32_t hardwareBlockNum = std::min(aicCoreNum, aivCoreNum / 2);
     uint32_t aclshmemBlockNum = ACLSHMEM_MAX_AIV_PER_NPU / 2;
     uint32_t blockNum = std::min(hardwareBlockNum, aclshmemBlockNum);
-    if (blockNum == 0)
-    {
+    if (blockNum == 0) {
         std::cerr << "[ERROR] Invalid platform core counts: AIC=" << aicCoreNum << " AIV=" << aivCoreNum << std::endl;
         ACL_CHECK(aclrtResetDevice(deviceId));
         ACL_CHECK(aclFinalize());
@@ -85,8 +83,7 @@ int main(int argc, char **argv)
     set_attr(rankId, rankSize, SHMEM_MALLOC_MAX_SIZE, ipPort.c_str(), &attributes, &default_flag_uid);
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
     std::cout << "[TEST] after shmem init rankId: " << rankId << " status: " << status << std::endl;
-    if (status != ACLSHMEM_SUCCESS)
-    {
+    if (status != ACLSHMEM_SUCCESS) {
         std::cerr << "[ERROR] aclshmemx_init_attr failed rankId: " << rankId << " status: " << status << std::endl;
         ACL_CHECK(aclrtDestroyStream(stream));
         ACL_CHECK(aclrtResetDevice(deviceId));
@@ -117,8 +114,7 @@ int main(int argc, char **argv)
     uint32_t lenPerLoop = m0 * n0 / 2;
     uint32_t topK = argc > 13 ? atoi(argv[13]) : 4;
     uint32_t gmm1MTile = argc > 14 ? atoi(argv[14]) : M0;
-    if (gmm1MTile != 128 && gmm1MTile != 256)
-    {
+    if (gmm1MTile != 128 && gmm1MTile != 256) {
         std::cerr << "[ERROR] GMM1 M tile must be 128 or 256, got " << gmm1MTile << std::endl;
         shmem_finalize();
         ACL_CHECK(aclrtDestroyStream(stream));
@@ -159,26 +155,24 @@ int main(int argc, char **argv)
     uint32_t aivNum = launchAivNum;
     int64_t ubSize = 196352;
 
-    moeInitRoutingQuantV2TilingBase.DoTiling(m, k, topK, expertCapacity, cocTiling.expertNum, activeNum, dropPadMode,
-                                             expertTokensCountOrCumsumFlag, expertTokensBeforeCapacityFlag,
-                                             inuptXDtypeSize, quantMode, scaleDim0, aivNum, ubSize);
+    moeInitRoutingQuantV2TilingBase.DoTiling(
+        m, k, topK, expertCapacity, cocTiling.expertNum, activeNum, dropPadMode, expertTokensCountOrCumsumFlag,
+        expertTokensBeforeCapacityFlag, inuptXDtypeSize, quantMode, scaleDim0, aivNum, ubSize);
 
     size_t initRoutingWorkspace = moeInitRoutingQuantV2TilingBase.workspaceSize_;
 
     uint64_t initRoutingTilingKey = moeInitRoutingQuantV2TilingBase.tilingKey_;
-    if (initRoutingTilingKey == optiling::TILING_KEY_HIGH_PERFORMANCE)
-    {
+    if (initRoutingTilingKey == optiling::TILING_KEY_HIGH_PERFORMANCE) {
         initRoutingTilingKey = optiling::TILING_KEY_DROPLESS_SORT_ONE_CORE;
     }
 
-    MoeInitRoutingQuantV2Tiling moeTiling{moeInitRoutingQuantV2TilingBase.moeInitRoutingTilingData,
-                                          initRoutingTilingKey};
+    MoeInitRoutingQuantV2Tiling moeTiling{
+        moeInitRoutingQuantV2TilingBase.moeInitRoutingTilingData, initRoutingTilingKey};
 
     printf("tiling key: %lu\n", initRoutingTilingKey);
 
     auto op = OperatorRegistry::Instance().CreateOperator("Ascend950DispatchFFNCombine");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator Ascend950DispatchFFNCombine not found!" << std::endl;
         return -1;
     }
@@ -186,8 +180,8 @@ int main(int argc, char **argv)
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, "./output");
 
-    void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
-    uint8_t *symmetricPtr = (uint8_t *)symmPtr;
+    void* symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+    uint8_t* symmetricPtr = (uint8_t*)symmPtr;
 
     size_t workSpaceSize = op->GetWorkspaceSize(cocTiling);
     size_t expandedRowIdxSize = (cocTiling.m + 255) / 256 * 256 * cocTiling.topK * sizeof(int32_t);
@@ -195,24 +189,23 @@ int main(int argc, char **argv)
     size_t expandedM = static_cast<size_t>(cocTiling.m) * cocTiling.topK;
     size_t symmetricElementBytes = std::max(sizeof(ElementA), sizeof(ElementC));
     size_t symmetricABytes = alignBytes(expandedM * cocTiling.k * symmetricElementBytes);
-    uint8_t *tokensPerExpertDevice = symmetricPtr + symmetricABytes;
+    uint8_t* tokensPerExpertDevice = symmetricPtr + symmetricABytes;
     size_t tokensPerExpertBytes =
         alignBytes(static_cast<size_t>(cocTiling.epSize) * cocTiling.epSize * expertPerRank * sizeof(int32_t));
 
-    uint8_t *workspaceDevice{nullptr};
-    if (workSpaceSize > 0)
-    {
-        ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    uint8_t* workspaceDevice{nullptr};
+    if (workSpaceSize > 0) {
+        ACL_CHECK(aclrtMalloc((void**)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     }
 
-    uint8_t *aPtr = kernelParams.ptrA;
-    uint8_t *bPtr = kernelParams.ptrB;
-    uint8_t *cPtr = kernelParams.ptrC;
-    uint8_t *b2Ptr = kernelParams.customPtrs[0];
-    uint8_t *expertIdxPtr = kernelParams.customPtrs[1];
-    uint8_t *probsPtr = kernelParams.customPtrs[2];
-    uint8_t *bScalePtr = kernelParams.customPtrs[3];
-    uint8_t *b2ScalePtr = kernelParams.customPtrs[4];
+    uint8_t* aPtr = kernelParams.ptrA;
+    uint8_t* bPtr = kernelParams.ptrB;
+    uint8_t* cPtr = kernelParams.ptrC;
+    uint8_t* b2Ptr = kernelParams.customPtrs[0];
+    uint8_t* expertIdxPtr = kernelParams.customPtrs[1];
+    uint8_t* probsPtr = kernelParams.customPtrs[2];
+    uint8_t* bScalePtr = kernelParams.customPtrs[3];
+    uint8_t* b2ScalePtr = kernelParams.customPtrs[4];
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     ACL_CHECK(aclrtMemset(tokensPerExpertDevice, tokensPerExpertBytes, 0, tokensPerExpertBytes));
@@ -220,33 +213,33 @@ int main(int argc, char **argv)
     aclshmemx_barrier_all_on_stream(stream);
 
     std::cout << "[TEST] before DispatchFFNCombine kernel rankId: " << rankId << std::endl;
-    DispatchFFNCombine<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC>
-        <<<blockNum, nullptr, stream>>>(fftsAddr, aPtr, bPtr, bScalePtr, b2Ptr, b2ScalePtr, cPtr, expertIdxPtr,
-                                        probsPtr, workspaceDevice, symmetricPtr, cocTiling, moeTiling);
+    DispatchFFNCombine<ElementA, LayoutA0, ElementB, LayoutB0, ElementC, LayoutC><<<blockNum, nullptr, stream>>>(
+        fftsAddr, aPtr, bPtr, bScalePtr, b2Ptr, b2ScalePtr, cPtr, expertIdxPtr, probsPtr, workspaceDevice, symmetricPtr,
+        cocTiling, moeTiling);
     ACL_CHECK(aclrtSynchronizeStream(stream));
     std::cout << "[TEST] after DispatchFFNCombine kernel rankId: " << rankId << std::endl;
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, "./output");
 
-    uint8_t *tokensPerExpertHost;
+    uint8_t* tokensPerExpertHost;
     int32_t size = cocTiling.epSize * cocTiling.epSize * expertPerRank;
-    ACL_CHECK(aclrtMallocHost((void **)(&tokensPerExpertHost), size * sizeof(int32_t)));
-    ACL_CHECK(aclrtMemcpy(tokensPerExpertHost, size * sizeof(int32_t), tokensPerExpertDevice, size * sizeof(int32_t),
-                          ACL_MEMCPY_DEVICE_TO_HOST));
+    ACL_CHECK(aclrtMallocHost((void**)(&tokensPerExpertHost), size * sizeof(int32_t)));
+    ACL_CHECK(aclrtMemcpy(
+        tokensPerExpertHost, size * sizeof(int32_t), tokensPerExpertDevice, size * sizeof(int32_t),
+        ACL_MEMCPY_DEVICE_TO_HOST));
 
-    uint8_t *expandedRowIdxDevice = workspaceDevice;
-    uint8_t *expandedRowIdxHost;
-    ACL_CHECK(aclrtMallocHost((void **)(&expandedRowIdxHost), expandedRowIdxSize));
-    ACL_CHECK(aclrtMemcpy(expandedRowIdxHost, expandedRowIdxSize, expandedRowIdxDevice, expandedRowIdxSize,
-                          ACL_MEMCPY_DEVICE_TO_HOST));
+    uint8_t* expandedRowIdxDevice = workspaceDevice;
+    uint8_t* expandedRowIdxHost;
+    ACL_CHECK(aclrtMallocHost((void**)(&expandedRowIdxHost), expandedRowIdxSize));
+    ACL_CHECK(aclrtMemcpy(
+        expandedRowIdxHost, expandedRowIdxSize, expandedRowIdxDevice, expandedRowIdxSize, ACL_MEMCPY_DEVICE_TO_HOST));
     ACL_CHECK(aclrtFreeHost(tokensPerExpertHost));
     ACL_CHECK(aclrtFreeHost(expandedRowIdxHost));
 
     shmem_free(symmPtr);
 
     FreeDeviceSpace(kernelParams);
-    if (workSpaceSize > 0)
-    {
+    if (workSpaceSize > 0) {
         ACL_CHECK(aclrtFree(workspaceDevice));
     }
 

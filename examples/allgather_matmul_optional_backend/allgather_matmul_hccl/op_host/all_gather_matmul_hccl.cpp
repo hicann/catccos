@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -13,9 +14,8 @@
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 
-namespace optiling
-{
-static ge::graphStatus TilingFunc(gert::TilingContext *context)
+namespace optiling {
+static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     auto tiling = context->GetTilingData<AllGatherMatmulHcclTiling>();
     context->SetBlockDim(platform_ascendc::PlatformAscendC(context->GetPlatformInfo()).GetCoreNumAic());
@@ -28,7 +28,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     mc2CcTilingConfig.GetTiling(tiling->mc2InitTiling);
     mc2CcTilingConfig.GetTiling(tiling->mc2CcTiling);
 
-    auto &params = tiling->params;
+    auto& params = tiling->params;
     params.m = context->GetInputShape(0)->GetOriginShape().GetDim(0);
     params.n = context->GetInputShape(1)->GetOriginShape().GetDim(1);
     params.k = context->GetInputShape(0)->GetOriginShape().GetDim(1);
@@ -44,19 +44,18 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     params.rankSize = *attrs->GetInt(1);
     params.segmentSize = HCCL_WINDOW_SIZE;
 
-    size_t *workSpaces = context->GetWorkspaceSizes(1);
+    size_t* workSpaces = context->GetWorkspaceSizes(1);
     workSpaces[0] = HCCL_WINDOW_SIZE;
 
     return ge::GRAPH_SUCCESS;
 }
-}  // namespace optiling
+} // namespace optiling
 
-namespace ge
+namespace ge {
+static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-static ge::graphStatus InferShape(gert::InferShapeContext *context)
-{
-    const auto &aShape = context->GetInputShape(0);
-    const auto &bShape = context->GetInputShape(1);
+    const auto& aShape = context->GetInputShape(0);
+    const auto& bShape = context->GetInputShape(1);
     auto cShape = context->GetOutputShape(0);
 
     auto m = aShape->GetDim(0);
@@ -67,20 +66,18 @@ static ge::graphStatus InferShape(gert::InferShapeContext *context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataType(gert::InferDataTypeContext *context)
+static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)
 {
     const auto inputDataType = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputDataType);
     return ge::GRAPH_SUCCESS;
 }
-}  // namespace ge
+} // namespace ge
 
-namespace ops
-{
-class AllGatherMatmulHccl : public OpDef
-{
-   public:
-    explicit AllGatherMatmulHccl(const char *name) : OpDef(name)
+namespace ops {
+class AllGatherMatmulHccl : public OpDef {
+public:
+    explicit AllGatherMatmulHccl(const char* name) : OpDef(name)
     {
         this->Input("a").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
         this->Input("b").ParamType(REQUIRED).DataType({ge::DT_FLOAT16}).Format({ge::FORMAT_ND});
@@ -98,4 +95,4 @@ class AllGatherMatmulHccl : public OpDef
 };
 
 OP_ADD(AllGatherMatmulHccl);
-}  // namespace ops
+} // namespace ops

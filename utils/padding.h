@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -12,9 +13,8 @@
 
 #include "utils.h"
 
-
 template <class T>
-constexpr T Roundup(const T &val, const T align)
+constexpr T Roundup(const T& val, const T align)
 {
     return (val + align - 1) / align * align;
 }
@@ -38,8 +38,7 @@ inline bool IsNeedPadding(uint32_t rows, uint32_t cols, uint32_t trans, uint32_t
 
 inline size_t GetWorkspaceLen(uint32_t shape0, uint32_t shape1, size_t blockRows, size_t blockCols)
 {
-    return Roundup(static_cast<size_t>(shape0), blockRows) *
-           Roundup(static_cast<size_t>(shape1), blockCols);
+    return Roundup(static_cast<size_t>(shape0), blockRows) * Roundup(static_cast<size_t>(shape1), blockCols);
 }
 
 #endif // PADDING_H

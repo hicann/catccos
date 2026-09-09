@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,8 +24,8 @@
 
 namespace Catccos::Comm::Kernel {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 /**
  * @brief <h1>quantAllgather算子简介</h1>
@@ -32,23 +33,22 @@ using Catlass::GemmCoord;
  *        <h3>分核策略</h3>
  *        每个AICore中的第一个aiv负责allgather通信搬运，每个AICore中的第二个aiv负责本地的量化操作。
  *        对于负责量化的核而言，按照输入划分成rankSize份，每个核负责其中一份数据的量化以及搬运到共享内存。
- *        对于负责通信的核而言，类似于量化核，每个通信核负责1/rankSize大小的数据的通信行为，需要遍历所有其他卡，将数据跨卡搬运到本地。<br>
+ *
+ 对于负责通信的核而言，类似于量化核，每个通信核负责1/rankSize大小的数据的通信行为，需要遍历所有其他卡，将数据跨卡搬运到本地。<br>
  *        <h3>共享内存上的划分</h3>
- *        共享内存上，首先会划分成两大块，分别表示ping和pong的行为。ping buffer/pong buffer又会继续划分IPC_DATA_OFFSET用于标志位区域，
+ *        共享内存上，首先会划分成两大块，分别表示ping和pong的行为。ping buffer/pong
+ buffer又会继续划分IPC_DATA_OFFSET用于标志位区域，
  *        其他用于数据区域。对于标志位区域，按照核数进行划分，每个核分配SYNC_UNIT_SIZE空间记录标志位。
  *        前面的部分用于每个量化核记录自己负责的数据完成；后面的部分用于通信核记录自己负责的数据完成。<br>
  *        <h3>算法步骤</h3>
- *        量化核和通信核同时并发工作，量化核做完自己负责的那片数据，会将对应的本卡标志位的值置为当前分片的编号；通信核在操作前，首先会查看需要的数据是否已经
+ *
+ 量化核和通信核同时并发工作，量化核做完自己负责的那片数据，会将对应的本卡标志位的值置为当前分片的编号；通信核在操作前，首先会查看需要的数据是否已经
           准备完成，即查看相应的标志位，做完自己负责的那片数据，等待所有源卡的数据通信完成后，会将对应的本卡标志位置为当前分片编号。值得注意的是，由于每个
           通信核会轮询所有源卡，会将每个核的链路错开，保证同一时刻不同核访问的是不同链路。<br>
  */
 template <
-    class BlockQuant_,
-    class BlockAllGather_,
-    class BlockQuantScheduler_,
-    class BlockAllGatherScheduler_,
-    uint32_t WORKSPACE_STAGES_
->
+    class BlockQuant_, class BlockAllGather_, class BlockQuantScheduler_, class BlockAllGatherScheduler_,
+    uint32_t WORKSPACE_STAGES_>
 class QuantAllGather {
 public:
     using BlockQuant = BlockQuant_;
@@ -81,15 +81,15 @@ public:
         uint32_t magic;
         uint32_t commInterval;
 
-        __gm__ ElementInput *ptrInput;
+        __gm__ ElementInput* ptrInput;
         LayoutInput layoutInput;
-        __gm__ ElementScale *ptrScales;
-        __gm__ ElementOutput *ptrOutput;
+        __gm__ ElementScale* ptrScales;
+        __gm__ ElementOutput* ptrOutput;
         LayoutOutput layoutOutput;
 
         GM_ADDR ptrSymmetric;
-        __gm__ ElementOutput *buff[MAX_PEER_RANKS];
-        __gm__ ElementOutput *anotherBuff[MAX_PEER_RANKS];
+        __gm__ ElementOutput* buff[MAX_PEER_RANKS];
+        __gm__ ElementOutput* anotherBuff[MAX_PEER_RANKS];
 
         typename BlockAllGather::Params AllGatherParams;
         QuantCommParams quantParams;
@@ -100,31 +100,25 @@ public:
 
         CATLASS_DEVICE
         Params(
-            GemmCoord const &problemShape_,
-            uint32_t rankIdx_,
-            uint32_t rankSize_,
-            uint32_t magic_,
-            uint32_t commInterval_,
-            GM_ADDR ptrInput_, LayoutInput const &layoutInput_,
-            GM_ADDR ptrScales_,
-            GM_ADDR ptrOutput_, LayoutOutput const &layoutOutput_,
-            GM_ADDR ptrSymmetric_,
-            __gm__ ElementOutput **buff_,
-            __gm__ ElementOutput **anotherBuff_,
-            typename BlockAllGather::Params const &AllGatherParams_,
-            QuantCommParams const &quantParams_,
-            AllGatherCommParams const &commParams_
-        ) : problemShape(problemShape_),
-            rankIdx(rankIdx_), rankSize(rankSize_),
-            magic(magic_),
-            commInterval(commInterval_),
-            ptrInput(reinterpret_cast<__gm__ ElementInput *>(ptrInput_)), layoutInput(layoutInput_),
-            ptrScales(reinterpret_cast<__gm__ ElementScale *>(ptrScales_)),
-            ptrOutput(reinterpret_cast<__gm__ ElementOutput *>(ptrOutput_)), layoutOutput(layoutOutput_),
-            ptrSymmetric(ptrSymmetric_),
-            AllGatherParams(AllGatherParams_),
-            quantParams(quantParams_),
-            commParams(commParams_)
+            GemmCoord const& problemShape_, uint32_t rankIdx_, uint32_t rankSize_, uint32_t magic_,
+            uint32_t commInterval_, GM_ADDR ptrInput_, LayoutInput const& layoutInput_, GM_ADDR ptrScales_,
+            GM_ADDR ptrOutput_, LayoutOutput const& layoutOutput_, GM_ADDR ptrSymmetric_, __gm__ ElementOutput** buff_,
+            __gm__ ElementOutput** anotherBuff_, typename BlockAllGather::Params const& AllGatherParams_,
+            QuantCommParams const& quantParams_, AllGatherCommParams const& commParams_)
+            : problemShape(problemShape_),
+              rankIdx(rankIdx_),
+              rankSize(rankSize_),
+              magic(magic_),
+              commInterval(commInterval_),
+              ptrInput(reinterpret_cast<__gm__ ElementInput*>(ptrInput_)),
+              layoutInput(layoutInput_),
+              ptrScales(reinterpret_cast<__gm__ ElementScale*>(ptrScales_)),
+              ptrOutput(reinterpret_cast<__gm__ ElementOutput*>(ptrOutput_)),
+              layoutOutput(layoutOutput_),
+              ptrSymmetric(ptrSymmetric_),
+              AllGatherParams(AllGatherParams_),
+              quantParams(quantParams_),
+              commParams(commParams_)
         {
             for (uint32_t i = 0; i < MAX_PEER_RANKS; ++i) {
                 buff[i] = nullptr;
@@ -138,23 +132,17 @@ public:
     };
 
     CATLASS_DEVICE
-    QuantAllGather()
-    {
-    }
+    QuantAllGather() {}
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE
-    void operator()(Params &params);
+    CATLASS_DEVICE void operator()(Params& params);
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIC>(Params &params)
-    {
-    }
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params& params)
+    {}
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIV>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params& params)
     {
         constexpr uint32_t FLAG_MAGIC_STRIDE = 1U << 20;
         uint32_t flagBase = params.magic * FLAG_MAGIC_STRIDE;
@@ -171,8 +159,8 @@ public:
         uint32_t coreNumPerStep = CeilDiv(inputNum, MIN_ELMENTS_PER_CORE);
         coreNumPerStep = coreNumPerStep == 0 ? 1 : Min(coreNumPerStep, params.rankSize);
         if (aicoreIdx >= coreNumPerStep) {
-            return ;
-        }    
+            return;
+        }
         uint32_t elementNumPerCore = CeilDiv(inputNum, coreNumPerStep); // 每个核处理的数据量
         uint32_t processNum = elementNumPerCore;
         if (aicoreIdx == (coreNumPerStep - 1)) { // 如果是最后一个核 需要处理尾块
@@ -188,11 +176,9 @@ public:
         AscendC::GlobalTensor<ElementScale> gmScales;
         gmScales.SetGlobalBuffer(params.ptrScales);
         auto layoutSymmetric = Catlass::layout::RowMajor(
-            WORKSPACE_STAGES * params.rankSize * commSizeM,
-            params.problemShape.n(),
-            RoundUp<int64_t>(params.problemShape.n(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementOutput))
-        );
-        auto ptrSymmetric = reinterpret_cast<__gm__ ElementOutput *>(params.ptrSymmetric);
+            WORKSPACE_STAGES * params.rankSize * commSizeM, params.problemShape.n(),
+            RoundUp<int64_t>(params.problemShape.n(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementOutput)));
+        auto ptrSymmetric = reinterpret_cast<__gm__ ElementOutput*>(params.ptrSymmetric);
         // Each block iterates over one communication slice. Subcore 1 produces quantized tiles into the
         // local symmetric workspace, and subcore 0 waits for the corresponding remote-ready flag before
         // pulling that slice from every rank into the final output buffer.
@@ -207,20 +193,20 @@ public:
                 // Reuse a workspace stage only after every rank has observed the previous allgather finish.
                 if (blockIdx >= WORKSPACE_STAGES) {
                     for (int rankId = 0; rankId < params.rankSize; rankId++) {
-                        GM_ADDR quantWaitFlagAddr = (GM_ADDR)params.buff[rankId] + IPC_BUFF_HALF_SIZE + (Catccos::Arch::FLAG_ONE_IDX * coreNumPerStep +
-                                aicoreIdx) * SYNC_UNIT_SIZE;
-                        aclshmem_signal_wait_until(reinterpret_cast<__gm__ int32_t *>(quantWaitFlagAddr), ACLSHMEM_CMP_GE,
+                        GM_ADDR quantWaitFlagAddr =
+                            (GM_ADDR)params.buff[rankId] + IPC_BUFF_HALF_SIZE +
+                            (Catccos::Arch::FLAG_ONE_IDX * coreNumPerStep + aicoreIdx) * SYNC_UNIT_SIZE;
+                        aclshmem_signal_wait_until(
+                            reinterpret_cast<__gm__ int32_t*>(quantWaitFlagAddr), ACLSHMEM_CMP_GE,
                             flagBase + blockIdx + 1 - WORKSPACE_STAGES);
                     }
                 }
                 uint32_t blockOffset = (stageId * coreNumPerStep + aicoreIdx) * commSizeM;
                 auto srcOffset = curCoreOffset + quantSrcOffset;
                 typename BlockQuant::Params quantParamsForBlock{
-                        params.ptrInput,
-                        params.layoutInput,
-                        reinterpret_cast<__gm__ ElementOutput *>(params.buff[params.rankIdx]) + blockOffset,
-                        layoutSymmetric
-                };
+                    params.ptrInput, params.layoutInput,
+                    reinterpret_cast<__gm__ ElementOutput*>(params.buff[params.rankIdx]) + blockOffset,
+                    layoutSymmetric};
                 quant.UpdateParams(quantParamsForBlock);
                 auto gmBlockInput = gmInput[srcOffset];
                 ElementScale scaleVal = gmScales.GetValue(0);
@@ -228,16 +214,19 @@ public:
                 AscendC::PipeBarrier<PIPE_ALL>();
                 aclshmem_fence();
                 // Publish that this rank's quantized slice for the current stage is ready in symmetric memory.
-                auto quantFlagAddr = reinterpret_cast<__gm__ int32_t *>(params.ptrSymmetric + IPC_BUFF_HALF_SIZE +
+                auto quantFlagAddr = reinterpret_cast<__gm__ int32_t*>(
+                    params.ptrSymmetric + IPC_BUFF_HALF_SIZE +
                     (Catccos::Arch::FLAG_ZERO_IDX * coreNumPerStep + aicoreIdx) * SYNC_UNIT_SIZE);
                 aclshmemx_signal_op(quantFlagAddr, curFlagValue, ACLSHMEM_SIGNAL_SET, params.rankIdx);
-            } else {  // AllGather
+            } else { // AllGather
                 for (int rankId = 0; rankId < params.rankSize; rankId++) {
                     uint32_t remoteRankIdx = (aicoreIdx + rankId) % params.rankSize;
-                    GM_ADDR commWaitFlagAddr = (GM_ADDR)params.buff[remoteRankIdx] + IPC_BUFF_HALF_SIZE + (Catccos::Arch::FLAG_ZERO_IDX * coreNumPerStep +
-                        aicoreIdx) * SYNC_UNIT_SIZE;
+                    GM_ADDR commWaitFlagAddr =
+                        (GM_ADDR)params.buff[remoteRankIdx] + IPC_BUFF_HALF_SIZE +
+                        (Catccos::Arch::FLAG_ZERO_IDX * coreNumPerStep + aicoreIdx) * SYNC_UNIT_SIZE;
                     // Wait until the remote rank has produced the quantized slice for this stage.
-                    aclshmem_signal_wait_until(reinterpret_cast<__gm__ int32_t *>(commWaitFlagAddr), ACLSHMEM_CMP_GE, curFlagValue);
+                    aclshmem_signal_wait_until(
+                        reinterpret_cast<__gm__ int32_t*>(commWaitFlagAddr), ACLSHMEM_CMP_GE, curFlagValue);
                     allGather.InitBlockLoop();
                     uint32_t commSrcOffset = (stageId * coreNumPerStep + aicoreIdx) * commSizeM;
                     uint32_t blockSrcOffsetInRank = 0;
@@ -258,15 +247,18 @@ public:
                 }
                 aclshmem_fence();
                 // Publish that this stage has been consumed so the producer can recycle the workspace slot.
-                auto commFlagAddr = reinterpret_cast<__gm__ int32_t *>(params.ptrSymmetric + IPC_BUFF_HALF_SIZE +
+                auto commFlagAddr = reinterpret_cast<__gm__ int32_t*>(
+                    params.ptrSymmetric + IPC_BUFF_HALF_SIZE +
                     (Catccos::Arch::FLAG_ONE_IDX * coreNumPerStep + aicoreIdx) * SYNC_UNIT_SIZE);
                 aclshmemx_signal_op(commFlagAddr, curFlagValue, ACLSHMEM_SIGNAL_SET, params.rankIdx);
             }
         }
         if (subcoreIdx == 0 && aicoreIdx == params.rankIdx) {
             for (uint32_t flag_idx = 0; flag_idx < (2 * coreNumPerStep); flag_idx++) {
-                GM_ADDR syncAddr = (GM_ADDR)params.anotherBuff[params.rankIdx] + IPC_BUFF_HALF_SIZE + flag_idx * SYNC_UNIT_SIZE;
-                aclshmemx_signal_op(reinterpret_cast<__gm__ int32_t *>(syncAddr), 0, ACLSHMEM_SIGNAL_SET, params.rankIdx);
+                GM_ADDR syncAddr =
+                    (GM_ADDR)params.anotherBuff[params.rankIdx] + IPC_BUFF_HALF_SIZE + flag_idx * SYNC_UNIT_SIZE;
+                aclshmemx_signal_op(
+                    reinterpret_cast<__gm__ int32_t*>(syncAddr), 0, ACLSHMEM_SIGNAL_SET, params.rankIdx);
             }
         }
         aclshmemx_barrier_all_vec();

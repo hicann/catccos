@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -23,28 +24,15 @@
 
 namespace Catccos::Comm::Block {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 template <
-    uint32_t UB_STAGES_,
-    bool IsDynamic_,
-    class SrcType_,
-    class DstType_,
-    class BlockShape_,
-    class TileRemoteCopy_,
-    class TileSwizzle_,
-    class GemmRemapper_
->
-class CommBlock <
-    AtlasA2CommToShareMem<UB_STAGES_, IsDynamic_>,
-    SrcType_,
-    DstType_,
-    BlockShape_,
-    TileRemoteCopy_,
-    TileSwizzle_,
-    GemmRemapper_
-> {
+    uint32_t UB_STAGES_, bool IsDynamic_, class SrcType_, class DstType_, class BlockShape_, class TileRemoteCopy_,
+    class TileSwizzle_, class GemmRemapper_>
+class CommBlock<
+    AtlasA2CommToShareMem<UB_STAGES_, IsDynamic_>, SrcType_, DstType_, BlockShape_, TileRemoteCopy_, TileSwizzle_,
+    GemmRemapper_> {
 public:
     // Type aliases
     using DispatchPolicy = AtlasA2CommToShareMem<UB_STAGES_, IsDynamic_>;
@@ -79,7 +67,7 @@ public:
 
     template <>
     struct ParamsBase<true> {
-        __gm__ ElementDst *shmemPtr{nullptr};
+        __gm__ ElementDst* shmemPtr{nullptr};
         LayoutDst shmemLayout;
         GemmRemapper gemmRemapper;
         MatrixCoord blockShape;
@@ -89,10 +77,15 @@ public:
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(__gm__ ElementDst *shmemPtr_, LayoutDst const &shmemLayout_, GemmRemapper const &gemmRemapper_,
-            MatrixCoord blockShape_, const TileParams &tileParams_) 
-            : shmemPtr(shmemPtr_), shmemLayout(shmemLayout_), gemmRemapper(gemmRemapper_),
-              blockShape(blockShape_), tileParams(tileParams_) {}
+        ParamsBase(
+            __gm__ ElementDst* shmemPtr_, LayoutDst const& shmemLayout_, GemmRemapper const& gemmRemapper_,
+            MatrixCoord blockShape_, const TileParams& tileParams_)
+            : shmemPtr(shmemPtr_),
+              shmemLayout(shmemLayout_),
+              gemmRemapper(gemmRemapper_),
+              blockShape(blockShape_),
+              tileParams(tileParams_)
+        {}
 
         CATLASS_DEVICE
         MatrixCoord BlockShape() const { return blockShape; }
@@ -103,7 +96,7 @@ public:
     using Params = ParamsBase<IsDynamic>;
 
     CATLASS_DEVICE
-    CommBlock(Catlass::Arch::Resource<ArchTag> &resource, Params const &params) : params(params)
+    CommBlock(Catlass::Arch::Resource<ArchTag>& resource, Params const& params) : params(params)
     {
         size_t ubOffset = 0;
 
@@ -133,24 +126,18 @@ public:
     }
 
     CATLASS_DEVICE
-    ~CommBlock()
-    {
-    }
+    ~CommBlock() {}
 
     CATLASS_DEVICE
-    void operator() (
-        MatrixCoord const &gemmBlockShape,
-        MatrixCoord const &outputBlockOffset,
-        MatrixCoord const &inputBlockOffset,
-        MatrixCoord const &commBlockShape,
-        AscendC::GlobalTensor<ElementSrc> const& gmC,
-        LayoutSrc const &layoutC,
-        uint32_t const &globalLoopIdx,
-        uint32_t const &rankIdx)
+    void operator()(
+        MatrixCoord const& gemmBlockShape, MatrixCoord const& outputBlockOffset, MatrixCoord const& inputBlockOffset,
+        MatrixCoord const& commBlockShape, AscendC::GlobalTensor<ElementSrc> const& gmC, LayoutSrc const& layoutC,
+        uint32_t const& globalLoopIdx, uint32_t const& rankIdx)
     {
         // Remap the idx & actual shape of the gemm block
         GemmCoord remapOutputBlockCoordMNK = params.gemmRemapper.GetBlockCoord(globalLoopIdx);
-        MatrixCoord actualGemmBlockShape = params.gemmRemapper.GetActualBlockShape(remapOutputBlockCoordMNK).GetCoordMN();
+        MatrixCoord actualGemmBlockShape =
+            params.gemmRemapper.GetActualBlockShape(remapOutputBlockCoordMNK).GetCoordMN();
 
         // Calculate the actual output offset of the communication block
         MatrixCoord blockInnerOffset = outputBlockOffset % gemmBlockShape;
@@ -162,7 +149,7 @@ public:
         } else {
             return;
         }
-        
+
         auto tileShape = params.TileShape();
         TileSwizzle tileSwizzle{actualCommBlockShape, tileShape};
         uint32_t tileLoops = tileSwizzle.GetLoops();
@@ -170,13 +157,13 @@ public:
             auto tileCoord = tileSwizzle.GetTileCoord(innerLoopIdx);
             auto actualTileShape = tileSwizzle.GetActualTileShape(tileCoord);
             auto tileOffsetInBlock = tileCoord * tileShape;
-            
+
             auto inTileOffset = inputBlockOffset + tileOffsetInBlock;
             auto outTileOffset = outputBlockOffset + tileOffsetInBlock;
 
             // Get the data and layout of output
             AscendC::GlobalTensor<ElementDst> gmS;
-            gmS.SetGlobalBuffer(reinterpret_cast<__gm__ ElementDst *>(params.shmemPtr));
+            gmS.SetGlobalBuffer(reinterpret_cast<__gm__ ElementDst*>(params.shmemPtr));
             auto gmSubblockS = gmS[params.shmemLayout.GetOffset(outTileOffset)];
             auto layoutSubblockS = params.shmemLayout.GetTileLayout(actualTileShape);
 
@@ -186,13 +173,8 @@ public:
 
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
             tileRemoteCopy(
-                gmSubblockS, layoutSubblockS,
-                gmSubblockC, layoutSubblockC,
-                actualTileShape,
-                ubSList[ubListId],
-                copyEventIdList[ubListId],
-                rankIdx
-            );
+                gmSubblockS, layoutSubblockS, gmSubblockC, layoutSubblockC, actualTileShape, ubSList[ubListId],
+                copyEventIdList[ubListId], rankIdx);
             AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
             ubListId = (ubListId + 1 < UB_STAGES) ? (ubListId + 1) : 0;
         }
@@ -206,6 +188,6 @@ private:
     TileRemoteCopy tileRemoteCopy;
 };
 
-} // namespace Catccos::Comm::Block 
+} // namespace Catccos::Comm::Block
 
 #endif // CATCCOS_COMM_BLOCK_TO_SHARE_MEM_HPP

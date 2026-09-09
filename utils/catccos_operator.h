@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -32,12 +33,12 @@ class CatccosOperator {
 public:
     virtual ~CatccosOperator() = default;
     virtual bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) = 0;
-    virtual void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile = "") = 0;
-    virtual void WriteResultFile(const KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile = "") = 0;
-    virtual size_t GetWorkspaceSize(const CocTilingParams &cocTiling) = 0;
-    virtual CocCommType GetActualKernelType(const CocTilingParams &cocTiling) = 0;
+    virtual void AllocateDeviceSpace(
+        KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile = "") = 0;
+    virtual void WriteResultFile(
+        const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile = "") = 0;
+    virtual size_t GetWorkspaceSize(const CocTilingParams& cocTiling) = 0;
+    virtual CocCommType GetActualKernelType(const CocTilingParams& cocTiling) = 0;
 };
 
 // 算子创建函数类型

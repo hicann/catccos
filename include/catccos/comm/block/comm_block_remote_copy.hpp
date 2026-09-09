@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -24,20 +25,20 @@
 // from shmem
 #include "shmem.h"
 
-namespace Catccos::Comm::Block
-{
+namespace Catccos::Comm::Block {
 
 using Catlass::GemmCoord;
 using Catlass::MatrixCoord;
 
 // 多维数据的远端通信实现
 // for matmul fusion kernel
-template <class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_, class SrcType_, class DstType_, class BlockShape_,
-          class TileRemoteCopy_, class TileSwizzle_>
-class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_, DstType_, BlockShape_, TileRemoteCopy_,
-                TileSwizzle_>
-{
-   public:
+template <
+    class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_, class SrcType_, class DstType_, class BlockShape_,
+    class TileRemoteCopy_, class TileSwizzle_>
+class CommBlock<
+    AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_, DstType_, BlockShape_, TileRemoteCopy_,
+    TileSwizzle_> {
+public:
     // Type aliases
     using DispatchPolicy = AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
@@ -55,13 +56,10 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     static constexpr detail::CopyDirect RemoteCopyDirect = TileRemoteCopy::RemoteCopyDirect;
 
     template <bool IsDynamicParams_>
-    struct ParamsBase
-    {
-    };
+    struct ParamsBase {};
 
     template <>
-    struct ParamsBase<false>
-    {
+    struct ParamsBase<false> {
         CATLASS_HOST_DEVICE
         ParamsBase() {}
 
@@ -72,8 +70,7 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     };
 
     template <>
-    struct ParamsBase<true>
-    {
+    struct ParamsBase<true> {
         MatrixCoord blockShape;
         TileParams tileParams;
 
@@ -81,10 +78,9 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
         ParamsBase() {}
 
         CATLASS_HOST_DEVICE
-        ParamsBase(MatrixCoord blockShape_, const TileParams &tileParams_)
+        ParamsBase(MatrixCoord blockShape_, const TileParams& tileParams_)
             : blockShape(blockShape_), tileParams(tileParams_)
-        {
-        }
+        {}
 
         CATLASS_DEVICE
         MatrixCoord BlockShape() const { return blockShape; }
@@ -95,11 +91,10 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     using Params = ParamsBase<IsDynamic>;
 
     CATLASS_DEVICE
-    CommBlock(Catlass::Arch::Resource<ArchTag> &resource, Params const &params) : params(params)
+    CommBlock(Catlass::Arch::Resource<ArchTag>& resource, Params const& params) : params(params)
     {
         size_t ubOffset = 0;
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             ubSList[i] = resource.ubBuf.template GetBufferByByte<ElementDst>(ubOffset);
             ubOffset += params.TileShape().row() * params.TileShape().column() * sizeof(ElementDst);
         }
@@ -109,8 +104,7 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     void InitBlockLoop()
     {
         uint32_t copyEventId = 0;
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             copyEventIdList[i] = copyEventId++;
             AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
         }
@@ -119,8 +113,7 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     CATLASS_DEVICE
     void FinalizeBlockLoop()
     {
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
         }
         ubListId = 0;
@@ -130,12 +123,12 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     ~CommBlock() {}
 
     CATLASS_DEVICE
-    void operator()(AscendC::GlobalTensor<ElementSrc> const &gmSrc, LayoutSrc const &layoutSrc,
-                    AscendC::GlobalTensor<ElementDst> const &gmDst, LayoutDst const &layoutDst,
-                    MatrixCoord const &actualCommBlockShape, uint32_t rankIdx)
+    void operator()(
+        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const& layoutSrc,
+        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const& layoutDst,
+        MatrixCoord const& actualCommBlockShape, uint32_t rankIdx)
     {
-        if (actualCommBlockShape.row() == 0)
-        {
+        if (actualCommBlockShape.row() == 0) {
             return;
         }
 
@@ -143,8 +136,7 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
         TileSwizzle tileSwizzle{actualCommBlockShape, tileShape};
         uint32_t tileLoops = tileSwizzle.GetLoops();
 
-        for (uint32_t tileIdx = 0; tileIdx < tileLoops; tileIdx++)
-        {
+        for (uint32_t tileIdx = 0; tileIdx < tileLoops; tileIdx++) {
             auto tileCoord = tileSwizzle.GetTileCoord(tileIdx);
             auto actualTileShape = tileSwizzle.GetActualTileShape(tileCoord);
             auto tileOffsetInBlock = tileCoord * tileShape;
@@ -158,14 +150,15 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
             auto layoutTileDst = layoutDst.GetTileLayout(actualTileShape);
 
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
-            tileRemoteCopy(gmTileDst, layoutTileDst, gmTileSrc, layoutTileSrc, actualTileShape, ubSList[ubListId],
-                           copyEventIdList[ubListId], rankIdx);
+            tileRemoteCopy(
+                gmTileDst, layoutTileDst, gmTileSrc, layoutTileSrc, actualTileShape, ubSList[ubListId],
+                copyEventIdList[ubListId], rankIdx);
             AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
             ubListId = (ubListId + 1 < UB_STAGES) ? (ubListId + 1) : 0;
         }
     }
 
-   private:
+private:
     Params params;
     AscendC::LocalTensor<ElementDst> ubSList[UB_STAGES];
     uint32_t copyEventIdList[UB_STAGES];
@@ -178,26 +171,25 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
 template <class ArchTag_, uint32_t UB_STAGES_, bool IsDynamic_, class SrcType_, class DstType_, class BlockShape_>
 // This specialization handles 1D contiguous input and performs cross-rank remote copy
 // without the tile/layout remapping used by the TileRemoteCopy-based specialization above.
-class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_, DstType_, BlockShape_>
-{
-   public:
+class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_, DstType_, BlockShape_> {
+public:
     // Type aliases
     using DispatchPolicy = AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
     static constexpr bool IsDynamic = IsDynamic_;
-    static constexpr uint32_t flagSize = 2 * 1024;  // Reserved bytes at UB start for hardware flags
-    static constexpr uint32_t ubAlignSize = 64;     // UB buffer alignment in elements
+    static constexpr uint32_t flagSize = 2 * 1024; // Reserved bytes at UB start for hardware flags
+    static constexpr uint32_t ubAlignSize = 64;    // UB buffer alignment in elements
     using ArchTag = typename DispatchPolicy::ArchTag;
     using ElementSrc = typename SrcType_::Element;
     using LayoutSrc = typename SrcType_::Layout;
     using ElementDst = typename DstType_::Element;
     using LayoutDst = typename DstType_::Layout;
-    static_assert(std::is_same_v<ElementSrc, ElementDst>,
-                  "This 1D remote-copy CommBlock expects the same source and destination element type.");
+    static_assert(
+        std::is_same_v<ElementSrc, ElementDst>,
+        "This 1D remote-copy CommBlock expects the same source and destination element type.");
     using BlockShape = BlockShape_;
     // Epilogue params definition
-    struct Params
-    {
+    struct Params {
         uint32_t blockShape;
         CATLASS_DEVICE
         Params() {}
@@ -206,12 +198,11 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     };
 
     CATLASS_DEVICE
-    CommBlock(Catlass::Arch::Resource<ArchTag> &resource, Params const &)
+    CommBlock(Catlass::Arch::Resource<ArchTag>& resource, Params const&)
     {
         tileElements = (ArchTag::UB_SIZE - flagSize) / UB_STAGES / sizeof(ElementSrc) / ubAlignSize * ubAlignSize;
         size_t ubOffset = flagSize;
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             ubSrcList[i] = resource.ubBuf.template GetBufferByByte<ElementSrc>(ubOffset);
             ubOffset += tileElements * sizeof(ElementSrc);
         }
@@ -221,8 +212,7 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     void InitBlockLoop()
     {
         uint32_t copyEventId = 0;
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             copyEventIdList[i] = copyEventId++;
             AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
         }
@@ -231,24 +221,22 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
     CATLASS_DEVICE
     void FinalizeBlockLoop()
     {
-        for (uint32_t i = 0; i < UB_STAGES; ++i)
-        {
+        for (uint32_t i = 0; i < UB_STAGES; ++i) {
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[i]);
         }
         ubListId = 0;
     }
 
     CATLASS_DEVICE
-    void operator()(AscendC::GlobalTensor<ElementSrc> &gmSrc, AscendC::GlobalTensor<ElementDst> &gmDst,
-                    uint32_t const &actualCommBlockShape, uint32_t rankIdx)
+    void operator()(
+        AscendC::GlobalTensor<ElementSrc>& gmSrc, AscendC::GlobalTensor<ElementDst>& gmDst,
+        uint32_t const& actualCommBlockShape, uint32_t rankIdx)
     {
-        if (actualCommBlockShape == 0)
-        {
+        if (actualCommBlockShape == 0) {
             return;
         }
         uint32_t tileLoops = AscendC::CeilDivision(actualCommBlockShape, tileElements);
-        for (uint32_t tileIdx = 0; tileIdx < tileLoops; tileIdx++)
-        {
+        for (uint32_t tileIdx = 0; tileIdx < tileLoops; tileIdx++) {
             uint32_t offset = tileIdx * tileElements;
             uint32_t processNum =
                 (tileIdx == (tileLoops - 1)) ? (actualCommBlockShape - tileIdx * tileElements) : tileElements;
@@ -256,10 +244,11 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
         }
     }
 
-   private:
+private:
     CATLASS_DEVICE
-    void CopyTile(AscendC::GlobalTensor<ElementSrc> &gmSrc, AscendC::GlobalTensor<ElementDst> &gmDst, uint32_t offset,
-                  uint32_t processNum, uint32_t rankIdx)
+    void CopyTile(
+        AscendC::GlobalTensor<ElementSrc>& gmSrc, AscendC::GlobalTensor<ElementDst>& gmDst, uint32_t offset,
+        uint32_t processNum, uint32_t rankIdx)
     {
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
         non_contiguous_copy_param copyParams;
@@ -267,8 +256,8 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
         copyParams.length = processNum;
         copyParams.src_ld = processNum;
         copyParams.dst_ld = processNum;
-        aclshmemx_mte_get_nbi(gmDst[offset], gmSrc[offset], ubSrcList[ubListId], copyParams, rankIdx,
-                              copyEventIdList[ubListId]);
+        aclshmemx_mte_get_nbi(
+            gmDst[offset], gmSrc[offset], ubSrcList[ubListId], copyParams, rankIdx, copyEventIdList[ubListId]);
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(copyEventIdList[ubListId]);
         ubListId = (ubListId + 1 < UB_STAGES) ? (ubListId + 1) : 0;
     }
@@ -279,9 +268,8 @@ class CommBlock<AtlasCommRemoteCopy<ArchTag_, UB_STAGES_, IsDynamic_>, SrcType_,
 };
 
 template <class ArchTag_, uint32_t UB_STAGES_, class SrcType_, class DstType_, class TileRemoteCopy_>
-class CommBlock<AtlasCommUdmaRemoteCopy<ArchTag_, UB_STAGES_>, SrcType_, DstType_, TileRemoteCopy_>
-{
-   public:
+class CommBlock<AtlasCommUdmaRemoteCopy<ArchTag_, UB_STAGES_>, SrcType_, DstType_, TileRemoteCopy_> {
+public:
     // Type aliases
     using DispatchPolicy = AtlasCommUdmaRemoteCopy<ArchTag_, UB_STAGES_>;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
@@ -300,26 +288,27 @@ class CommBlock<AtlasCommUdmaRemoteCopy<ArchTag_, UB_STAGES_>, SrcType_, DstType
     ~CommBlock() {}
 
     CATLASS_DEVICE
-    void operator()(AscendC::GlobalTensor<ElementSrc> const &gmSrc, LayoutSrc const &layoutSrc,
-                    AscendC::GlobalTensor<ElementDst> const &gmDst, LayoutDst const &layoutDst,
-                    MatrixCoord const &actualCommBlockShape, uint32_t rankIdx)
+    void operator()(
+        AscendC::GlobalTensor<ElementSrc> const& gmSrc, LayoutSrc const& layoutSrc,
+        AscendC::GlobalTensor<ElementDst> const& gmDst, LayoutDst const& layoutDst,
+        MatrixCoord const& actualCommBlockShape, uint32_t rankIdx)
     {
-        if (actualCommBlockShape.row() == 0)
-        {
+        if (actualCommBlockShape.row() == 0) {
             return;
         }
 
-        tileRemoteCopy(gmDst, layoutDst, gmSrc, layoutSrc, actualCommBlockShape, ubSList[ubListId],
-                       copyEventIdList[ubListId], rankIdx);
+        tileRemoteCopy(
+            gmDst, layoutDst, gmSrc, layoutSrc, actualCommBlockShape, ubSList[ubListId], copyEventIdList[ubListId],
+            rankIdx);
     }
 
-   private:
+private:
     AscendC::LocalTensor<ElementDst> ubSList[UB_STAGES];
     uint32_t copyEventIdList[UB_STAGES];
     uint32_t ubListId{0};
     TileRemoteCopy tileRemoteCopy;
 };
 
-}  // namespace Catccos::Comm::Block
+} // namespace Catccos::Comm::Block
 
-#endif  // CATCCOS_COMM_BLOCK_REMOTE_COPY_HPP
+#endif // CATCCOS_COMM_BLOCK_REMOTE_COPY_HPP

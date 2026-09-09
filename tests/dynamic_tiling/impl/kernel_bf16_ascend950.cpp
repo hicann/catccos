@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -22,30 +23,30 @@ using LayoutB = Catlass::layout::RowMajor;
 using LayoutC = Catlass::layout::RowMajor;
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
-static void LaunchAscend950AllGatherMatmulWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
-                                                     KernelParams &kernelParams, uint8_t *symmetricPtr,
-                                                     CocTilingParams &cocTiling, uint32_t transA, uint32_t transB)
+static void LaunchAscend950AllGatherMatmulWithConfig(
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)transA;
     (void)transB;
-    auto launch = [&](auto &&deviceOp)
-    {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
         Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, UINT_MAX / 2};
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
-        typename DeviceOp::Arguments args{problemShape,
-                                          static_cast<uint32_t>(shmem_my_pe()),
-                                          static_cast<uint32_t>(shmem_n_pes()),
-                                          cocTiling.commInterval,
-                                          kernelParams.ptrA,
-                                          kernelParams.ptrB,
-                                          kernelParams.ptrC,
-                                          symmetricPtr,
-                                          commCoreSplit,
-                                          commBlockShape,
-                                          commTileShape};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -53,18 +54,15 @@ static void LaunchAscend950AllGatherMatmulWithConfig(void *stream, uint32_t bloc
     launch(typename ConfigAlias<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>::Device{});
 }
 
-void LaunchAscend950AllGatherMatmulBF16(void *stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams &kernelParams,
-                                        uint8_t *workSpace, uint8_t *symmetricPtr, CocTilingParams &cocTiling,
-                                        uint32_t transA, uint32_t transB)
+void LaunchAscend950AllGatherMatmulBF16(
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
-    if (cocTiling.m0 == 128)
-    {
+    if (cocTiling.m0 == 128) {
         LaunchAscend950AllGatherMatmulWithConfig<Ascend950AllGatherMatmulConfig_M0_128>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
-    }
-    else
-    {
+    } else {
         LaunchAscend950AllGatherMatmulWithConfig<Ascend950AllGatherMatmulConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }
@@ -74,30 +72,30 @@ using ElementD = bfloat16_t;
 using LayoutD = Catlass::layout::RowMajor;
 
 template <template <class, class, class, class, class, class> class ConfigAlias>
-static void LaunchAscend950MatmulReduceScatterWithConfig(void *stream, uint32_t blockNum, uint64_t fftsAddr,
-                                                         KernelParams &kernelParams, uint8_t *symmetricPtr,
-                                                         CocTilingParams &cocTiling, uint32_t transA, uint32_t transB)
+static void LaunchAscend950MatmulReduceScatterWithConfig(
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* symmetricPtr,
+    CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)transA;
     (void)transB;
-    auto launch = [&](auto &&deviceOp)
-    {
+    auto launch = [&](auto&& deviceOp) {
         using DeviceOp = std::decay_t<decltype(deviceOp)>;
         Catlass::GemmCoord problemShape{cocTiling.m, cocTiling.n, cocTiling.k};
         Catlass::MatrixCoord commCoreSplit{cocTiling.commDataSplit, cocTiling.commNpuSplit};
         Catlass::MatrixCoord commBlockShape{cocTiling.commBlockM, cocTiling.n0};
         Catlass::MatrixCoord commTileShape{cocTiling.commTileM / 2, cocTiling.n0};
-        typename DeviceOp::Arguments args{problemShape,
-                                          static_cast<uint32_t>(shmem_my_pe()),
-                                          static_cast<uint32_t>(shmem_n_pes()),
-                                          cocTiling.commInterval,
-                                          kernelParams.ptrA,
-                                          kernelParams.ptrB,
-                                          kernelParams.ptrC,
-                                          symmetricPtr,
-                                          commCoreSplit,
-                                          commBlockShape,
-                                          commTileShape};
+        typename DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(shmem_my_pe()),
+            static_cast<uint32_t>(shmem_n_pes()),
+            cocTiling.commInterval,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            symmetricPtr,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp op;
         op.Initialize(args);
         op.Run((aclrtStream)stream, blockNum, fftsAddr);
@@ -105,18 +103,15 @@ static void LaunchAscend950MatmulReduceScatterWithConfig(void *stream, uint32_t 
     launch(typename ConfigAlias<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD>::Device{});
 }
 
-void LaunchAscend950MatmulReduceScatterBF16(void *stream, uint32_t blockNum, uint64_t fftsAddr,
-                                            KernelParams &kernelParams, uint8_t *workSpace, uint8_t *symmetricPtr,
-                                            CocTilingParams &cocTiling, uint32_t transA, uint32_t transB)
+void LaunchAscend950MatmulReduceScatterBF16(
+    void* stream, uint32_t blockNum, uint64_t fftsAddr, KernelParams& kernelParams, uint8_t* workSpace,
+    uint8_t* symmetricPtr, CocTilingParams& cocTiling, uint32_t transA, uint32_t transB)
 {
     (void)workSpace;
-    if (cocTiling.m0 == 128)
-    {
+    if (cocTiling.m0 == 128) {
         LaunchAscend950MatmulReduceScatterWithConfig<Ascend950MatmulReduceScatterConfig_M0_128>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
-    }
-    else
-    {
+    } else {
         LaunchAscend950MatmulReduceScatterWithConfig<Ascend950MatmulReduceScatterConfig_M0_256>(
             stream, blockNum, fftsAddr, kernelParams, symmetricPtr, cocTiling, transA, transB);
     }

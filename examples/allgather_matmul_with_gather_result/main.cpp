@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -25,8 +26,7 @@ using LayoutC = Catlass::layout::RowMajor;
 using Config = AllGatherMatmulWithGatherResultConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>;
 using DeviceOp = Config::Device;
 
-struct Options
-{
+struct Options {
     static constexpr auto HELPER =
         "Usage: allgather_matmul rank_size rank_id ip_port m n k data_path [device_id_list]\n";
 
@@ -39,10 +39,9 @@ struct Options
     std::string dataPath;
     std::vector<int> deviceIdList{};
 
-    int Parse(int argc, char **argv)
+    int Parse(int argc, char** argv)
     {
-        enum class ArgsIndex
-        {
+        enum class ArgsIndex {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -53,8 +52,7 @@ struct Options
             DEVICE_LIST_INDEX,
             INDEX_MAX
         };
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX))
-        {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
             printf(HELPER);
             return -1;
         }
@@ -65,26 +63,24 @@ struct Options
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
-        {
-            char *s = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *t = std::strtok(s, ","); t; t = std::strtok(nullptr, ",")) deviceIdList.push_back(std::atoi(t));
-        }
-        else
-        {
-            for (size_t i = 0; i < rankSize; ++i) deviceIdList.push_back(i);
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char* s = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
+            for (char* t = std::strtok(s, ","); t; t = std::strtok(nullptr, ","))
+                deviceIdList.push_back(std::atoi(t));
+        } else {
+            for (size_t i = 0; i < rankSize; ++i)
+                deviceIdList.push_back(i);
         }
         return 0;
     }
     std::string GetDataPath() const { return dataPath; }
 };
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0)
-    {
+    if (options.Parse(argc, argv) != 0) {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -120,16 +116,15 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulWithGatherResult");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator not found!" << std::endl;
         return -1;
     }
 
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());
-    void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
-    uint8_t *gmSymmetric = (uint8_t *)symmPtr;
+    void* symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+    uint8_t* gmSymmetric = (uint8_t*)symmPtr;
 
     // Construct DeviceDGemm Arguments
     Catlass::GemmCoord problemShape{m, n, k};
@@ -149,34 +144,35 @@ int main(int argc, char **argv)
     uint32_t copyTileM = maxCopyLength / copyTileN;
     Catlass::MatrixCoord copyGatherATileShape{copyTileM, copyTileN};
 
-    DeviceOp::Arguments args{problemShape,
-                             static_cast<uint32_t>(rankId),
-                             static_cast<uint32_t>(rankSize),
-                             cocTiling.commInterval,
-                             kernelParams.ptrA,
-                             kernelParams.ptrB,
-                             kernelParams.ptrC,
-                             kernelParams.customPtrs[0],
-                             gmSymmetric,
-                             commCoreSplit,
-                             commBlockShape,
-                             commTileShape,
-                             copyGatherABlockShape,
-                             copyGatherATileShape};
+    DeviceOp::Arguments args{
+        problemShape,
+        static_cast<uint32_t>(rankId),
+        static_cast<uint32_t>(rankSize),
+        cocTiling.commInterval,
+        kernelParams.ptrA,
+        kernelParams.ptrB,
+        kernelParams.ptrC,
+        kernelParams.customPtrs[0],
+        gmSymmetric,
+        commCoreSplit,
+        commBlockShape,
+        commTileShape,
+        copyGatherABlockShape,
+        copyGatherATileShape};
 
     DeviceOp deviceOp;
     deviceOp.Initialize(args);
 
     ACL_CHECK(aclrtSynchronizeStream(stream));
     uint64_t fftsAddr = shmemx_get_ffts_config();
-    for (int i = 0; i < 1; i++)
-    {
+    for (int i = 0; i < 1; i++) {
         deviceOp.Run(stream, blockNum, fftsAddr);
     }
     ACL_CHECK(aclrtSynchronizeStream(stream));
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
-    if (rankId == 0) std::printf("test finished\n");
+    if (rankId == 0)
+        std::printf("test finished\n");
 
     shmem_free(symmPtr);
     FreeDeviceSpace(kernelParams);

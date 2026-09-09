@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -18,23 +19,12 @@
 
 #include "catccos/epilogue/dispatch_policy.hpp"
 
-
 namespace Catlass::Epilogue::Block {
 
-template <
-    uint32_t UB_STAGES_,
-    class CType_,
-    class DType_,
-    class TileCopy_,
-    class EpilogueTileSwizzle_
->
-class BlockEpilogue <
-    Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>,
-    CType_,
-    DType_,
-    TileCopy_,
-    EpilogueTileSwizzle_
-> {
+template <uint32_t UB_STAGES_, class CType_, class DType_, class TileCopy_, class EpilogueTileSwizzle_>
+class BlockEpilogue<
+    Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>, CType_, DType_, TileCopy_,
+    EpilogueTileSwizzle_> {
 public:
     using DispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
@@ -61,13 +51,11 @@ public:
         Params() {};
 
         CATLASS_DEVICE
-        Params(
-            MatrixCoord const &tileShape_
-        ) : tileShape(tileShape_) {}
+        Params(MatrixCoord const& tileShape_) : tileShape(tileShape_) {}
     };
 
     CATLASS_DEVICE
-    BlockEpilogue(Arch::Resource<ArchTag> const &resource, Params const &params) : params(params)
+    BlockEpilogue(Arch::Resource<ArchTag> const& resource, Params const& params) : params(params)
     {
         size_t ubOffset = 0;
         int32_t eventVMTE2 = 0;
@@ -103,20 +91,14 @@ public:
     }
 
     CATLASS_DEVICE
-    void UpdateParams(Params const &params_)
-    {
-        params = params_;
-    }
+    void UpdateParams(Params const& params_) { params = params_; }
 
     CATLASS_DEVICE
-    void operator() (
-        AscendC::GlobalTensor<ElementC> const &gmBlockC, LayoutC const &layoutBlockC,
-        AscendC::GlobalTensor<ElementD> const &gmBlockD, LayoutC const &layoutBlockD,
-        MatrixCoord const &actualBlockShape,
-        Callback &&callback = Callback{}
-    )
+    void operator()(
+        AscendC::GlobalTensor<ElementC> const& gmBlockC, LayoutC const& layoutBlockC,
+        AscendC::GlobalTensor<ElementD> const& gmBlockD, LayoutC const& layoutBlockD,
+        MatrixCoord const& actualBlockShape, Callback&& callback = Callback{})
     {
-
         callback();
 
         auto tileShape = params.tileShape;
@@ -139,21 +121,22 @@ public:
 
             auto actualChunkTileCount = actualChunkTileShape.At(0) * actualChunkTileShape.At(1);
 
-            auto gmTileC = gmBlockC[layoutBlockC.GetOffset(tileOffset)]; 
+            auto gmTileC = gmBlockC[layoutBlockC.GetOffset(tileOffset)];
             auto layoutGmTileC = layoutBlockC.GetTileLayout(actualTileShape);
 
-            auto &ubC = ubCList[ubListId];
+            auto& ubC = ubCList[ubListId];
             LayoutC layoutUbC{actualTileShape, ubTileStride}; // {{1, 256}, {256, 1}}
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventUbCVMTE2List[ubListId]);
-            copyGmToUbC(ubC, gmTileC, layoutUbC, layoutGmTileC); 
+            copyGmToUbC(ubC, gmTileC, layoutUbC, layoutGmTileC);
 
             AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(eventUbCMTE2VList[ubListId]);
 
-            auto &ubD = ubDList[ubListId];
-            
+            auto& ubD = ubDList[ubListId];
+
             AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(eventUbCMTE2VList[ubListId]);
-            AscendC::Cast(ubTmpMxN, ubC, AscendC::RoundMode::CAST_NONE, actualTileShape.row() * actualTileShape.column());
+            AscendC::Cast(
+                ubTmpMxN, ubC, AscendC::RoundMode::CAST_NONE, actualTileShape.row() * actualTileShape.column());
             AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(eventUbCVMTE2List[ubListId]);
 
             AscendC::PipeBarrier<PIPE_V>();
@@ -175,7 +158,7 @@ public:
             AscendC::Cast(ubD, ubTmpMxChunkN, AscendC::RoundMode::CAST_ROUND, actualChunkTileCount);
             AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(eventUbDVMTE3List[ubListId]);
 
-            auto gmTileD = gmBlockD[layoutBlockD.GetOffset(chunkTileOffset)]; 
+            auto gmTileD = gmBlockD[layoutBlockD.GetOffset(chunkTileOffset)];
             auto layoutGmTileD = layoutBlockD.GetTileLayout(actualChunkTileShape);
 
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(eventUbDVMTE3List[ubListId]);
@@ -205,21 +188,11 @@ private:
 };
 
 template <
-    uint32_t UB_STAGES_,
-    class CType_,
-    class LayoutPerTokenScale_,
-    class DType_,
-    class TileCopy_,
-    class EpilogueTileSwizzle_
->
-class BlockEpilogue <
-    Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>,
-    CType_,
-    Gemm::GemmType<float, LayoutPerTokenScale_>,
-    DType_,
-    TileCopy_,
-    EpilogueTileSwizzle_
-> {
+    uint32_t UB_STAGES_, class CType_, class LayoutPerTokenScale_, class DType_, class TileCopy_,
+    class EpilogueTileSwizzle_>
+class BlockEpilogue<
+    Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>, CType_,
+    Gemm::GemmType<float, LayoutPerTokenScale_>, DType_, TileCopy_, EpilogueTileSwizzle_> {
 public:
     using DispatchPolicy = Catccos::Epilogue::EpilogueAtlasA2PerTokenDequantSwiglu<UB_STAGES_>;
     using ArchTag = typename DispatchPolicy::ArchTag;
@@ -248,13 +221,11 @@ public:
         Params() {};
 
         CATLASS_DEVICE
-        Params(
-            MatrixCoord const &tileShape_
-        ) : tileShape(tileShape_) {}
+        Params(MatrixCoord const& tileShape_) : tileShape(tileShape_) {}
     };
 
     CATLASS_DEVICE
-    BlockEpilogue(Arch::Resource<ArchTag> const &resource, Params const &params) : params(params)
+    BlockEpilogue(Arch::Resource<ArchTag> const& resource, Params const& params) : params(params)
     {
         size_t ubOffset = 0;
         int32_t eventVMTE2 = 0;
@@ -293,20 +264,14 @@ public:
     }
 
     CATLASS_DEVICE
-    void UpdateParams(Params const &params_)
-    {
-        params = params_;
-    }
+    void UpdateParams(Params const& params_) { params = params_; }
 
     CATLASS_DEVICE
-    void operator() (
-        AscendC::GlobalTensor<ElementC> const &gmBlockC, LayoutC const &layoutBlockC,
-        AscendC::GlobalTensor<ElementPerTokenScale> const &gmBlockPerTokenScale,
-        LayoutPerTokenScale const &layoutBlockPerTokenScale,
-        AscendC::GlobalTensor<ElementD> const &gmBlockD, LayoutC const &layoutBlockD,
-        MatrixCoord const &actualBlockShape,
-        Callback &&callback = Callback{}
-    )
+    void operator()(
+        AscendC::GlobalTensor<ElementC> const& gmBlockC, LayoutC const& layoutBlockC,
+        AscendC::GlobalTensor<ElementPerTokenScale> const& gmBlockPerTokenScale,
+        LayoutPerTokenScale const& layoutBlockPerTokenScale, AscendC::GlobalTensor<ElementD> const& gmBlockD,
+        LayoutC const& layoutBlockD, MatrixCoord const& actualBlockShape, Callback&& callback = Callback{})
     {
         callback();
 
@@ -330,24 +295,24 @@ public:
             auto actualChunkTileCount = actualChunkTileShape.At(0) * actualChunkTileShape.At(1);
 
             auto perTokenScaleTileOffset = tileOffset[0];
-            
-            auto gmTileC = gmBlockC[layoutBlockC.GetOffset(tileOffset)]; 
+
+            auto gmTileC = gmBlockC[layoutBlockC.GetOffset(tileOffset)];
             auto layoutGmTileC = layoutBlockC.GetTileLayout(actualTileShape);
-            auto gmTileD = gmBlockD[layoutBlockD.GetOffset(chunkTileOffset)]; 
+            auto gmTileD = gmBlockD[layoutBlockD.GetOffset(chunkTileOffset)];
             auto layoutGmTileD = layoutBlockD.GetTileLayout(actualChunkTileShape);
 
-            auto &ubC = ubCList[ubListId];
+            auto& ubC = ubCList[ubListId];
             LayoutC layoutUbC{actualTileShape, ubTileStride}; // {{1, 256}, {256, 1}}
-            auto &ubD = ubDList[ubListId];
+            auto& ubD = ubDList[ubListId];
             LayoutD layoutUbD{actualChunkTileShape, ubChunkTileStride};
-            auto &ubCFp32 = ubCFp32List[ubListId];
-            auto &ubCFp32ChunkN = ubCFp32ChunkNList[ubListId];
+            auto& ubCFp32 = ubCFp32List[ubListId];
+            auto& ubCFp32ChunkN = ubCFp32ChunkNList[ubListId];
 
             // Move C from GM workspace to UB
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventUbCVMTE2List[ubListId]);
-            copyGmToUbC(ubC, gmTileC, layoutUbC, layoutGmTileC); 
+            copyGmToUbC(ubC, gmTileC, layoutUbC, layoutGmTileC);
             AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(eventUbCMTE2VList[ubListId]);
-            
+
             // Cast C from FP16 to FP32 in UB
             AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(eventUbCMTE2VList[ubListId]);
             AscendC::Cast(ubCFp32, ubC, AscendC::RoundMode::CAST_NONE, actualTileCount);
@@ -405,4 +370,4 @@ private:
     CopyUbToGmD copyUbToGmD;
 };
 
-}  // namespace Catlass::Epilogue::Block
+} // namespace Catlass::Epilogue::Block

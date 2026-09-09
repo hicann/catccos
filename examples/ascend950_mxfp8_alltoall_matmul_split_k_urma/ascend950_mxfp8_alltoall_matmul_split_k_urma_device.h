@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -32,13 +33,13 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
-          class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC, uint32_t SWIZZLE_OFFSET_>
-struct Ascend950MxFp8AllToAllMatmulSplitKUrmaConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementMxScaleA, class LayoutMxScaleA,
+    class ElementMxScaleB, class LayoutMxScaleB, class ElementC, class LayoutC, uint32_t SWIZZLE_OFFSET_>
+struct Ascend950MxFp8AllToAllMatmulSplitKUrmaConfig {
     using ArchTag = Catlass::Arch::Ascend950;
-    static_assert(SWIZZLE_OFFSET_ >= 1 && SWIZZLE_OFFSET_ <= 7,
-                  "Ascend950 split-K URMA swizzle offset must be in [1, 7].");
+    static_assert(
+        SWIZZLE_OFFSET_ >= 1 && SWIZZLE_OFFSET_ <= 7, "Ascend950 split-K URMA swizzle offset must be in [1, 7].");
 
     static constexpr bool ENABLE_UNIT_FLAG = true;
     using MmadDispatchPolicy = Catlass::Gemm::MmadMx<ArchTag, ENABLE_UNIT_FLAG, 1>;
@@ -52,9 +53,8 @@ struct Ascend950MxFp8AllToAllMatmulSplitKUrmaConfig
         ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementMxScaleA,
         decltype(tla::MakeMxScaleLayout<ElementMxScaleA, LayoutA, false>(0U, 0U)), ElementMxScaleB,
         decltype(tla::MakeMxScaleLayout<ElementMxScaleB, LayoutB, true>(0U, 0U)), ElementC, LayoutC, void>;
-    using BlockMmad =
-        Catccos::DGemm::Block::BlockMmadMxAllToAllMatmulKSplit<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                               ElementB, ElementC, void, TileCopy>;
+    using BlockMmad = Catccos::DGemm::Block::BlockMmadMxAllToAllMatmulKSplit<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementC, void, TileCopy>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -66,20 +66,20 @@ struct Ascend950MxFp8AllToAllMatmulSplitKUrmaConfig
     using RemoteScaleDstType = ScaleAType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileUdmaCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                    CopyDirect::Put, CopyTransport::Udma>;
-    using TileUdmaCopyScale = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteScaleSrcType, RemoteScaleDstType,
-                                                         void, CopyDirect::Put, CopyTransport::Udma>;
+    using TileUdmaCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Udma>;
+    using TileUdmaCopyScale = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteScaleSrcType, RemoteScaleDstType, void, CopyDirect::Put, CopyTransport::Udma>;
 
     using UdmaDispatch = Comm::AtlasCommUdmaRemoteCopy<ArchTag, UB_STAGES>;
     using BlockUdmaComm = Comm::Block::CommBlock<UdmaDispatch, RemoteSrcType, RemoteDstType, TileUdmaCopy>;
     using BlockUdmaCommScale =
         Comm::Block::CommBlock<UdmaDispatch, RemoteScaleSrcType, RemoteScaleDstType, TileUdmaCopyScale>;
 
-    using Kernel = DGemm::Kernel::Ascend950AllToAllMatmulSplitKUrma<BlockMmad, BlockUdmaComm, BlockUdmaCommScale,
-                                                                    BlockMmadScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::Ascend950AllToAllMatmulSplitKUrma<
+        BlockMmad, BlockUdmaComm, BlockUdmaCommScale, BlockMmadScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
-#endif  // ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA_DEVICE_H
+#endif // ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA_DEVICE_H

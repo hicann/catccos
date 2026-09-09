@@ -1,3 +1,4 @@
+
 #ifndef CATCOC_DGEMM_KERNEL_MX_ALLGATHER_MATMUL_HPP
 #define CATCOC_DGEMM_KERNEL_MX_ALLGATHER_MATMUL_HPP
 
@@ -10,20 +11,15 @@
 
 namespace Catccos::DGemm::Kernel {
 
-using Catlass::MatrixCoord;
 using Catlass::GemmCoord;
+using Catlass::MatrixCoord;
 
 using namespace AscendC;
 using namespace tla;
 
 template <
-    class BlockMmad_,
-    class BlockAllGather_,
-    class BlockAllGatherScale_,
-    class BlockScheduler_,
-    class BlockAllGatherScheduler_,
-    uint32_t WORKSPACE_STAGES_
->
+    class BlockMmad_, class BlockAllGather_, class BlockAllGatherScale_, class BlockScheduler_,
+    class BlockAllGatherScheduler_, uint32_t WORKSPACE_STAGES_>
 class MxAllGatherMatmulTla {
 public:
     using BlockMmad = BlockMmad_;
@@ -69,15 +65,15 @@ public:
 
         uint32_t commInterval;
 
-        __gm__ ElementA *ptrA;
+        __gm__ ElementA* ptrA;
         LayoutA layoutA;
-        __gm__ ElementB *ptrB;
+        __gm__ ElementB* ptrB;
         LayoutB layoutB;
-        __gm__ ElementC *ptrC;
+        __gm__ ElementC* ptrC;
         LayoutC layoutC;
-        __gm__ ElementMxScaleA *ptrMxScaleA;
+        __gm__ ElementMxScaleA* ptrMxScaleA;
         LayoutMxScaleA layoutMxScaleA;
-        __gm__ ElementMxScaleB *ptrMxScaleB;
+        __gm__ ElementMxScaleB* ptrMxScaleB;
         LayoutMxScaleB layoutMxScaleB;
         LayoutTagA layoutTagA;
         LayoutTagMxScaleA layoutTagMxScaleA;
@@ -92,34 +88,33 @@ public:
 
         CATLASS_HOST_DEVICE
         Params(
-            GemmCoord const &problemShape_,
-            uint32_t rank_, uint32_t rankSize_,
-            uint32_t commInterval_,
-            LayoutTagA layoutGatherSrc_, LayoutTagMxScaleA layoutGatherMxScaleSrc_,
-            GM_ADDR ptrA_, LayoutA const &layoutA_,
-            GM_ADDR ptrB_, LayoutB const &layoutB_,
-            GM_ADDR ptrC_, LayoutC const &layoutC_,
-            GM_ADDR ptrMxScaleA_, LayoutMxScaleA const &layoutMxScaleA_,
-            GM_ADDR ptrMxScaleB_, LayoutMxScaleB const &layoutMxScaleB_,
-            GM_ADDR ptrSymmetric_,
-            BlockAllGatherParams const &allGatherParams_,
-            BlockAllGatherScaleParams const &allGatherScaleParams_,
-            BlockCommParams const &commParams_
-        ) : problemShape(problemShape_),
-            rankIdx(rank_), rankSize(rankSize_),
-            commInterval(commInterval_),
-            layoutTagA(layoutGatherSrc_), layoutTagMxScaleA(layoutGatherMxScaleSrc_),
-            ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)), layoutA(layoutA_),
-            ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)), layoutB(layoutB_),
-            ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
-            ptrMxScaleA(reinterpret_cast<__gm__ ElementMxScaleA *>(ptrMxScaleA_)), layoutMxScaleA(layoutMxScaleA_),
-            ptrMxScaleB(reinterpret_cast<__gm__ ElementMxScaleB *>(ptrMxScaleB_)), layoutMxScaleB(layoutMxScaleB_),
-            ptrSymmetric(ptrSymmetric_),
-            allGatherParams(allGatherParams_),
-            allGatherScaleParams(allGatherScaleParams_),
-            commParams(commParams_)
-        {
-        }
+            GemmCoord const& problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
+            LayoutTagA layoutGatherSrc_, LayoutTagMxScaleA layoutGatherMxScaleSrc_, GM_ADDR ptrA_,
+            LayoutA const& layoutA_, GM_ADDR ptrB_, LayoutB const& layoutB_, GM_ADDR ptrC_, LayoutC const& layoutC_,
+            GM_ADDR ptrMxScaleA_, LayoutMxScaleA const& layoutMxScaleA_, GM_ADDR ptrMxScaleB_,
+            LayoutMxScaleB const& layoutMxScaleB_, GM_ADDR ptrSymmetric_, BlockAllGatherParams const& allGatherParams_,
+            BlockAllGatherScaleParams const& allGatherScaleParams_, BlockCommParams const& commParams_)
+            : problemShape(problemShape_),
+              rankIdx(rank_),
+              rankSize(rankSize_),
+              commInterval(commInterval_),
+              layoutTagA(layoutGatherSrc_),
+              layoutTagMxScaleA(layoutGatherMxScaleSrc_),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
+              layoutA(layoutA_),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
+              layoutB(layoutB_),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
+              layoutC(layoutC_),
+              ptrMxScaleA(reinterpret_cast<__gm__ ElementMxScaleA*>(ptrMxScaleA_)),
+              layoutMxScaleA(layoutMxScaleA_),
+              ptrMxScaleB(reinterpret_cast<__gm__ ElementMxScaleB*>(ptrMxScaleB_)),
+              layoutMxScaleB(layoutMxScaleB_),
+              ptrSymmetric(ptrSymmetric_),
+              allGatherParams(allGatherParams_),
+              allGatherScaleParams(allGatherScaleParams_),
+              commParams(commParams_)
+        {}
     };
 
     /// User API arguments
@@ -139,7 +134,7 @@ public:
         MatrixCoord commTileShape;
     };
 
-    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    static Params ToUnderlyingArguments(Arguments const& args, uint8_t* workspace = nullptr)
     {
         LayoutTagA tagA{args.problemShape.m(), args.problemShape.k()};
         LayoutTagB tagB{args.problemShape.k(), args.problemShape.n()};
@@ -150,8 +145,10 @@ public:
         auto layoutA = tla::MakeLayoutFromTag(tagA);
         auto layoutB = tla::MakeLayoutFromTag(tagB);
         auto layoutC = tla::MakeLayoutFromTag(tagC);
-        auto layoutMxScaleA = tla::MakeMxScaleLayout<ElementMxScaleA, LayoutTagA, false>(args.problemShape.m(), mxScaleK);
-        auto layoutMxScaleB = tla::MakeMxScaleLayout<ElementMxScaleB, LayoutTagB, true>(mxScaleK, args.problemShape.n());
+        auto layoutMxScaleA =
+            tla::MakeMxScaleLayout<ElementMxScaleA, LayoutTagA, false>(args.problemShape.m(), mxScaleK);
+        auto layoutMxScaleB =
+            tla::MakeMxScaleLayout<ElementMxScaleB, LayoutTagB, true>(mxScaleK, args.problemShape.n());
 
         typename BlockAllGather::TileRemoteCopy::Params tileParams{args.commTileShape};
         typename BlockAllGatherScale::TileRemoteCopy::Params tileScaleParams{args.commTileShape};
@@ -161,19 +158,25 @@ public:
 
         return Params{
             args.problemShape,
-            args.rankIdx, args.rankSize,
+            args.rankIdx,
+            args.rankSize,
             args.commInterval,
-            tagA, tagMxScaleA,
-            args.ptrA, layoutA,
-            args.ptrB, layoutB,
-            args.ptrC, layoutC,
-            args.ptrMxScaleA, layoutMxScaleA,
-            args.ptrMxScaleB, layoutMxScaleB,
+            tagA,
+            tagMxScaleA,
+            args.ptrA,
+            layoutA,
+            args.ptrB,
+            layoutB,
+            args.ptrC,
+            layoutC,
+            args.ptrMxScaleA,
+            layoutMxScaleA,
+            args.ptrMxScaleB,
+            layoutMxScaleB,
             args.ptrSymmetric,
             blockCommParams,
             blockCommScaleParams,
-            commSchedulerParams
-        };
+            commSchedulerParams};
     }
 
     CATLASS_DEVICE
@@ -186,12 +189,10 @@ public:
     }
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE
-    void operator()(Params &params);
+    CATLASS_DEVICE void operator()(Params& params);
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIC>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx();
         uint32_t aicoreNum = AscendC::GetBlockNum();
@@ -204,7 +205,7 @@ public:
 
         // Represent the full gm
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric));
         AscendC::GlobalTensor<ElementB> gmB;
         gmB.SetGlobalBuffer(params.ptrB);
         AscendC::GlobalTensor<ElementC> gmC;
@@ -214,18 +215,21 @@ public:
 
         auto layoutTagSymmetric = Catlass::layout::RowMajor(
             WORKSPACE_STAGES * params.rankSize * commSizeM, params.problemShape.k(),
-            RoundUp<int64_t>(params.problemShape.k(), Catlass::BytesToBits(Catlass::BYTE_PER_FRACTAL) / Catlass::SizeOfBits<ElementA>::value)
-        );
+            RoundUp<int64_t>(
+                params.problemShape.k(),
+                Catlass::BytesToBits(Catlass::BYTE_PER_FRACTAL) / Catlass::SizeOfBits<ElementA>::value));
         auto layoutSymmetric = tla::MakeLayoutFromTag(layoutTagSymmetric);
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
         size_t mxScaleK = CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(params.problemShape.k());
         size_t mxScalePeerMemM = WORKSPACE_STAGES * params.rankSize * commSizeM;
-        auto layoutScaleSymmetric = tla::MakeMxScaleLayout<ElementMxScaleA, LayoutTagMxScaleA, false>(mxScalePeerMemM, mxScaleK);
+        auto layoutScaleSymmetric =
+            tla::MakeMxScaleLayout<ElementMxScaleA, LayoutTagMxScaleA, false>(mxScalePeerMemM, mxScaleK);
 
         AscendC::GlobalTensor<ElementMxScaleA> gmMxScaleA;
-        gmMxScaleA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementMxScaleA *>(params.ptrSymmetric) + layoutTagSymmetric.Capacity());
+        gmMxScaleA.SetGlobalBuffer(
+            reinterpret_cast<__gm__ ElementMxScaleA*>(params.ptrSymmetric) + layoutTagSymmetric.Capacity());
 
         auto tensorB = tla::MakeTensor(gmB, params.layoutB, Catlass::Arch::PositionGM{});
         auto tensorC = tla::MakeTensor(gmC, params.layoutC, Catlass::Arch::PositionGM{});
@@ -242,8 +246,7 @@ public:
 
             uint32_t actualCommSizeM = Min(commSizeM, params.problemShape.m() - commIdx * commSizeM);
             auto actualProblemShape = Catlass::MakeCoord<uint32_t>(
-                actualCommSizeM, params.problemShape.n(), params.problemShape.k(), params.rankSize
-            );
+                actualCommSizeM, params.problemShape.n(), params.problemShape.k(), params.rankSize);
             BlockScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
             uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
@@ -262,29 +265,27 @@ public:
                 MatrixCoord offsetB = blockOffset.GetCoordKN();
                 MatrixCoord offsetC = commOffsetC + blockOffset.GetCoordMN();
 
-                auto tensorBlockA = GetTile(tensorPeerMem,
-                                            tla::MakeCoord(offsetA.row(), offsetA.column()),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
-                auto tensorBlockB = GetTile(tensorB,
-                                            tla::MakeCoord(offsetB.row(), offsetB.column()),
-                                            tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
+                auto tensorBlockA = GetTile(
+                    tensorPeerMem, tla::MakeCoord(offsetA.row(), offsetA.column()),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
+                auto tensorBlockB = GetTile(
+                    tensorB, tla::MakeCoord(offsetB.row(), offsetB.column()),
+                    tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
                 auto tensorBlockMxScaleA = GetTile(
-                    tensorMxScaleA,
-                    tla::MakeCoord(offsetA.row(), offsetA.column() / Catlass::MX_SCALE_GROUP_NUM),
-                    tla::MakeShape(actualBlockShape.m(), CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k()))
-                );
+                    tensorMxScaleA, tla::MakeCoord(offsetA.row(), offsetA.column() / Catlass::MX_SCALE_GROUP_NUM),
+                    tla::MakeShape(actualBlockShape.m(), CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k())));
 
                 auto tensorBlockMxScaleB = GetTile(
-                    tensorMxScaleB,
-                    tla::MakeCoord(offsetB.row() / Catlass::MX_SCALE_GROUP_NUM, offsetB.column()),
-                    tla::MakeShape(CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k()), actualBlockShape.n())
-                );
+                    tensorMxScaleB, tla::MakeCoord(offsetB.row() / Catlass::MX_SCALE_GROUP_NUM, offsetB.column()),
+                    tla::MakeShape(CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualBlockShape.k()), actualBlockShape.n()));
 
-                auto tensorBlockC = GetTile(tensorC,
-                                            tla::MakeCoord(offsetC.row(), offsetC.column()),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
+                auto tensorBlockC = GetTile(
+                    tensorC, tla::MakeCoord(offsetC.row(), offsetC.column()),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
 
-                mmad(tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape.GetCoordMNK(), tensorBlockMxScaleA, tensorBlockMxScaleB);
+                mmad(
+                    tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape.GetCoordMNK(), tensorBlockMxScaleA,
+                    tensorBlockMxScaleB);
             }
             if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
                 mmad.SynchronizeBlock();
@@ -298,8 +299,7 @@ public:
     }
 
     template <>
-    CATLASS_DEVICE
-    void operator()<AscendC::AIV>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t subcoreIdx = AscendC::GetSubBlockIdx();
@@ -317,20 +317,21 @@ public:
 
         auto layoutSymmetric = Catlass::layout::RowMajor(
             WORKSPACE_STAGES * params.rankSize * commSizeM, params.problemShape.k(),
-            RoundUp<int64_t>(params.problemShape.k(), Catlass::BytesToBits(Catlass::BYTE_PER_FRACTAL) / Catlass::SizeOfBits<ElementA>::value)
-        );
+            RoundUp<int64_t>(
+                params.problemShape.k(),
+                Catlass::BytesToBits(Catlass::BYTE_PER_FRACTAL) / Catlass::SizeOfBits<ElementA>::value));
         auto layoutSymmetricRowLogicShape = Catlass::MakeCoord<int>(WORKSPACE_STAGES, params.rankSize, commSizeM);
         auto layoutSymmetricRow = layout::AffineRankN<3>::Packed(layoutSymmetricRowLogicShape);
 
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrSymmetric));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(params.ptrSymmetric));
 
         AscendC::GlobalTensor<ElementMxScaleA> gmScaleSymmetric;
-        gmScaleSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementMxScaleA *>(params.ptrSymmetric) + layoutSymmetric.Capacity());
+        gmScaleSymmetric.SetGlobalBuffer(
+            reinterpret_cast<__gm__ ElementMxScaleA*>(params.ptrSymmetric) + layoutSymmetric.Capacity());
 
         size_t mxScaleK = CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(params.problemShape.k());
-        auto layoutScaleSymmetric = Catlass::layout::RowMajor(
-            WORKSPACE_STAGES * params.rankSize * commSizeM, mxScaleK);
+        auto layoutScaleSymmetric = Catlass::layout::RowMajor(WORKSPACE_STAGES * params.rankSize * commSizeM, mxScaleK);
 
         MatrixCoord commBlockShape = params.allGatherParams.BlockShape();
         MatrixCoord commCoreSplit = params.commParams.CoreSplit();
@@ -361,7 +362,7 @@ public:
                     DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
                     MatrixCoord blockOffsetInRank = commScheduler.GetBlockOffsetInRank(commBlockCoord.GetCoordInRank());
                     MatrixCoord actualCommBlockShape = commScheduler.GetActualBlockShapeByOffset(blockOffsetInRank);
-                    
+
                     uint32_t remoteRankIdx = commBlockCoord.rank() % params.rankSize;
 
                     auto offsetSrc = commSrcOffset + blockOffsetInRank;
@@ -374,10 +375,7 @@ public:
                     auto layoutBlockDst = layoutSymmetric.GetTileLayout(actualCommBlockShape);
 
                     allGather(
-                        gmBlockSrc, layoutBlockSrc,
-                        gmBlockDst, layoutBlockDst,
-                        actualCommBlockShape, remoteRankIdx
-                    );
+                        gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape, remoteRankIdx);
                 }
             }
             allGather.FinalizeBlockLoop();
@@ -388,7 +386,7 @@ public:
                     DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
                     MatrixCoord blockOffsetInRank = commScheduler.GetBlockOffsetInRank(commBlockCoord.GetCoordInRank());
                     MatrixCoord actualCommBlockShape = commScheduler.GetActualBlockShapeByOffset(blockOffsetInRank);
-                    
+
                     uint32_t remoteRankIdx = commBlockCoord.rank() % params.rankSize;
 
                     auto offsetSrc = commSrcOffset + blockOffsetInRank;
@@ -396,7 +394,9 @@ public:
 
                     MatrixCoord offsetScaleSrc{offsetSrc.row(), offsetSrc.column() / Catlass::MX_SCALE_GROUP_NUM};
                     MatrixCoord offsetScaleDst{offsetDst.row(), offsetDst.column() / Catlass::MX_SCALE_GROUP_NUM};
-                    MatrixCoord actualScaleCommBlockShape{actualCommBlockShape.row(), CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualCommBlockShape.column())};
+                    MatrixCoord actualScaleCommBlockShape{
+                        actualCommBlockShape.row(),
+                        CeilDiv<Catlass::MX_SCALE_GROUP_NUM>(actualCommBlockShape.column())};
 
                     auto gmBlockSrc = gmMxScaleA[params.layoutTagMxScaleA.GetOffset(offsetScaleSrc)];
                     auto layoutBlockSrc = params.layoutTagMxScaleA.GetTileLayout(actualScaleCommBlockShape);
@@ -405,14 +405,12 @@ public:
                     auto layoutBlockDst = layoutScaleSymmetric.GetTileLayout(actualScaleCommBlockShape);
 
                     allGatherScale(
-                        gmBlockSrc, layoutBlockSrc,
-                        gmBlockDst, layoutBlockDst,
-                        actualScaleCommBlockShape, remoteRankIdx
-                    );
+                        gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualScaleCommBlockShape,
+                        remoteRankIdx);
                 }
             }
             allGatherScale.FinalizeBlockLoop();
-            
+
             // AllGather is completed, waiting until tasks on all devices are complete.
             aclshmemx_barrier_all_vec();
 
@@ -427,6 +425,6 @@ private:
     Catlass::Arch::Resource<ArchTag> resource;
 };
 
-}  // namespace Catccos::DGemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCOC_DGEMM_KERNEL_MX_ALLGATHER_MATMUL_HPP
+#endif // CATCOC_DGEMM_KERNEL_MX_ALLGATHER_MATMUL_HPP

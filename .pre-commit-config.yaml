@@ -1,5 +1,5 @@
 minimum_pre_commit_version: 4.0.0
-exclude: ^LICENSES/|\\.(html|csv|svg)$
+exclude: ^LICENSES/|\.(html|csv|svg)$
 
 default_stages: [pre-commit]
 ci:
@@ -56,9 +56,9 @@ repos:
     rev: v18.1.8
     hooks:
       - id: clang-format
-        files: \\.\(c|h|cpp|hpp|cc|hh|cxx|hxx\)$
+        files: \.(c|h|cpp|hpp|cc|hh|cxx|hxx)$
         args:
-          - "--style={BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 120, BreakBeforeBraces: Allman}"
+          - "--style=file"
           - "--verbose"
           - "-i"
         exclude: ^build/|tests/third_party/

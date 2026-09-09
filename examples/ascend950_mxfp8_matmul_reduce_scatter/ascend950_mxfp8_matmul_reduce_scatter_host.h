@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -27,8 +28,9 @@ auto Ceil(T1 a, T2 b) -> T1
 
 class Ascend950MxFp8MatmulReduceScatterOperator : public CatccosOperator {
 public:
-    void AllocateDeviceSpace(KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile) override {
+    void AllocateDeviceSpace(
+        KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
+    {
         size_t lenA = static_cast<size_t>(cocTiling.m) * cocTiling.k;
         size_t lenB = static_cast<size_t>(cocTiling.k) * cocTiling.n;
         size_t lenC = static_cast<size_t>(cocTiling.m) * cocTiling.n / cocTiling.rankSize;
@@ -42,11 +44,11 @@ public:
         size_t bScaleSize = lenBScale * sizeof(host_float8_e8m0_t);
 
         // Allocate and fill matrix A
-        uint8_t *aDevice;
-        ACL_CHECK(aclrtMalloc((void **)(&aDevice), aSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        uint8_t* aDevice;
+        ACL_CHECK(aclrtMalloc((void**)(&aDevice), aSize, ACL_MEM_MALLOC_HUGE_FIRST));
         if (dataFile != "") {
-            uint8_t *aHost;
-            ACL_CHECK(aclrtMallocHost((void **)(&aHost), aSize));
+            uint8_t* aHost;
+            ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_a.bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(aHost));
@@ -56,11 +58,11 @@ public:
         }
 
         // Allocate and fill matrix B
-        uint8_t *bDevice;
-        ACL_CHECK(aclrtMalloc((void **)(&bDevice), bSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        uint8_t* bDevice;
+        ACL_CHECK(aclrtMalloc((void**)(&bDevice), bSize, ACL_MEM_MALLOC_HUGE_FIRST));
         if (dataFile != "") {
-            uint8_t *bHost;
-            ACL_CHECK(aclrtMallocHost((void **)(&bHost), bSize));
+            uint8_t* bHost;
+            ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_b.bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(bHost));
@@ -70,15 +72,15 @@ public:
         }
 
         // Allocate output C
-        uint8_t *cDevice;
-        ACL_CHECK(aclrtMalloc((void **)(&cDevice), cSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        uint8_t* cDevice;
+        ACL_CHECK(aclrtMalloc((void**)(&cDevice), cSize, ACL_MEM_MALLOC_HUGE_FIRST));
 
         // Allocate and fill A scale
-        uint8_t *aScaleDevice;
-        ACL_CHECK(aclrtMalloc((void **)(&aScaleDevice), aScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        uint8_t* aScaleDevice;
+        ACL_CHECK(aclrtMalloc((void**)(&aScaleDevice), aScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
         if (dataFile != "") {
-            uint8_t *aScaleHost;
-            ACL_CHECK(aclrtMallocHost((void **)(&aScaleHost), aScaleSize));
+            uint8_t* aScaleHost;
+            ACL_CHECK(aclrtMallocHost((void**)(&aScaleHost), aScaleSize));
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_a_scale.bin", aScaleHost, aScaleSize);
             ACL_CHECK(aclrtMemcpy(aScaleDevice, aScaleSize, aScaleHost, aScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(aScaleHost));
@@ -88,11 +90,11 @@ public:
         }
 
         // Allocate and fill B scale
-        uint8_t *bScaleDevice;
-        ACL_CHECK(aclrtMalloc((void **)(&bScaleDevice), bScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        uint8_t* bScaleDevice;
+        ACL_CHECK(aclrtMalloc((void**)(&bScaleDevice), bScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
         if (dataFile != "") {
-            uint8_t *bScaleHost;
-            ACL_CHECK(aclrtMallocHost((void **)(&bScaleHost), bScaleSize));
+            uint8_t* bScaleHost;
+            ACL_CHECK(aclrtMallocHost((void**)(&bScaleHost), bScaleSize));
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_b_scale.bin", bScaleHost, bScaleSize);
             ACL_CHECK(aclrtMemcpy(bScaleDevice, bScaleSize, bScaleHost, bScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(bScaleHost));
@@ -105,29 +107,30 @@ public:
         return;
     }
 
-    void WriteResultFile(const KernelParams &params, const CocTilingParams &cocTiling,
-        uint32_t rankId, std::string dataFile) override {
+    void WriteResultFile(
+        const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
+    {
         size_t lenC = static_cast<size_t>(cocTiling.m) * cocTiling.n / cocTiling.rankSize;
         size_t cSize = lenC * sizeof(host_bfloat16_t);
 
-        uint8_t *cDevice = params.ptrC;
-        uint8_t *cHost;
-        ACL_CHECK(aclrtMallocHost((void **)(&cHost), cSize));
+        uint8_t* cDevice = params.ptrC;
+        uint8_t* cHost;
+        ACL_CHECK(aclrtMallocHost((void**)(&cHost), cSize));
         ACL_CHECK(aclrtMemcpy(cHost, cSize, cDevice, cSize, ACL_MEMCPY_DEVICE_TO_HOST));
         WriteFile(dataFile + "/output.bin", cHost, cSize, rankId * cSize);
 
         ACL_CHECK(aclrtFreeHost(cHost));
     }
 
-    size_t GetWorkspaceSize(const CocTilingParams &cocTiling) override {
-        return 0;
-    }
+    size_t GetWorkspaceSize(const CocTilingParams& cocTiling) override { return 0; }
 
-    CocCommType GetActualKernelType(const CocTilingParams &cocTiling) override {
+    CocCommType GetActualKernelType(const CocTilingParams& cocTiling) override
+    {
         return CocCommType::ASCEND950_MXFP8_MATMUL_REDUCE_SCATTER;
     }
 
-    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) override {
+    bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) override
+    {
         auto blockNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
         int64_t product = static_cast<int64_t>(blockNum) * cocTiling.commInterval;
 

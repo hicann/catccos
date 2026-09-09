@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -35,10 +36,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD, uint32_t M0_,
-          uint32_t N0_, uint32_t K0_>
-struct Ascend950MatmulReduceScatterConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementD, class LayoutD, uint32_t M0_,
+    uint32_t N0_, uint32_t K0_>
+struct Ascend950MatmulReduceScatterConfig {
     using ArchTag = Catlass::Arch::Ascend950;
 
     static constexpr bool enableUnitFlag = true;
@@ -49,17 +50,16 @@ struct Ascend950MatmulReduceScatterConfig
     static constexpr uint32_t l1BStages = 2;
     static constexpr uint32_t l0AStages = 2;
     static constexpr uint32_t l0BStages = 2;
-    using MmadDispatchPolicy =
-        Catlass::Gemm::MmadPingpong<ArchTag, enableUnitFlag, useHF32, l0CStages, enableL1Resident, l1AStages, l1BStages,
-                                    l0AStages, l0BStages>;
+    using MmadDispatchPolicy = Catlass::Gemm::MmadPingpong<
+        ArchTag, enableUnitFlag, useHF32, l0CStages, enableL1Resident, l1AStages, l1BStages, l0AStages, l0BStages>;
 
     using L1TileShape = tla::Shape<tla::Int<M0_>, tla::Int<N0_>, tla::Int<K0_>>;
     using L0TileShape = tla::Shape<tla::Int<M0_>, tla::Int<N0_>, tla::Int<64>>;
 
     using TileCopy =
         Catlass::Gemm::Tile::PackedTileCopyTla<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD>;
-    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA,
-                                                         ElementB, ElementD, void, TileCopy>;
+    using BlockMmad = Catlass::Gemm::Block::BlockMmadTla<
+        MmadDispatchPolicy, L1TileShape, L0TileShape, ElementA, ElementB, ElementD, void, TileCopy>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -71,16 +71,16 @@ struct Ascend950MatmulReduceScatterConfig
     using RemoteDstType = DType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Get, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockComm =
         Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
-    using Kernel = DGemm::Kernel::MatmulReduceScatterTla<BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler,
-                                                         WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::MatmulReduceScatterTla<
+        BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
@@ -94,4 +94,4 @@ template <class ElementA, class LayoutA, class ElementB, class LayoutB, class El
 using Ascend950MatmulReduceScatterConfig_M0_256 =
     Ascend950MatmulReduceScatterConfig<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, 256, 128, 256>;
 
-#endif  // ASCEND950_MATMUL_REDUCE_SCATTER_KERNEL_H
+#endif // ASCEND950_MATMUL_REDUCE_SCATTER_KERNEL_H

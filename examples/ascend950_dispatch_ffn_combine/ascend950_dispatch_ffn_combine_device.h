@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -61,15 +62,14 @@ using AscendC::TPosition;
 using namespace AscendC;
 using namespace Catccos;
 
-inline __gm__ struct OpSystemRunCfg g_opSystemRunCfg
-{
+inline __gm__ struct OpSystemRunCfg g_opSystemRunCfg {
     Catlass::L2_OFFSET
 };
 
-template <class ArchTag_, class ElementA_, class LayoutA_, class ElementB_, class LayoutB_, class ElementC_,
-          class LayoutC_, uint32_t Gmm1M0>
-struct FfnPipelineTypes
-{
+template <
+    class ArchTag_, class ElementA_, class LayoutA_, class ElementB_, class LayoutB_, class ElementC_, class LayoutC_,
+    uint32_t Gmm1M0>
+struct FfnPipelineTypes {
     using ArchTag = ArchTag_;
     using ElementDispatch = ElementA_;
     using ElementA = ElementB_;
@@ -100,17 +100,21 @@ struct FfnPipelineTypes
     using Gmm2L0TileShape = tla::Shape<tla::Int<kGmm2M0>, tla::Int<kGmm2N0>, tla::Int<128>>;
 
     static_assert(kGmm1M0 == 128 || kGmm1M0 == 256, "GMM1 M tile must be 128 or 256");
-    static_assert(kGmm1M0 != 256 || std::is_same_v<ArchTag, Catlass::Arch::Ascend950>,
-                  "GMM1 M256 full-UB path is supported only on Ascend950");
-    static_assert(kGmm1M0 != 256 || std::is_same_v<ElementC, bfloat16_t>,
-                  "GMM1 M256 UB aliasing is validated only for BF16 output");
-    static_assert(kGmm1M0 != 256 || 2 * kGmm1M0 * kGmm1N0 * sizeof(ElementC) == 256 * 1024,
-                  "GMM1 M256 must occupy two exact 128 KiB BF16 UB planes");
-    static_assert(std::is_same_v<ArchTag, Catlass::Arch::Ascend950>,
-                  "GMM2 M256 full-UB path is supported only on Ascend950");
+    static_assert(
+        kGmm1M0 != 256 || std::is_same_v<ArchTag, Catlass::Arch::Ascend950>,
+        "GMM1 M256 full-UB path is supported only on Ascend950");
+    static_assert(
+        kGmm1M0 != 256 || std::is_same_v<ElementC, bfloat16_t>,
+        "GMM1 M256 UB aliasing is validated only for BF16 output");
+    static_assert(
+        kGmm1M0 != 256 || 2 * kGmm1M0 * kGmm1N0 * sizeof(ElementC) == 256 * 1024,
+        "GMM1 M256 must occupy two exact 128 KiB BF16 UB planes");
+    static_assert(
+        std::is_same_v<ArchTag, Catlass::Arch::Ascend950>, "GMM2 M256 full-UB path is supported only on Ascend950");
     static_assert(std::is_same_v<ElementC, bfloat16_t>, "GMM2 M256 UB ping-pong is validated only for BF16 output");
-    static_assert(2 * kGmm2M0 * kGmm2N0 * sizeof(ElementC) == kPhysicalUbBytes,
-                  "GMM2 M256 must occupy two exact 128 KiB BF16 UB planes");
+    static_assert(
+        2 * kGmm2M0 * kGmm2N0 * sizeof(ElementC) == kPhysicalUbBytes,
+        "GMM2 M256 must occupy two exact 128 KiB BF16 UB planes");
 
     using AType = Catlass::Gemm::GemmType<ElementDispatch, LayoutA>;
     using BType = Catlass::Gemm::GemmType<ElementB, LayoutB>;
@@ -118,16 +122,16 @@ struct FfnPipelineTypes
 
     using LayoutScaleA = decltype(tla::MakeMxScaleLayout<ElementScale, LayoutA, false>(0U, 0U));
     using LayoutScaleB = decltype(tla::MakeMxScaleLayout<ElementScale, LayoutB, true>(0U, 0U));
-    using TileCopyToUB =
-        Catlass::Gemm::Tile::PackedMxTileCopyTlaToUB<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementScale,
-                                                     LayoutScaleA, ElementScale, LayoutScaleB, ElementC, LayoutC, void,
-                                                     Catlass::Gemm::Tile::CopyL0CToUBMode::NO_SPLIT>;
+    using TileCopyToUB = Catlass::Gemm::Tile::PackedMxTileCopyTlaToUB<
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementScale, LayoutScaleA, ElementScale, LayoutScaleB, ElementC,
+        LayoutC, void, Catlass::Gemm::Tile::CopyL0CToUBMode::NO_SPLIT>;
 
-    using Gmm1BlockMmadToUB = Catlass::Gemm::Block::BlockMmadTla<DispatchPolicy, Gmm1L1TileShape, Gmm1L0TileShape,
-                                                                 ElementA, ElementB, ElementC, void, TileCopyToUB>;
+    using Gmm1BlockMmadToUB = Catlass::Gemm::Block::BlockMmadTla<
+        DispatchPolicy, Gmm1L1TileShape, Gmm1L0TileShape, ElementA, ElementB, ElementC, void, TileCopyToUB>;
 
-    using Gmm1BlockScheduler = std::conditional_t<kGmm1M0 == 256, typename Gemm::Block::GemmIdentityBlockSwizzle<3, 1>,
-                                                  typename Gemm::Block::GemmIdentityBlockSwizzle<9, 1>>;
+    using Gmm1BlockScheduler = std::conditional_t<
+        kGmm1M0 == 256, typename Gemm::Block::GemmIdentityBlockSwizzle<3, 1>,
+        typename Gemm::Block::GemmIdentityBlockSwizzle<9, 1>>;
     using Gmm2BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<3, 1>;
 
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
@@ -139,25 +143,24 @@ struct FfnPipelineTypes
     // ===================== Up: AllToAllV -> GMM =====================
     static constexpr Catccos::detail::CopyDirect kUpRemoteDirect = Catccos::detail::CopyDirect::Get;
 
-    using UpRemoteTileCopy = Comm::Tile::TileRemoteCopy<ArchTag, kIsDynamic, AType, AType, void, kUpRemoteDirect,
-                                                        Catccos::detail::CopyTransport::Mte>;
+    using UpRemoteTileCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, kIsDynamic, AType, AType, void, kUpRemoteDirect, Catccos::detail::CopyTransport::Mte>;
 
     using UpRemoteCommDispatch = Comm::AtlasCommRemoteCopy<ArchTag, kCommUbStages, kIsDynamic>;
 
     using UpRemoteCommBlock =
         Comm::Block::CommBlock<UpRemoteCommDispatch, AType, AType, void, UpRemoteTileCopy, TileScheduler>;
 
-    using UpLocalTileCopy = Comm::Tile::TileRemoteCopy<ArchTag, false, AType, AType, LocalCopyTileShape,
-                                                       kUpRemoteDirect, Catccos::detail::CopyTransport::Mte>;
+    using UpLocalTileCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, false, AType, AType, LocalCopyTileShape, kUpRemoteDirect, Catccos::detail::CopyTransport::Mte>;
 
-    using UpLocalCopyBlock = Catccos::Comm::Block::CommBlock<LocalCopyDispatch, AType, AType, LocalCopyBlockShape,
-                                                             UpLocalTileCopy, TileScheduler>;
+    using UpLocalCopyBlock = Catccos::Comm::Block::CommBlock<
+        LocalCopyDispatch, AType, AType, LocalCopyBlockShape, UpLocalTileCopy, TileScheduler>;
 
     using UpCommScheduler = typename Catlass::Gemm::Block::BlockCommSchedulerAllToAllVGmm;
 
-    using UpKernel =
-        Catccos::DGemm::Kernel::Ascend950AllToAllGmmKernel<Gmm1BlockMmadToUB, Gmm1BlockScheduler, UpLocalCopyBlock,
-                                                           UpRemoteCommBlock, UpCommScheduler, ElementDispatch>;
+    using UpKernel = Catccos::DGemm::Kernel::Ascend950AllToAllGmmKernel<
+        Gmm1BlockMmadToUB, Gmm1BlockScheduler, UpLocalCopyBlock, UpRemoteCommBlock, UpCommScheduler, ElementDispatch>;
 
     // ===================== Swiglu =====================
     static constexpr uint32_t kRegBaseSwigluUbStages = 2;
@@ -171,43 +174,41 @@ struct FfnPipelineTypes
     using SwigluDType = Catlass::Gemm::GemmType<ElementC, Catlass::layout::RowMajor>;
     using SwigluTileCopy = Catlass::Epilogue::Tile::TileCopy<ArchTag, CType, CType, SwigluDType>;
     using SwigluTileScheduler = Catlass::Epilogue::Tile::EpilogueHorizontalTileSwizzle;
-    using SwigluBlock = Catlass::Epilogue::Block::BlockEpilogue<SwigluDispatchPolicy, CType, SwigluDType,
-                                                                SwigluTileCopy, SwigluTileScheduler>;
-    using SwigluKernel =
-        Catccos::DGemm::Kernel::Ascend950SwigluMxQuantFromUbKernel<ArchTag, SwigluBlock, ElementA, ElementScale,
-                                                                   Gmm1BlockScheduler, kGmm1M0, kGmm1N0>;
+    using SwigluBlock = Catlass::Epilogue::Block::BlockEpilogue<
+        SwigluDispatchPolicy, CType, SwigluDType, SwigluTileCopy, SwigluTileScheduler>;
+    using SwigluKernel = Catccos::DGemm::Kernel::Ascend950SwigluMxQuantFromUbKernel<
+        ArchTag, SwigluBlock, ElementA, ElementScale, Gmm1BlockScheduler, kGmm1M0, kGmm1N0>;
 
-    static_assert(UpKernel::UB_TILE_M == SwigluKernel::UB_TILE_M && UpKernel::UB_TILE_N == SwigluKernel::UB_TILE_N,
-                  "GMM producer and SwiGLU consumer must use the same UB tile shape");
+    static_assert(
+        UpKernel::UB_TILE_M == SwigluKernel::UB_TILE_M && UpKernel::UB_TILE_N == SwigluKernel::UB_TILE_N,
+        "GMM producer and SwiGLU consumer must use the same UB tile shape");
 
     // ===================== Down: GMM -> AIV1 UB -> remote symmetric GM =====================
-    using DownTileCopyToAiv1UB =
-        Catccos::DGemm::Kernel::PackedMxTileCopyTlaToTargetUb<ArchTag, ElementA, LayoutA, ElementB, LayoutB,
-                                                              ElementScale, LayoutScaleA, ElementScale, LayoutScaleB,
-                                                              ElementC, LayoutC, 1>;
+    using DownTileCopyToAiv1UB = Catccos::DGemm::Kernel::PackedMxTileCopyTlaToTargetUb<
+        ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementScale, LayoutScaleA, ElementScale, LayoutScaleB, ElementC,
+        LayoutC, 1>;
 
-    using DownBlockMmadToAiv1UB =
-        Catlass::Gemm::Block::BlockMmadTla<DispatchPolicy, Gmm2L1TileShape, Gmm2L0TileShape, ElementA, ElementB,
-                                           ElementC, void, DownTileCopyToAiv1UB>;
+    using DownBlockMmadToAiv1UB = Catlass::Gemm::Block::BlockMmadTla<
+        DispatchPolicy, Gmm2L1TileShape, Gmm2L0TileShape, ElementA, ElementB, ElementC, void, DownTileCopyToAiv1UB>;
 
     using DownMetadataScheduler = typename Catlass::Gemm::Block::BlockCommSchedulerGmmAllToAllV;
     // The top-level fused operator owns the world barrier immediately before unpermute.
     static constexpr bool kDownWorldBarrierAtEnd = false;
 
-    using DownKernel = Catccos::DGemm::Kernel::Ascend950GmmAllToAllKernel<DownBlockMmadToAiv1UB, Gmm2BlockScheduler,
-                                                                          DownMetadataScheduler, kGmm1M0, kGmm1N0,
-                                                                          kPhysicalUbBytes, kDownWorldBarrierAtEnd>;
+    using DownKernel = Catccos::DGemm::Kernel::Ascend950GmmAllToAllKernel<
+        DownBlockMmadToAiv1UB, Gmm2BlockScheduler, DownMetadataScheduler, kGmm1M0, kGmm1N0, kPhysicalUbBytes,
+        kDownWorldBarrierAtEnd>;
 };
 
 template <class Types>
 CATLASS_DEVICE void RunUpAllToAllVGmm(
     Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmScaleB, GM_ADDR tokenPerExpert,
     GM_ADDR upWorkspace, GM_ADDR quantAWorkspace, GM_ADDR quantAScaleWorkspace, GM_ADDR dispatchReady,
-    GM_ADDR swigluReady, GM_ADDR gmSymmetric, Catlass::MatrixCoord const &commBlockShape,
-    Catlass::MatrixCoord const &commTileShape, uint32_t expertPerRank, uint32_t rankId, uint32_t rankSize,
-    uint32_t maxOutputSize, typename Types::UpKernel &upKernel,
-    Catccos::DGemm::Kernel::Ascend950AicWaitUbFree<typename Types::SwigluKernel> &aicWaitUbFree,
-    Catccos::DGemm::Kernel::Ascend950AicNotifyUbReady<typename Types::SwigluKernel> &aicNotifyUbReady,
+    GM_ADDR swigluReady, GM_ADDR gmSymmetric, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, uint32_t rankId, uint32_t rankSize,
+    uint32_t maxOutputSize, typename Types::UpKernel& upKernel,
+    Catccos::DGemm::Kernel::Ascend950AicWaitUbFree<typename Types::SwigluKernel>& aicWaitUbFree,
+    Catccos::DGemm::Kernel::Ascend950AicNotifyUbReady<typename Types::SwigluKernel>& aicNotifyUbReady,
     Catlass::Arch::Resource<typename Types::ArchTag> resource)
 {
     using LayoutA = typename Types::LayoutA;
@@ -220,47 +221,47 @@ CATLASS_DEVICE void RunUpAllToAllVGmm(
     typename Types::UpRemoteCommBlock::Params remoteCommParams{commBlockShape, tileParams};
     typename Types::UpLocalCopyBlock::Params localCopyParams{};
 
-    typename Types::UpKernel::Params params{problemShape,
-                                            rankSize,
-                                            expertPerRank,
-                                            maxOutputSize,
+    typename Types::UpKernel::Params params{
+        problemShape,
+        rankSize,
+        expertPerRank,
+        maxOutputSize,
 
-                                            rankId,
-                                            rankSize,
+        rankId,
+        rankSize,
 
-                                            tokenPerExpert,
+        tokenPerExpert,
 
-                                            gmA,
-                                            layoutA,
-                                            gmB,
-                                            layoutB,
+        gmA,
+        layoutA,
+        gmB,
+        layoutB,
 
-                                            quantAWorkspace,
-                                            quantAScaleWorkspace,
-                                            gmScaleB,
+        quantAWorkspace,
+        quantAScaleWorkspace,
+        gmScaleB,
 
-                                            upWorkspace,
-                                            dispatchReady,
-                                            swigluReady,
-                                            gmSymmetric,
+        upWorkspace,
+        dispatchReady,
+        swigluReady,
+        gmSymmetric,
 
-                                            localCopyParams,
-                                            remoteCommParams,
+        localCopyParams,
+        remoteCommParams,
 
-                                            MakeCallback(&aicWaitUbFree),
-                                            MakeCallback(&aicNotifyUbReady)};
+        MakeCallback(&aicWaitUbFree),
+        MakeCallback(&aicNotifyUbReady)};
 
     upKernel(params, resource);
 }
 
 template <class Types>
-CATLASS_DEVICE void RunSwigluStage(Catlass::GemmCoord problemShape, GM_ADDR swigluBf16Output, GM_ADDR swigluOutput,
-                                   GM_ADDR swigluScaleOutput, GM_ADDR groupListPtr, GM_ADDR swigluReady,
-                                   uint32_t expertPerRank, typename Types::SwigluKernel &swiglu,
-                                   Catlass::Arch::Resource<typename Types::ArchTag> resource)
+CATLASS_DEVICE void RunSwigluStage(
+    Catlass::GemmCoord problemShape, GM_ADDR swigluBf16Output, GM_ADDR swigluOutput, GM_ADDR swigluScaleOutput,
+    GM_ADDR groupListPtr, GM_ADDR swigluReady, uint32_t expertPerRank, typename Types::SwigluKernel& swiglu,
+    Catlass::Arch::Resource<typename Types::ArchTag> resource)
 {
-    if constexpr (g_coreType == AscendC::AIV)
-    {
+    if constexpr (g_coreType == AscendC::AIV) {
         typename Types::SwigluKernel::Params swigluParams{expertPerRank, problemShape.GetCoordMN(), swigluBf16Output,
                                                           swigluOutput,  swigluScaleOutput,         groupListPtr,
                                                           swigluReady};
@@ -270,12 +271,11 @@ CATLASS_DEVICE void RunSwigluStage(Catlass::GemmCoord problemShape, GM_ADDR swig
 }
 
 template <class Types>
-CATLASS_DEVICE void RunDownGmmAllToAllV(Catlass::GemmCoord upProblemShape, GM_ADDR swigluOutput,
-                                        GM_ADDR swigluScaleOutput, GM_ADDR gmB2, GM_ADDR gmB2Scale,
-                                        GM_ADDR tokenPerExpert, GM_ADDR cumsumMM, GM_ADDR downWorkspace,
-                                        GM_ADDR swigluReady, GM_ADDR gmSymmetric, uint32_t expertPerRank,
-                                        uint32_t rankId, uint32_t rankSize, uint32_t maxOutputSize,
-                                        Catlass::Arch::Resource<typename Types::ArchTag> resource)
+CATLASS_DEVICE void RunDownGmmAllToAllV(
+    Catlass::GemmCoord upProblemShape, GM_ADDR swigluOutput, GM_ADDR swigluScaleOutput, GM_ADDR gmB2, GM_ADDR gmB2Scale,
+    GM_ADDR tokenPerExpert, GM_ADDR cumsumMM, GM_ADDR downWorkspace, GM_ADDR swigluReady, GM_ADDR gmSymmetric,
+    uint32_t expertPerRank, uint32_t rankId, uint32_t rankSize, uint32_t maxOutputSize,
+    Catlass::Arch::Resource<typename Types::ArchTag> resource)
 {
     using LayoutA = typename Types::LayoutA;
     using LayoutB = typename Types::LayoutB;
@@ -284,9 +284,9 @@ CATLASS_DEVICE void RunDownGmmAllToAllV(Catlass::GemmCoord upProblemShape, GM_AD
     uint32_t n2 = upProblemShape.k();
 
     Catlass::GemmCoord downProblemShape{
-        upProblemShape.m(),  // M = m * topK
-        n2,                  // N = k
-        k2                   // K = n / 2
+        upProblemShape.m(), // M = m * topK
+        n2,                 // N = k
+        k2                  // K = n / 2
     };
 
     LayoutA layoutA{downProblemShape.m(), downProblemShape.k()};
@@ -302,17 +302,16 @@ CATLASS_DEVICE void RunDownGmmAllToAllV(Catlass::GemmCoord upProblemShape, GM_AD
     downKernel(params, resource);
 }
 
-template <class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
-          uint32_t Gmm1M0>
-CATLASS_DEVICE void DispatchFFNCombineImpl(Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale,
-                                           GM_ADDR gmB2, GM_ADDR gmB2Scale, GM_ADDR gmD, GM_ADDR tokenPerExpert,
-                                           GM_ADDR ptrWorkspace, GM_ADDR quantAWorkspace, GM_ADDR quantAScaleWorkspace,
-                                           GM_ADDR swigluOutput, GM_ADDR swigluBf16Output, GM_ADDR swigluScaleOutput,
-                                           GM_ADDR gmSymmetric, GM_ADDR gmmAllToAllWorkspace,
-                                           Catlass::MatrixCoord const &commCoreSplit,
-                                           Catlass::MatrixCoord const &commBlockShape,
-                                           Catlass::MatrixCoord const &commTileShape, uint32_t expertPerRank,
-                                           uint32_t topK, Catlass::Arch::Resource<ArchTag> resource)
+template <
+    class ArchTag, class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
+    uint32_t Gmm1M0>
+CATLASS_DEVICE void DispatchFFNCombineImpl(
+    Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2, GM_ADDR gmB2Scale,
+    GM_ADDR gmD, GM_ADDR tokenPerExpert, GM_ADDR ptrWorkspace, GM_ADDR quantAWorkspace, GM_ADDR quantAScaleWorkspace,
+    GM_ADDR swigluOutput, GM_ADDR swigluBf16Output, GM_ADDR swigluScaleOutput, GM_ADDR gmSymmetric,
+    GM_ADDR gmmAllToAllWorkspace, Catlass::MatrixCoord const& commCoreSplit, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, uint32_t topK,
+    Catlass::Arch::Resource<ArchTag> resource)
 {
     (void)commCoreSplit;
     (void)topK;
@@ -349,26 +348,26 @@ CATLASS_DEVICE void DispatchFFNCombineImpl(Catlass::GemmCoord problemShape, GM_A
     Catccos::DGemm::Kernel::Ascend950AicUbSyncState aicUbSyncState{};
     Catccos::DGemm::Kernel::Ascend950AicWaitUbFree<typename Types::SwigluKernel> aicWaitUbFree{aicUbSyncState};
     Catccos::DGemm::Kernel::Ascend950AicNotifyUbReady<typename Types::SwigluKernel> aicNotifyUbReady{aicUbSyncState};
-    RunUpAllToAllVGmm<Types>(problemShape, gmA, gmB, gmBScale, tokenPerExpert, upWorkspace, quantAWorkspace,
-                             quantAScaleWorkspace, dispatchReady, swigluReady, gmSymmetric, commBlockShape,
-                             commTileShape, expertPerRank, rankId, rankSize, maxOutputSize, upKernel, aicWaitUbFree,
-                             aicNotifyUbReady, resource);
+    RunUpAllToAllVGmm<Types>(
+        problemShape, gmA, gmB, gmBScale, tokenPerExpert, upWorkspace, quantAWorkspace, quantAScaleWorkspace,
+        dispatchReady, swigluReady, gmSymmetric, commBlockShape, commTileShape, expertPerRank, rankId, rankSize,
+        maxOutputSize, upKernel, aicWaitUbFree, aicNotifyUbReady, resource);
 
     // ===================== Swiglu =====================
-    RunSwigluStage<Types>(problemShape, swigluBf16Output, swigluOutput, swigluScaleOutput, groupListPtr, swigluReady,
-                          expertPerRank, swiglu, resource);
+    RunSwigluStage<Types>(
+        problemShape, swigluBf16Output, swigluOutput, swigluScaleOutput, groupListPtr, swigluReady, expertPerRank,
+        swiglu, resource);
 
     // ===================== Down: GMM -> AllToAllV =====================
-    RunDownGmmAllToAllV<Types>(problemShape, swigluOutput, swigluScaleOutput, gmB2, gmB2Scale, tokenPerExpert,
-                               upCumsumBase, gmmAllToAllWorkspace, swigluReady, gmSymmetric, expertPerRank, rankId,
-                               rankSize, maxOutputSize, resource);
+    RunDownGmmAllToAllV<Types>(
+        problemShape, swigluOutput, swigluScaleOutput, gmB2, gmB2Scale, tokenPerExpert, upCumsumBase,
+        gmmAllToAllWorkspace, swigluReady, gmSymmetric, expertPerRank, rankId, rankSize, maxOutputSize, resource);
 
     // GMM2 is allowed to overlap AIV0's last SwiGLU/MX tile. Consume the
     // remaining acknowledgement only after the down path has completed, when
     // it is normally already available. The stateful callback is a no-op on
     // cores that never produced a GMM1 tile.
-    if constexpr (g_coreType == AscendC::AIC)
-    {
+    if constexpr (g_coreType == AscendC::AIC) {
         aicWaitUbFree();
     }
 }
@@ -378,8 +377,8 @@ CATLASS_DEVICE void DispatchFFNCombineImpl_M0_256(
     Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2, GM_ADDR gmB2Scale,
     GM_ADDR gmD, GM_ADDR tokenPerExpert, GM_ADDR ptrWorkspace, GM_ADDR quantAWorkspace, GM_ADDR quantAScaleWorkspace,
     GM_ADDR swigluOutput, GM_ADDR swigluBf16Output, GM_ADDR swigluScaleOutput, GM_ADDR gmSymmetric,
-    GM_ADDR gmmAllToAllWorkspace, Catlass::MatrixCoord const &commCoreSplit, Catlass::MatrixCoord const &commBlockShape,
-    Catlass::MatrixCoord const &commTileShape, uint32_t expertPerRank, uint32_t topK,
+    GM_ADDR gmmAllToAllWorkspace, Catlass::MatrixCoord const& commCoreSplit, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, uint32_t topK,
     Catlass::Arch::Resource<ArchTag> resource)
 {
     DispatchFFNCombineImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 256>(
@@ -393,8 +392,8 @@ CATLASS_DEVICE void DispatchFFNCombineImpl_M0_128(
     Catlass::GemmCoord problemShape, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2, GM_ADDR gmB2Scale,
     GM_ADDR gmD, GM_ADDR tokenPerExpert, GM_ADDR ptrWorkspace, GM_ADDR quantAWorkspace, GM_ADDR quantAScaleWorkspace,
     GM_ADDR swigluOutput, GM_ADDR swigluBf16Output, GM_ADDR swigluScaleOutput, GM_ADDR gmSymmetric,
-    GM_ADDR gmmAllToAllWorkspace, Catlass::MatrixCoord const &commCoreSplit, Catlass::MatrixCoord const &commBlockShape,
-    Catlass::MatrixCoord const &commTileShape, uint32_t expertPerRank, uint32_t topK,
+    GM_ADDR gmmAllToAllWorkspace, Catlass::MatrixCoord const& commCoreSplit, Catlass::MatrixCoord const& commBlockShape,
+    Catlass::MatrixCoord const& commTileShape, uint32_t expertPerRank, uint32_t topK,
     Catlass::Arch::Resource<ArchTag> resource)
 {
     DispatchFFNCombineImpl<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, 128>(
@@ -404,16 +403,15 @@ CATLASS_DEVICE void DispatchFFNCombineImpl_M0_128(
 }
 
 template <class ArchTag>
-CATLASS_DEVICE void PrepareDstExpertOffsets(GM_ADDR tokenPerExpertPtr, GM_ADDR gmmAllToAllWorkspace, uint32_t rank,
-                                            uint32_t rankSize, uint32_t expertPerRank,
-                                            Catlass::Arch::Resource<ArchTag> resource)
+CATLASS_DEVICE void PrepareDstExpertOffsets(
+    GM_ADDR tokenPerExpertPtr, GM_ADDR gmmAllToAllWorkspace, uint32_t rank, uint32_t rankSize, uint32_t expertPerRank,
+    Catlass::Arch::Resource<ArchTag> resource)
 {
-    if constexpr (g_coreType == AscendC::AIV)
-    {
+    if constexpr (g_coreType == AscendC::AIV) {
         AscendC::GlobalTensor<int32_t> tokenPerExpert;
-        tokenPerExpert.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(tokenPerExpertPtr));
+        tokenPerExpert.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(tokenPerExpertPtr));
         AscendC::GlobalTensor<int32_t> dstExpertOffset;
-        dstExpertOffset.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(gmmAllToAllWorkspace));
+        dstExpertOffset.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(gmmAllToAllWorkspace));
         auto offsetsUb = resource.ubBuf.template GetBufferByByte<int32_t>(0);
 
         uint32_t coreIdx = get_block_idx() + get_subblockid() * get_block_num();
@@ -422,14 +420,11 @@ CATLASS_DEVICE void PrepareDstExpertOffsets(GM_ADDR tokenPerExpertPtr, GM_ADDR g
         uint32_t rankExpertBase = rank * expertPerRank;
         uint32_t rankExpertEnd = rankExpertBase + expertPerRank;
 
-        for (uint32_t dstRank = coreIdx; dstRank < rankSize; dstRank += coreNum)
-        {
+        for (uint32_t dstRank = coreIdx; dstRank < rankSize; dstRank += coreNum) {
             uint32_t tokenBase = dstRank * rankSize * expertPerRank;
             uint32_t running = 0;
-            for (uint32_t globalExpert = 0; globalExpert < rankExpertEnd; ++globalExpert)
-            {
-                if (globalExpert >= rankExpertBase)
-                {
+            for (uint32_t globalExpert = 0; globalExpert < rankExpertEnd; ++globalExpert) {
+                if (globalExpert >= rankExpertBase) {
                     offsetsUb.SetValue(globalExpert - rankExpertBase, running);
                 }
                 running += tokenPerExpert(tokenBase + globalExpert);
@@ -449,20 +444,16 @@ void BarrierBetweenUpAndDown()
 {
     AscendC::PipeBarrier<PIPE_ALL>();
     Arch::CrossCoreFlag gmm1AivFinished{0};
-    if constexpr (g_coreType == AscendC::AIV)
-    {
+    if constexpr (g_coreType == AscendC::AIV) {
         Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
         Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(gmm1AivFinished);
-    }
-    else
-    {
+    } else {
         Arch::CrossCoreWaitFlag(gmm1AivFinished);
     }
 }
 
 template <class ElementDispatch_, class ElementQuant_, class ElementC_>
-struct WorkspaceInfo
-{
+struct WorkspaceInfo {
     using ElementDispatch = ElementDispatch_;
     using ElementQuant = ElementQuant_;
     using ElementC = ElementC_;
@@ -491,7 +482,7 @@ struct WorkspaceInfo
     static int64_t AlignBytes(int64_t bytes, int64_t align = 512) { return (bytes + align - 1) / align * align; }
 
     CATLASS_DEVICE
-    WorkspaceInfo(GM_ADDR ptrLocalWorkspace, GM_ADDR ptrSymmWorkspace, const CocTilingParams &cocTiling)
+    WorkspaceInfo(GM_ADDR ptrLocalWorkspace, GM_ADDR ptrSymmWorkspace, const CocTilingParams& cocTiling)
     {
         uint32_t rankSize = shmem_n_pes();
         uint32_t epSize = cocTiling.epSize;
@@ -570,12 +561,11 @@ struct WorkspaceInfo
 };
 
 template <class ArchTag, class ElementInput, class ElementQuant>
-CATLASS_DEVICE void QuantScatterRoutingMxFp8(GM_ADDR gmInput, GM_ADDR expandedRowIdx, GM_ADDR packedSymmetric,
-                                             uint32_t tokenCount, uint32_t hiddenSize, uint32_t topK,
-                                             Catlass::Arch::Resource<ArchTag> &resource)
+CATLASS_DEVICE void QuantScatterRoutingMxFp8(
+    GM_ADDR gmInput, GM_ADDR expandedRowIdx, GM_ADDR packedSymmetric, uint32_t tokenCount, uint32_t hiddenSize,
+    uint32_t topK, Catlass::Arch::Resource<ArchTag>& resource)
 {
-    if constexpr (g_coreType != AscendC::AIV)
-    {
+    if constexpr (g_coreType != AscendC::AIV) {
         return;
     }
 
@@ -593,11 +583,11 @@ CATLASS_DEVICE void QuantScatterRoutingMxFp8(GM_ADDR gmInput, GM_ADDR expandedRo
     uint32_t localTokenCount = remainingTokens < tokensPerCore ? remainingTokens : tokensPerCore;
 
     AscendC::GlobalTensor<ElementInput> input;
-    input.SetGlobalBuffer(reinterpret_cast<__gm__ ElementInput *>(gmInput));
+    input.SetGlobalBuffer(reinterpret_cast<__gm__ ElementInput*>(gmInput));
     AscendC::GlobalTensor<int32_t> rowIdx;
-    rowIdx.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(expandedRowIdx));
+    rowIdx.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(expandedRowIdx));
     AscendC::GlobalTensor<uint8_t> packedOutput;
-    packedOutput.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t *>(packedSymmetric));
+    packedOutput.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(packedSymmetric));
 
     typename BlockMxQuant::Params quantParams{hiddenSize};
     BlockMxQuant mxQuant(resource, quantParams);
@@ -608,18 +598,18 @@ CATLASS_DEVICE void QuantScatterRoutingMxFp8(GM_ADDR gmInput, GM_ADDR expandedRo
 
 #if defined(ENABLE_ASCENDC_DUMP)
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
-CATLASS_GLOBAL void DispatchFFNCombine(uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2,
-                                       GM_ADDR gmB2Scale, GM_ADDR gmD, GM_ADDR gmExpertIdx, GM_ADDR gmProbs,
-                                       GM_ADDR gmWorkSpace, GM_ADDR gmSymmetric, CocTilingParams cocTiling,
-                                       MoeInitRoutingQuantV2Tiling moeTiling, GM_ADDR dump)
+CATLASS_GLOBAL void DispatchFFNCombine(
+    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2, GM_ADDR gmB2Scale, GM_ADDR gmD,
+    GM_ADDR gmExpertIdx, GM_ADDR gmProbs, GM_ADDR gmWorkSpace, GM_ADDR gmSymmetric, CocTilingParams cocTiling,
+    MoeInitRoutingQuantV2Tiling moeTiling, GM_ADDR dump)
 {
     AscendC::InitDump(false, dump, ALL_DUMPSIZE);
 #else
 template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC>
-CATLASS_GLOBAL void DispatchFFNCombine(uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2,
-                                       GM_ADDR gmB2Scale, GM_ADDR gmD, GM_ADDR gmExpertIdx, GM_ADDR gmProbs,
-                                       GM_ADDR gmWorkSpace, GM_ADDR gmSymmetric, CocTilingParams cocTiling,
-                                       MoeInitRoutingQuantV2Tiling moeTiling)
+CATLASS_GLOBAL void DispatchFFNCombine(
+    uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR gmB, GM_ADDR gmBScale, GM_ADDR gmB2, GM_ADDR gmB2Scale, GM_ADDR gmD,
+    GM_ADDR gmExpertIdx, GM_ADDR gmProbs, GM_ADDR gmWorkSpace, GM_ADDR gmSymmetric, CocTilingParams cocTiling,
+    MoeInitRoutingQuantV2Tiling moeTiling)
 {
 #endif
     AscendC::SetSyncBaseAddr(fftsAddr);
@@ -671,29 +661,26 @@ CATLASS_GLOBAL void DispatchFFNCombine(uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR g
         nullptr /*expertTokensBeforeCapacity*/, workspaceInfo.moeInitRoutingWorkspace,
         &moeTiling.moeInitRoutingQuantV2TilingData, moeTiling.initRoutingQuantTilingKey);
 
-    QuantScatterRoutingMxFp8<ArchTag, ElementA, ElementB>(gmA, workspaceInfo.expandedRowIdx, workspaceInfo.symmetricA,
-                                                          m, k, topK, resource);
+    QuantScatterRoutingMxFp8<ArchTag, ElementA, ElementB>(
+        gmA, workspaceInfo.expandedRowIdx, workspaceInfo.symmetricA, m, k, topK, resource);
 
     shmemx_barrier_all_vec();
-    typename AllGather::Params allgatherParams{epSize * expertPerRank, localTokensPerExpert, nullptr,
-                                               workspaceInfo.tokensPerExpert};
+    typename AllGather::Params allgatherParams{
+        epSize * expertPerRank, localTokensPerExpert, nullptr, workspaceInfo.tokensPerExpert};
     allgather(allgatherParams, resource);
-    PrepareDstExpertOffsets<ArchTag>(workspaceInfo.tokensPerExpert, workspaceInfo.gmmAllToAllWorkspace, rankIdx,
-                                     rankSize, expertPerRank, resource);
+    PrepareDstExpertOffsets<ArchTag>(
+        workspaceInfo.tokensPerExpert, workspaceInfo.gmmAllToAllWorkspace, rankIdx, rankSize, expertPerRank, resource);
 
     BarrierBetweenUpAndDown();
 
-    if (m0 == 128)
-    {
+    if (m0 == 128) {
         DispatchFFNCombineImpl_M0_128<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>(
             problemShape, nullptr, gmB, gmBScale, gmB2, gmB2Scale, nullptr, workspaceInfo.tokensPerExpert,
             workspaceInfo.allToAllVGmmWorkspace, workspaceInfo.quantAWorkspace, workspaceInfo.quantAScaleWorkspace,
             workspaceInfo.swigluOutput, workspaceInfo.swigluBf16Output, workspaceInfo.swigluScaleOutput,
             workspaceInfo.symmetricA, workspaceInfo.gmmAllToAllWorkspace, commCoreSplit, commBlockShape, commTileShape,
             expertPerRank, topK, resource);
-    }
-    else
-    {
+    } else {
         DispatchFFNCombineImpl_M0_256<ArchTag, ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC>(
             problemShape, nullptr, gmB, gmBScale, gmB2, gmB2Scale, nullptr, workspaceInfo.tokensPerExpert,
             workspaceInfo.allToAllVGmmWorkspace, workspaceInfo.quantAWorkspace, workspaceInfo.quantAScaleWorkspace,
@@ -705,15 +692,14 @@ CATLASS_GLOBAL void DispatchFFNCombine(uint64_t fftsAddr, GM_ADDR gmA, GM_ADDR g
     shmemx_barrier_all_vec();
 
     // =============== token upermute start ===============
-    if ASCEND_IS_AIV
-    {
+    if ASCEND_IS_AIV {
         MoeTokenUnpermuteTilingData tilingData;
         MoeTokenUnpermuteTiling(m * topK, k, topK, tilingData, get_block_num() * get_subblockdim());
 
         KernelMoeTokenUnpermute<ElementC, int32_t, float, true> kernelMoeTokenUnpermuteOp;
 
-        kernelMoeTokenUnpermuteOp.Init(workspaceInfo.symmetricA, workspaceInfo.expandedRowIdx, gmProbs, gmD,
-                                       &tilingData);
+        kernelMoeTokenUnpermuteOp.Init(
+            workspaceInfo.symmetricA, workspaceInfo.expandedRowIdx, gmProbs, gmD, &tilingData);
         kernelMoeTokenUnpermuteOp.Process();
     }
 }

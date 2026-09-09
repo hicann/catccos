@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -44,12 +45,8 @@ using namespace AscendC;
 using namespace Catccos;
 
 template <
-    class ElementA, class LayoutA,
-    class ElementB, class LayoutB,
-    class ElementC, class LayoutC,
-    class ElementD, class LayoutD,
-    uint32_t M0_, uint32_t N0_, uint32_t K0_
->
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, class ElementD,
+    class LayoutD, uint32_t M0_, uint32_t N0_, uint32_t K0_>
 struct MatmulDequantReduceScatterWriteConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
@@ -65,8 +62,8 @@ struct MatmulDequantReduceScatterWriteConfig {
     using BiasType = Catlass::Gemm::GemmType<ElementC, Catlass::layout::VectorLayout>;
     using DType = Catlass::Gemm::GemmType<ElementD, LayoutD>;
 
-    using BlockMmad = Catlass::Gemm::Block::BlockMmad<
-        MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType, BiasType>;
+    using BlockMmad =
+        Catlass::Gemm::Block::BlockMmad<MmadDispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType, BiasType>;
 
     static constexpr bool IS_DYNAMIC = true;
 
@@ -83,23 +80,15 @@ struct MatmulDequantReduceScatterWriteConfig {
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockComm = Comm::Block::CommBlock<
-        CommDispatchPolicy,
-        ReduceScatterSrcType, ReduceScatterDstType,
-        void,
-        TileRemoteCopy, TileScheduler
-    >;
+        CommDispatchPolicy, ReduceScatterSrcType, ReduceScatterDstType, void, TileRemoteCopy, TileScheduler>;
 
     using LocalCopyTileShape = Catlass::MatrixShape<48, 1024>;
     using TileLocalCopy = Comm::Tile::TileRemoteCopy<
-        ArchTag, IS_DYNAMIC, ReduceScatterSrcType, ReduceScatterDstType,
-        LocalCopyTileShape, CopyDirect::Put, CopyTransport::Mte>;
+        ArchTag, IS_DYNAMIC, ReduceScatterSrcType, ReduceScatterDstType, LocalCopyTileShape, CopyDirect::Put,
+        CopyTransport::Mte>;
     using LocalCopyDispatchPolicy = Catccos::Comm::AtlasA2CommLocalCopy<UB_STAGES, IS_DYNAMIC>;
     using LocalCopyBlock = Comm::Block::CommBlock<
-        LocalCopyDispatchPolicy,
-        ReduceScatterSrcType, ReduceScatterDstType,
-        void,
-        TileLocalCopy, TileScheduler
-    >;
+        LocalCopyDispatchPolicy, ReduceScatterSrcType, ReduceScatterDstType, void, TileLocalCopy, TileScheduler>;
 
     using DequantScaleType = Catlass::Gemm::GemmType<float, Catlass::layout::VectorLayout>;
     using DequantPerTokenScaleType = Catlass::Gemm::GemmType<float, Catlass::layout::VectorLayout>;
@@ -107,51 +96,36 @@ struct MatmulDequantReduceScatterWriteConfig {
     using EpilogueTileShape = Catlass::MatrixShape<4, 256>;
     using ComputeType = Catlass::Gemm::GemmType<float, Catlass::layout::RowMajor>;
 
-    using TileRowBroadcastMul = Catlass::Epilogue::Tile::TileRowBroadcastMul<
-        ArchTag, ComputeType, EpilogueTileShape>;
+    using TileRowBroadcastMul = Catlass::Epilogue::Tile::TileRowBroadcastMul<ArchTag, ComputeType, EpilogueTileShape>;
     using TileBroadcastOneBlk = Catlass::Epilogue::Tile::TileBroadcastOneBlk<ArchTag, ComputeType, 4>;
-    using TileOneBlkColumnBroadcastMul = Catlass::Epilogue::Tile::TileOneBlkColumnBroadcastMul<
-        ArchTag, ComputeType, EpilogueTileShape>;
-    using TileCopy = Catlass::Epilogue::Tile::TileCopy<
-        ArchTag, CType, DequantScaleType, DequantPerTokenScaleType, DType>;
+    using TileOneBlkColumnBroadcastMul =
+        Catlass::Epilogue::Tile::TileOneBlkColumnBroadcastMul<ArchTag, ComputeType, EpilogueTileShape>;
+    using TileCopy =
+        Catlass::Epilogue::Tile::TileCopy<ArchTag, CType, DequantScaleType, DequantPerTokenScaleType, DType>;
     using EpilogueTileSwizzle = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using BlockEpilogueDequant = Catlass::Epilogue::Block::BlockEpilogue<
-        DequantDispatchPolicy,
-        CType,
-        DequantScaleType,
-        DequantPerTokenScaleType,
-        DType,
-        TileRowBroadcastMul,
-        TileBroadcastOneBlk,
-        TileOneBlkColumnBroadcastMul,
-        TileCopy,
-        EpilogueTileSwizzle>;
+        DequantDispatchPolicy, CType, DequantScaleType, DequantPerTokenScaleType, DType, TileRowBroadcastMul,
+        TileBroadcastOneBlk, TileOneBlkColumnBroadcastMul, TileCopy, EpilogueTileSwizzle>;
 
     using Kernel = DGemm::Kernel::MatmulDequantReduceScatterWrite<
-        BlockMmad,
-        BlockComm,
-        LocalCopyBlock,
-        BlockEpilogueDequant,
-        BlockMmadScheduler,
-        BlockCommScheduler,
-        WORKSPACE_STAGES
-    >;
+        BlockMmad, BlockComm, LocalCopyBlock, BlockEpilogueDequant, BlockMmadScheduler, BlockCommScheduler,
+        WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
 
 // Pre-defined tiling configurations
-template <class ElementA, class LayoutA, class ElementB, class LayoutB,
-          class ElementC, class LayoutC, class ElementD, class LayoutD>
-using MatmulDequantReduceScatterWriteConfig_M0_128 =
-    MatmulDequantReduceScatterWriteConfig<ElementA, LayoutA, ElementB, LayoutB,
-        ElementC, LayoutC, ElementD, LayoutD, 128, 256, 256>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, class ElementD,
+    class LayoutD>
+using MatmulDequantReduceScatterWriteConfig_M0_128 = MatmulDequantReduceScatterWriteConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD, 128, 256, 256>;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB,
-          class ElementC, class LayoutC, class ElementD, class LayoutD>
-using MatmulDequantReduceScatterWriteConfig_M0_256 =
-    MatmulDequantReduceScatterWriteConfig<ElementA, LayoutA, ElementB, LayoutB,
-        ElementC, LayoutC, ElementD, LayoutD, 256, 128, 256>;
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, class ElementD,
+    class LayoutD>
+using MatmulDequantReduceScatterWriteConfig_M0_256 = MatmulDequantReduceScatterWriteConfig<
+    ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, ElementD, LayoutD, 256, 128, 256>;
 
 #endif // MATMUL_DEQUANT_REDUCE_SCATTER_WRITE_KERNEL_H

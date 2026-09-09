@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -24,39 +25,30 @@
 #include "AscendTimer_device.hpp"
 #endif
 
-namespace Catccos::DGemm::Kernel
-{
+namespace Catccos::DGemm::Kernel {
 
 using Catlass::GemmCoord;
 using Catlass::MatrixCoord;
 
 template <class DispatchPolicy>
-struct IsAscend950OptionalBackendLocalCopyDispatch : std::false_type
-{
-};
+struct IsAscend950OptionalBackendLocalCopyDispatch : std::false_type {};
 
 template <class CommBackend, class = void>
-struct IsAscend950CollectiveAllGatherBackend : std::false_type
-{
-};
+struct IsAscend950CollectiveAllGatherBackend : std::false_type {};
 
 template <class CommBackend>
-struct IsAscend950CollectiveAllGatherBackend<
-    CommBackend, std::void_t<decltype(CommBackend::IS_COLLECTIVE_ALL_GATHER)>>
-    : std::bool_constant<CommBackend::IS_COLLECTIVE_ALL_GATHER>
-{
-};
+struct IsAscend950CollectiveAllGatherBackend<CommBackend, std::void_t<decltype(CommBackend::IS_COLLECTIVE_ALL_GATHER)>>
+    : std::bool_constant<CommBackend::IS_COLLECTIVE_ALL_GATHER> {};
 
 template <class ArchTag, uint32_t UbStages, bool IsDynamic>
-struct IsAscend950OptionalBackendLocalCopyDispatch<Comm::AtlasCommLocalCopy<ArchTag, UbStages, IsDynamic>> : std::true_type
-{
-};
+struct IsAscend950OptionalBackendLocalCopyDispatch<Comm::AtlasCommLocalCopy<ArchTag, UbStages, IsDynamic>>
+    : std::true_type {};
 
-template <class BlockMmad_, class BlockAllGather_, class BlockScheduler_, class BlockAllGatherScheduler_,
-          uint32_t WORKSPACE_STAGES_, class CommBackend_>
-class Ascend950AllGatherMatmulWithLocalOptionalBackend
-{
-   public:
+template <
+    class BlockMmad_, class BlockAllGather_, class BlockScheduler_, class BlockAllGatherScheduler_,
+    uint32_t WORKSPACE_STAGES_, class CommBackend_>
+class Ascend950AllGatherMatmulWithLocalOptionalBackend {
+public:
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
     using L1TileShape = typename BlockMmad::L1TileShape;
@@ -85,8 +77,7 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
     static constexpr uint32_t L1_TILE_K = tla::get<2>(L1TileShape{});
 
     /// Parameters structure
-    struct Params
-    {
+    struct Params {
         // Data members
         GemmCoord problemShape;
 
@@ -95,11 +86,11 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
 
         uint32_t commInterval;
 
-        __gm__ ElementA *ptrA;
+        __gm__ ElementA* ptrA;
         LayoutA layoutA;
-        __gm__ ElementB *ptrB;
+        __gm__ ElementB* ptrB;
         LayoutB layoutB;
-        __gm__ ElementC *ptrC;
+        __gm__ ElementC* ptrC;
         LayoutC layoutC;
         LayoutGatherSrc layoutGatherSrc;
         GM_ADDR ptrSymmetric;
@@ -113,55 +104,54 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         Params() {}
 
         CATLASS_HOST_DEVICE
-        Params(GemmCoord const &problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
-               LayoutGatherSrc layoutGatherSrc_, GM_ADDR ptrA_, LayoutA const &layoutA_, GM_ADDR ptrB_,
-               LayoutB const &layoutB_, GM_ADDR ptrC_, LayoutC const &layoutC_, GM_ADDR ptrSymmetric_,
-               BlockAllGatherParams const &allGatherParams_, BlockCommParams const &commParams_)
+        Params(
+            GemmCoord const& problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
+            LayoutGatherSrc layoutGatherSrc_, GM_ADDR ptrA_, LayoutA const& layoutA_, GM_ADDR ptrB_,
+            LayoutB const& layoutB_, GM_ADDR ptrC_, LayoutC const& layoutC_, GM_ADDR ptrSymmetric_,
+            BlockAllGatherParams const& allGatherParams_, BlockCommParams const& commParams_)
             : problemShape(problemShape_),
               rankIdx(rank_),
               rankSize(rankSize_),
               commInterval(commInterval_),
               layoutGatherSrc(layoutGatherSrc_),
-              ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
               layoutA(layoutA_),
-              ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
               layoutB(layoutB_),
-              ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
               layoutC(layoutC_),
               ptrSymmetric(ptrSymmetric_),
               backendParams(ptrSymmetric_),
               allGatherParams(allGatherParams_),
               commParams(commParams_)
-        {
-        }
+        {}
 
         CATLASS_HOST_DEVICE
-        Params(GemmCoord const &problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
-               LayoutGatherSrc layoutGatherSrc_, GM_ADDR ptrA_, LayoutA const &layoutA_, GM_ADDR ptrB_,
-               LayoutB const &layoutB_, GM_ADDR ptrC_, LayoutC const &layoutC_,
-               BlockAllGatherParams const &allGatherParams_, BlockCommParams const &commParams_,
-               BackendParams const &backendParams_)
+        Params(
+            GemmCoord const& problemShape_, uint32_t rank_, uint32_t rankSize_, uint32_t commInterval_,
+            LayoutGatherSrc layoutGatherSrc_, GM_ADDR ptrA_, LayoutA const& layoutA_, GM_ADDR ptrB_,
+            LayoutB const& layoutB_, GM_ADDR ptrC_, LayoutC const& layoutC_,
+            BlockAllGatherParams const& allGatherParams_, BlockCommParams const& commParams_,
+            BackendParams const& backendParams_)
             : problemShape(problemShape_),
               rankIdx(rank_),
               rankSize(rankSize_),
               commInterval(commInterval_),
               layoutGatherSrc(layoutGatherSrc_),
-              ptrA(reinterpret_cast<__gm__ ElementA *>(ptrA_)),
+              ptrA(reinterpret_cast<__gm__ ElementA*>(ptrA_)),
               layoutA(layoutA_),
-              ptrB(reinterpret_cast<__gm__ ElementB *>(ptrB_)),
+              ptrB(reinterpret_cast<__gm__ ElementB*>(ptrB_)),
               layoutB(layoutB_),
-              ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
               layoutC(layoutC_),
               ptrSymmetric(nullptr),
               backendParams(backendParams_),
               allGatherParams(allGatherParams_),
               commParams(commParams_)
-        {
-        }
+        {}
     };
 
-    struct Arguments
-    {
+    struct Arguments {
         GemmCoord problemShape;
         uint32_t rankIdx;
         uint32_t rankSize;
@@ -175,9 +165,9 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         MatrixCoord commTileShape;
     };
 
-    static size_t GetWorkspaceSize(Arguments const &args) { return 0; }
+    static size_t GetWorkspaceSize(Arguments const& args) { return 0; }
 
-    static Params ToUnderlyingArguments(Arguments const &args, uint8_t *workspace = nullptr)
+    static Params ToUnderlyingArguments(Arguments const& args, uint8_t* workspace = nullptr)
     {
         (void)workspace;
         uint32_t m = args.problemShape.m();
@@ -196,8 +186,9 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         BlockAllGatherParams allGatherParams{args.commBlockShape, tileParams};
         BlockCommParams commParams{args.commCoreSplit};
 
-        return Params(args.problemShape, args.rankIdx, args.rankSize, args.commInterval, layoutGatherSrc, args.ptrA,
-                      layoutA, args.ptrB, layoutB, args.ptrC, layoutC, args.ptrSymmetric, allGatherParams, commParams);
+        return Params(
+            args.problemShape, args.rankIdx, args.rankSize, args.commInterval, layoutGatherSrc, args.ptrA, layoutA,
+            args.ptrB, layoutB, args.ptrC, layoutC, args.ptrSymmetric, allGatherParams, commParams);
     }
 
     // Methods
@@ -205,15 +196,13 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
     Ascend950AllGatherMatmulWithLocalOptionalBackend()
     {
 #ifdef ENABLE_TIMER
-        __gm__ uint8_t *timer_buffer = GetTimerBuffer();
-        if (timer_buffer != nullptr)
-        {
+        __gm__ uint8_t* timer_buffer = GetTimerBuffer();
+        if (timer_buffer != nullptr) {
             timer.Init(timer_buffer);
             timer.Tik();
         }
 #endif
-        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx)
-        {
+        for (uint32_t stageIdx = 0; stageIdx < WORKSPACE_STAGES; ++stageIdx) {
             flagAicFinishStore[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
             flagAivFinishCompute[stageIdx] = Catlass::Arch::CrossCoreFlag(stageIdx);
         }
@@ -228,10 +217,10 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
     }
 
     template <int32_t CORE_TYPE = g_coreType>
-    CATLASS_DEVICE void operator()(Params &params);
+    CATLASS_DEVICE void operator()(Params& params);
 
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIC>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIC>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx();
         uint32_t aicoreNum = AscendC::GetBlockNum();
@@ -248,17 +237,15 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
 
         // Represent the full gm
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(commBackend.GetPeerMem()));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(commBackend.GetPeerMem()));
         AscendC::GlobalTensor<ElementB> gmB;
         gmB.SetGlobalBuffer(params.ptrB);
         AscendC::GlobalTensor<ElementC> gmC;
         gmC.SetGlobalBuffer(params.ptrC);
 
         int64_t symmetricStrideK = params.problemShape.k();
-        if constexpr (!IsAscend950CollectiveAllGatherBackend<CommBackend>::value)
-        {
-            symmetricStrideK =
-                RoundUp<int64_t>(params.problemShape.k(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementA));
+        if constexpr (!IsAscend950CollectiveAllGatherBackend<CommBackend>::value) {
+            symmetricStrideK = RoundUp<int64_t>(params.problemShape.k(), Catlass::BYTE_PER_FRACTAL / sizeof(ElementA));
         }
         auto layoutTagSymmetric = Catlass::layout::RowMajor(
             WORKSPACE_STAGES * rankSize * commSizeM, params.problemShape.k(), symmetricStrideK);
@@ -275,13 +262,12 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         auto layoutCRowLogicStride = Catlass::MakeCoord<int64_t>(params.problemShape.m(), commSizeM, 1);
         auto layoutCRow = layout::AffineRankN<3>(layoutCRowLogicStride);
 
-        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-        {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;
 
             uint32_t actualCommSizeM = Min(commSizeM, params.problemShape.m() - commIdx * commSizeM);
-            auto actualProblemShape = Catlass::MakeCoord<uint32_t>(actualCommSizeM, params.problemShape.n(),
-                                                                   params.problemShape.k(), rankSize);
+            auto actualProblemShape = Catlass::MakeCoord<uint32_t>(
+                actualCommSizeM, params.problemShape.n(), params.problemShape.k(), rankSize);
             BlockScheduler mmadScheduler(actualProblemShape, blockShape.GetCoordMN());
             uint32_t coreLoops = mmadScheduler.GetCoreLoops();
 
@@ -291,8 +277,7 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
             timer.Tik(AscendTimer::AIC);
 #endif
 
-            for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum)
-            {
+            for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum) {
                 auto blockOffset = mmadScheduler.GetBlockOffset(loopIdx);
                 auto actualBlockShape = mmadScheduler.GetActualBlockShapeByOffset(blockOffset);
 
@@ -304,12 +289,15 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
                 MatrixCoord offsetB = blockOffset.GetCoordKN();
                 MatrixCoord offsetC = commOffsetC + blockOffset.GetCoordMN();
 
-                auto tensorBlockA = GetTile(tensorPeerMem, tla::MakeCoord(offsetA.row(), offsetA.column()),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
-                auto tensorBlockB = GetTile(tensorB, tla::MakeCoord(offsetB.row(), offsetB.column()),
-                                            tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
-                auto tensorBlockC = GetTile(tensorC, tla::MakeCoord(offsetC.row(), offsetC.column()),
-                                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
+                auto tensorBlockA = GetTile(
+                    tensorPeerMem, tla::MakeCoord(offsetA.row(), offsetA.column()),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.k()));
+                auto tensorBlockB = GetTile(
+                    tensorB, tla::MakeCoord(offsetB.row(), offsetB.column()),
+                    tla::MakeShape(actualBlockShape.k(), actualBlockShape.n()));
+                auto tensorBlockC = GetTile(
+                    tensorC, tla::MakeCoord(offsetC.row(), offsetC.column()),
+                    tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
 
                 mmad(tensorBlockA, tensorBlockB, tensorBlockC, actualBlockShape.GetCoordMNK());
             }
@@ -317,8 +305,7 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
             timer.Tok<Overwrite>(AscendTimer::AIC);
 #endif
 
-            if (commIdx < commLoops - WORKSPACE_STAGES && commLoops >= WORKSPACE_STAGES)
-            {
+            if (commIdx < commLoops - WORKSPACE_STAGES && commLoops >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreSetFlag<0x2, PIPE_FIX>(flagAicFinishStore[stageId]);
             }
         }
@@ -326,7 +313,7 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
     }
 
     template <>
-    CATLASS_DEVICE void operator()<AscendC::AIV>(Params &params)
+    CATLASS_DEVICE void operator()<AscendC::AIV>(Params& params)
     {
         uint32_t aicoreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t subcoreIdx = AscendC::GetSubBlockIdx();
@@ -344,24 +331,19 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         }
         uint32_t rankSize = commBackend.GetRankSize();
 
-        if constexpr (IsAscend950CollectiveAllGatherBackend<CommBackend>::value)
-        {
+        if constexpr (IsAscend950CollectiveAllGatherBackend<CommBackend>::value) {
             uint64_t rankStride = static_cast<uint64_t>(commSizeM) * params.problemShape.k();
             uint64_t stageStride = rankStride * rankSize;
 
-            for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-            {
+            for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
                 uint32_t stageId = commIdx % WORKSPACE_STAGES;
-                if (commIdx >= WORKSPACE_STAGES)
-                {
+                if (commIdx >= WORKSPACE_STAGES) {
                     if (AscendC::GetBlockIdx() == 0 && AscendC::GetSubBlockIdx() == 0) {
-                        AscendC::PRINTF("[AGMM_DIAG] AIV wait AIC workspace, seq=%u, stage=%u\n", commIdx,
-                                        stageId);
+                        AscendC::PRINTF("[AGMM_DIAG] AIV wait AIC workspace, seq=%u, stage=%u\n", commIdx, stageId);
                     }
                     Catlass::Arch::CrossCoreWaitFlag(flagAicFinishStore[stageId]);
                     if (AscendC::GetBlockIdx() == 0 && AscendC::GetSubBlockIdx() == 0) {
-                        AscendC::PRINTF("[AGMM_DIAG] AIV workspace ready, seq=%u, stage=%u\n", commIdx,
-                                        stageId);
+                        AscendC::PRINTF("[AGMM_DIAG] AIV workspace ready, seq=%u, stage=%u\n", commIdx, stageId);
                     }
                 }
 
@@ -399,7 +381,7 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         AscendC::GlobalTensor<ElementA> gmA;
         gmA.SetGlobalBuffer(params.ptrA);
         AscendC::GlobalTensor<ElementA> gmSymmetric;
-        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(commBackend.GetPeerMem()));
+        gmSymmetric.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA*>(commBackend.GetPeerMem()));
 
         auto layoutSymmetric = Catlass::layout::RowMajor(
             WORKSPACE_STAGES * rankSize * commSizeM, params.problemShape.k(),
@@ -410,12 +392,10 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         MatrixCoord commBlockShape = params.allGatherParams.BlockShape();
         MatrixCoord commCoreSplit = params.commParams.CoreSplit();
         CommScheduler commScheduler(commBlockShape, commCoreSplit);
-        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx)
-        {
+        for (uint32_t commIdx = 0; commIdx < commLoops; ++commIdx) {
             uint32_t stageId = commIdx % WORKSPACE_STAGES;
 
-            if (commIdx >= WORKSPACE_STAGES)
-            {
+            if (commIdx >= WORKSPACE_STAGES) {
                 Catlass::Arch::CrossCoreWaitFlag(flagAicFinishStore[stageId]);
             }
             commBackend.CrossRankSync();
@@ -434,10 +414,8 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
             MatrixCoord commDstOffset{layoutSymmetricRow(Catlass::MakeCoord<int>(stageId, rankIdx, 0)), 0};
 
             allGather.InitBlockLoop();
-            if (subcoreIdx == 0 && aicoreIdx < commAicoreNum)
-            {
-                for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum)
-                {
+            if (subcoreIdx == 0 && aicoreIdx < commAicoreNum) {
+                for (uint32_t commLoopIdx = aicoreIdx; commLoopIdx < commCoreLoops; commLoopIdx += commAicoreNum) {
                     DistMatrixCoord commBlockCoord = commScheduler.GetBlockCoord(commLoopIdx);
                     MatrixCoord blockOffsetInRank = commScheduler.GetBlockOffsetInRank(commBlockCoord.GetCoordInRank());
                     MatrixCoord actualCommBlockShape = commScheduler.GetActualBlockShapeByOffset(blockOffsetInRank);
@@ -452,19 +430,18 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
 
                     auto layoutBlockDst = layoutSymmetric.GetTileLayout(actualCommBlockShape);
 
-                    if constexpr (IsAscend950OptionalBackendLocalCopyDispatch<typename BlockAllGather::DispatchPolicy>::value)
-                    {
+                    if constexpr (IsAscend950OptionalBackendLocalCopyDispatch<
+                                      typename BlockAllGather::DispatchPolicy>::value) {
                         AscendC::GlobalTensor<ElementA> gmRemoteSymmetric;
                         gmRemoteSymmetric.SetGlobalBuffer(
-                            reinterpret_cast<__gm__ ElementA *>(commBackend.GetPeerMem(remoteRankIdx)));
+                            reinterpret_cast<__gm__ ElementA*>(commBackend.GetPeerMem(remoteRankIdx)));
                         auto gmBlockDst = gmRemoteSymmetric[layoutSymmetric.GetOffset(offsetDst)];
                         allGather(gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape);
-                    }
-                    else
-                    {
+                    } else {
                         auto gmBlockDst = gmSymmetric[layoutSymmetric.GetOffset(offsetDst)];
-                        allGather(gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape,
-                                  remoteRankIdx % rankSize);
+                        allGather(
+                            gmBlockSrc, layoutBlockSrc, gmBlockDst, layoutBlockDst, actualCommBlockShape,
+                            remoteRankIdx % rankSize);
                     }
                 }
             }
@@ -479,7 +456,7 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
         }
     }
 
-   private:
+private:
     // ID used for inter-core synchronization
     Catlass::Arch::CrossCoreFlag flagAicFinishStore[WORKSPACE_STAGES];
     Catlass::Arch::CrossCoreFlag flagAivFinishCompute[WORKSPACE_STAGES];
@@ -489,6 +466,6 @@ class Ascend950AllGatherMatmulWithLocalOptionalBackend
 #endif
 };
 
-}  // namespace Catccos::DGemm::Kernel
+} // namespace Catccos::DGemm::Kernel
 
-#endif  // CATCCOS_DGEMM_KERNEL_ASCEND950_ALLGATHER_MATMUL_WITH_LOCAL_OPTIONAL_BACKEND_HPP
+#endif // CATCCOS_DGEMM_KERNEL_ASCEND950_ALLGATHER_MATMUL_WITH_LOCAL_OPTIONAL_BACKEND_HPP

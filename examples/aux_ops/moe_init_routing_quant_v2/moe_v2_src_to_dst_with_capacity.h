@@ -1,4 +1,5 @@
 
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -18,27 +19,25 @@
 
 #include "moe_v2_common.h"
 
-namespace MoeInitRoutingQuantV2
-{
+namespace MoeInitRoutingQuantV2 {
 using namespace AscendC;
 using namespace optiling;
 template <typename T, typename TilingData>
-class MoeV2SrcToDstWithCapacity
-{
-   public:
+class MoeV2SrcToDstWithCapacity {
+public:
     __aicore__ inline MoeV2SrcToDstWithCapacity(){};
-    __aicore__ inline void Init(GM_ADDR expandedRowIdx, GM_ADDR expandedX, GM_ADDR workspace,
-                                const TilingData* tilingData, TPipe* tPipe);
+    __aicore__ inline void Init(
+        GM_ADDR expandedRowIdx, GM_ADDR expandedX, GM_ADDR workspace, const TilingData* tilingData, TPipe* tPipe);
     __aicore__ inline void Process();
 
-   private:
+private:
     __aicore__ inline void CopyIn(int64_t progress);
     __aicore__ inline void CopyOut(int64_t progress);
     __aicore__ inline void CopyOutRemain();
     __aicore__ inline void SyncAll();
     __aicore__ inline void AssistInit();
 
-   private:
+private:
     TPipe* pipe;
     TQue<QuePosition::VECIN, 1> copyInQueue;
     TQue<QuePosition::VECOUT, 1> copyOutQueue;
@@ -78,28 +77,22 @@ class MoeV2SrcToDstWithCapacity
 template <typename T, typename TilingData>
 __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::AssistInit()
 {
-    if constexpr (IsSameType<T, int8_t>::value)
-    {
+    if constexpr (IsSameType<T, int8_t>::value) {
         LocalTensor<int16_t> outLocal = copyOutZeroQueue.AllocTensor<int16_t>();
         Duplicate<int16_t>(outLocal, static_cast<int16_t>(0), this->perLoopCols);
         copyOutZeroQueue.EnQue<int16_t>(outLocal);
-    }
-    else
-    {
+    } else {
         LocalTensor<T> outLocal = copyOutZeroQueue.AllocTensor<T>();
         Duplicate<T>(outLocal, static_cast<T>(0), this->perLoopCols);
         copyOutZeroQueue.EnQue<T>(outLocal);
     }
 
-    if (this->blockIdx != 0)
-    {
+    if (this->blockIdx != 0) {
         this->lastCoreExpertId = expertIdxValueGm.GetValue((this->blockIdx - 1) * 2);
         this->lastCoreExpertIdNum = expertIdxValueGm.GetValue((this->blockIdx - 1) * 2 + 1);
-        for (int64_t i = this->blockIdx - 2; i >= 0; i--)
-        {
+        for (int64_t i = this->blockIdx - 2; i >= 0; i--) {
             int32_t lastExpertIdx = expertIdxValueGm.GetValue(i * 2);
-            if (lastExpertIdx < this->lastCoreExpertId)
-            {
+            if (lastExpertIdx < this->lastCoreExpertId) {
                 break;
             }
             int32_t lastExpertNum = expertIdxValueGm.GetValue(i * 2 + 1);
@@ -127,40 +120,33 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::CopyOut(int64_t
     DataCopyExtParams copyParams{static_cast<uint16_t>(1), static_cast<uint32_t>(sizeof(int32_t)), 0, 0, 0};
 
     SetWaitFlag<HardEvent::MTE2_S>(HardEvent::MTE2_S);
-    if (this->lastExpertId == -1)
-    {
+    if (this->lastExpertId == -1) {
         this->lastExpertId = this->lastCoreExpertId;
         this->tokenCount = this->lastCoreExpertIdNum;
     }
-    for (int64_t idx = 0; idx < currentLoopRows; idx++)
-    {
+    for (int64_t idx = 0; idx < currentLoopRows; idx++) {
         int32_t expertIdx = inLocal[length].GetValue(idx);
         SetWaitFlag<HardEvent::S_MTE3>(HardEvent::S_MTE3);
         int32_t index = 0;
-        while (this->lastExpertId < expertIdx)
-        {
-            while (this->tokenCount < this->expertCapacity)
-            {
+        while (this->lastExpertId < expertIdx) {
+            while (this->tokenCount < this->expertCapacity) {
                 index = this->lastExpertId * this->expertCapacity + this->tokenCount;
                 int64_t col = this->perLoopCols;
-                for (int64_t i = 0; i < this->colLoops; i++)
-                {
-                    if (i == this->colLoops - 1)
-                    {
+                for (int64_t i = 0; i < this->colLoops; i++) {
+                    if (i == this->colLoops - 1) {
                         col = this->lastLoopCols;
                     }
 #ifdef __CCE_KT_TEST__
                     // CPU twin debugging cannot use multi-core sync, so index may contain uninitialized dirty data;
                     // handle specially
-                    if (index * this->cols + i * this->perLoopCols + col * sizeof(T) > expandedXGm.GetSize())
-                    {
+                    if (index * this->cols + i * this->perLoopCols + col * sizeof(T) > expandedXGm.GetSize()) {
                         continue;
                     }
 #endif
-                    DataCopyExtParams copyParams1{static_cast<uint16_t>(1), static_cast<uint32_t>(col * sizeof(T)), 0,
-                                                  0, 0};
-                    DataCopyPad(expandedXGm[index * this->cols + i * this->perLoopCols], this->outTmpLocal,
-                                copyParams1);
+                    DataCopyExtParams copyParams1{
+                        static_cast<uint16_t>(1), static_cast<uint32_t>(col * sizeof(T)), 0, 0, 0};
+                    DataCopyPad(
+                        expandedXGm[index * this->cols + i * this->perLoopCols], this->outTmpLocal, copyParams1);
                     SetWaitFlag<HardEvent::MTE3_S>(HardEvent::MTE3_S);
                 }
                 this->tokenCount++;
@@ -169,8 +155,7 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::CopyOut(int64_t
             this->lastExpertId++;
         }
 
-        if (this->tokenCount < this->expertCapacity)
-        {
+        if (this->tokenCount < this->expertCapacity) {
             int32_t outOffset = inLocal.GetValue(idx);
             index = expertIdx * this->expertCapacity + this->tokenCount;
             outLocal.SetValue(0, index);
@@ -187,21 +172,16 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::CopyOut(int64_t
 template <typename T, typename TilingData>
 __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::CopyOutRemain()
 {
-    if (this->blockIdx != this->srcToDstTilingData->needCoreNum - 1)
-    {
+    if (this->blockIdx != this->srcToDstTilingData->needCoreNum - 1) {
         copyOutZeroQueue.FreeTensor(this->outTmpLocal);
         return;
     }
-    while (this->lastExpertId < this->expertNum)
-    {
-        while (this->tokenCount < this->expertCapacity)
-        {
+    while (this->lastExpertId < this->expertNum) {
+        while (this->tokenCount < this->expertCapacity) {
             int32_t index = this->lastExpertId * this->expertCapacity + this->tokenCount;
             int64_t col = this->perLoopCols;
-            for (int64_t i = 0; i < this->colLoops; i++)
-            {
-                if (i == this->colLoops - 1)
-                {
+            for (int64_t i = 0; i < this->colLoops; i++) {
+                if (i == this->colLoops - 1) {
                     col = this->lastLoopCols;
                 }
                 DataCopyExtParams copyParams{static_cast<uint16_t>(1), static_cast<uint32_t>(col * sizeof(T)), 0, 0, 0};
@@ -219,8 +199,7 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::CopyOutRemain()
 template <typename T, typename TilingData>
 __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::SyncAll()
 {
-    if (coreNum == 1)
-    {
+    if (coreNum == 1) {
         return;
     }
 #ifndef __CCE_KT_TEST__
@@ -229,9 +208,8 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::SyncAll()
 }
 
 template <typename T, typename TilingData>
-__aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Init(GM_ADDR expandedRowIdx, GM_ADDR expandedX,
-                                                                      GM_ADDR workspace, const TilingData* tilingData,
-                                                                      TPipe* tPipe)
+__aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Init(
+    GM_ADDR expandedRowIdx, GM_ADDR expandedX, GM_ADDR workspace, const TilingData* tilingData, TPipe* tPipe)
 {
     int64_t blockNum = GetBlockNum();
     this->pipe = tPipe;
@@ -244,15 +222,12 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Init(GM_ADDR ex
     this->expertCapacity = tilingData->expertCapacity;
     this->cols = tilingData->cols;
 
-    if (this->blockIdx == this->srcToDstTilingData->needCoreNum - 1)
-    {
+    if (this->blockIdx == this->srcToDstTilingData->needCoreNum - 1) {
         this->coreRows = this->srcToDstTilingData->lastCoreRows;
         this->perLoopRows = this->srcToDstTilingData->lastCorePerLoopRows;
         this->lastLoopRows = this->srcToDstTilingData->lastCoreLastLoopRows;
         this->rowLoops = this->srcToDstTilingData->lastCoreLoops;
-    }
-    else
-    {
+    } else {
         this->coreRows = this->srcToDstTilingData->perCoreRows;
         this->perLoopRows = this->srcToDstTilingData->perCorePerLoopRows;
         this->lastLoopRows = this->srcToDstTilingData->perCoreLastLoopRows;
@@ -276,12 +251,9 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Init(GM_ADDR ex
 
     pipe->InitBuffer(copyInQueue, 1, AlignBytes(this->perLoopRows, sizeof(int32_t)) * 2);
     pipe->InitBuffer(copyOutQueue, 1, AlignBytes(INT32_ONE_BLOCK_NUM, sizeof(int32_t)));
-    if constexpr (IsSameType<T, int8_t>::value)
-    {
+    if constexpr (IsSameType<T, int8_t>::value) {
         pipe->InitBuffer(copyOutZeroQueue, 1, AlignBytes(this->perLoopCols, sizeof(int16_t)));
-    }
-    else
-    {
+    } else {
         pipe->InitBuffer(copyOutZeroQueue, 1, AlignBytes(this->perLoopCols, sizeof(T)));
     }
 }
@@ -289,15 +261,12 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Init(GM_ADDR ex
 template <typename T, typename TilingData>
 __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Process()
 {
-    if (this->blockIdx < this->srcToDstTilingData->needCoreNum)
-    {
+    if (this->blockIdx < this->srcToDstTilingData->needCoreNum) {
         AssistInit();
         this->outTmpLocal = copyOutZeroQueue.DeQue<T>();
         currentLoopRows = perLoopRows;
-        for (int64_t loop = 0; loop < this->rowLoops; loop++)
-        {
-            if (loop == this->rowLoops - 1)
-            {
+        for (int64_t loop = 0; loop < this->rowLoops; loop++) {
+            if (loop == this->rowLoops - 1) {
                 currentLoopRows = lastLoopRows;
             }
             CopyIn(loop);
@@ -307,5 +276,5 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::Process()
     }
     this->SyncAll();
 }
-}  // namespace MoeInitRoutingQuantV2
-#endif  // INNER_MOE_V2_SRC_TO_DST_WITH_CAPACITY_H
+} // namespace MoeInitRoutingQuantV2
+#endif // INNER_MOE_V2_SRC_TO_DST_WITH_CAPACITY_H

@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -25,13 +26,12 @@ using LayoutD = Catlass::layout::RowMajor;
 using LayoutScale = Catlass::layout::VectorLayout;
 
 // Use padding config (workSpaceSize > 0 means padding is needed)
-using ConfigPadding = AllGatherMatmulDequantPaddingConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementD,
-                                                                 LayoutD, ElementScale, LayoutScale>;
-using ConfigNoPadding = AllGatherMatmulDequantConfig_M0_128<ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD,
-                                                            ElementScale, LayoutScale>;
+using ConfigPadding = AllGatherMatmulDequantPaddingConfig_M0_128<
+    ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale, LayoutScale>;
+using ConfigNoPadding = AllGatherMatmulDequantConfig_M0_128<
+    ElementA, LayoutA, ElementB, LayoutB, ElementD, LayoutD, ElementScale, LayoutScale>;
 
-struct Options
-{
+struct Options {
     static constexpr auto HELPER =
         "Usage: allgather_matmul_dequant rank_size rank_id ip_port m n k data_path [device_id_list]\n";
     int rankSize;
@@ -43,10 +43,9 @@ struct Options
     std::string dataPath;
     std::vector<int> deviceIdList{};
 
-    int Parse(int argc, char **argv)
+    int Parse(int argc, char** argv)
     {
-        enum class ArgsIndex
-        {
+        enum class ArgsIndex {
             RANK_SIZE_INDEX = 1,
             RANK_ID_INDEX,
             IP_PORT_INDEX,
@@ -57,8 +56,7 @@ struct Options
             DEVICE_LIST_INDEX,
             INDEX_MAX
         };
-        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX))
-        {
+        if (argc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
             printf(HELPER);
             return -1;
         }
@@ -69,14 +67,13 @@ struct Options
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
         k = std::atoi(argv[static_cast<int>(ArgsIndex::K_INDEX)]);
         dataPath = argv[static_cast<int>(ArgsIndex::DATA_PATH_INDEX)];
-        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX))
-        {
-            char *s = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
-            for (char *t = std::strtok(s, ","); t; t = std::strtok(nullptr, ",")) deviceIdList.push_back(std::atoi(t));
-        }
-        else
-        {
-            for (size_t i = 0; i < rankSize; ++i) deviceIdList.push_back(i);
+        if (argc > static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)) {
+            char* s = argv[static_cast<int>(ArgsIndex::DEVICE_LIST_INDEX)];
+            for (char* t = std::strtok(s, ","); t; t = std::strtok(nullptr, ","))
+                deviceIdList.push_back(std::atoi(t));
+        } else {
+            for (size_t i = 0; i < rankSize; ++i)
+                deviceIdList.push_back(i);
         }
         return 0;
     }
@@ -84,20 +81,18 @@ struct Options
 };
 
 template <class DeviceOp>
-void RunKernel(DeviceOp &deviceOp, aclrtStream stream, uint32_t blockNum, uint64_t fftsAddr)
+void RunKernel(DeviceOp& deviceOp, aclrtStream stream, uint32_t blockNum, uint64_t fftsAddr)
 {
-    for (int i = 0; i < 1; i++)
-    {
+    for (int i = 0; i < 1; i++) {
         deviceOp.Run(stream, blockNum, fftsAddr);
     }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    if (options.Parse(argc, argv) != 0)
-    {
+    if (options.Parse(argc, argv) != 0) {
         std::cerr << "Invalid arguments\n";
         return 1;
     }
@@ -133,22 +128,20 @@ int main(int argc, char **argv)
     status = aclshmemx_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
 
     auto op = OperatorRegistry::Instance().CreateOperator("AllGatherMatmulDequant");
-    if (!op)
-    {
+    if (!op) {
         std::cout << "Operator not found!" << std::endl;
         return -1;
     }
 
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());
-    void *symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
-    uint8_t *gmSymmetric = (uint8_t *)symmPtr;
+    void* symmPtr = shmem_malloc(SHMEM_BUFF_BYTES);
+    uint8_t* gmSymmetric = (uint8_t*)symmPtr;
 
     size_t workSpaceSize = op->GetWorkspaceSize(cocTiling);
-    uint8_t *workspaceDevice{nullptr};
-    if (workSpaceSize > 0)
-    {
-        ACL_CHECK(aclrtMalloc((void **)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    uint8_t* workspaceDevice{nullptr};
+    if (workSpaceSize > 0) {
+        ACL_CHECK(aclrtMalloc((void**)(&workspaceDevice), workSpaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     }
 
     // Construct common arguments
@@ -161,42 +154,41 @@ int main(int argc, char **argv)
     std::cout << "Before calling AG_MM_DQ kernel " << std::endl;
     uint64_t fftsAddr = shmemx_get_ffts_config();
 
-    if (workSpaceSize > 0)
-    {
+    if (workSpaceSize > 0) {
         using DeviceOp = ConfigPadding::Device;
-        DeviceOp::Arguments args{problemShape,
-                                 static_cast<uint32_t>(rankId),
-                                 static_cast<uint32_t>(rankSize),
-                                 cocTiling.commInterval,
-                                 kernelParams.ptrA,
-                                 kernelParams.ptrB,
-                                 kernelParams.ptrC,
-                                 kernelParams.customPtrs[0],
-                                 workspaceDevice,
-                                 gmSymmetric,
-                                 commCoreSplit,
-                                 commBlockShape,
-                                 commTileShape};
+        DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(rankId),
+            static_cast<uint32_t>(rankSize),
+            cocTiling.commInterval,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            kernelParams.customPtrs[0],
+            workspaceDevice,
+            gmSymmetric,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp deviceOp;
         deviceOp.Initialize(args);
         RunKernel(deviceOp, stream, blockNum, fftsAddr);
-    }
-    else
-    {
+    } else {
         using DeviceOp = ConfigNoPadding::Device;
-        DeviceOp::Arguments args{problemShape,
-                                 static_cast<uint32_t>(rankId),
-                                 static_cast<uint32_t>(rankSize),
-                                 cocTiling.commInterval,
-                                 kernelParams.ptrA,
-                                 kernelParams.ptrB,
-                                 kernelParams.ptrC,
-                                 kernelParams.customPtrs[0],
-                                 workspaceDevice,
-                                 gmSymmetric,
-                                 commCoreSplit,
-                                 commBlockShape,
-                                 commTileShape};
+        DeviceOp::Arguments args{
+            problemShape,
+            static_cast<uint32_t>(rankId),
+            static_cast<uint32_t>(rankSize),
+            cocTiling.commInterval,
+            kernelParams.ptrA,
+            kernelParams.ptrB,
+            kernelParams.ptrC,
+            kernelParams.customPtrs[0],
+            workspaceDevice,
+            gmSymmetric,
+            commCoreSplit,
+            commBlockShape,
+            commTileShape};
         DeviceOp deviceOp;
         deviceOp.Initialize(args);
         RunKernel(deviceOp, stream, blockNum, fftsAddr);
@@ -206,11 +198,11 @@ int main(int argc, char **argv)
     std::cout << "After calling AG_MM_DQ kernel " << std::endl;
 
     op->WriteResultFile(kernelParams, cocTiling, rankId, options.GetDataPath());
-    if (rankId == 0) std::printf("test finished\n");
+    if (rankId == 0)
+        std::printf("test finished\n");
 
     shmem_free(symmPtr);
-    if (workSpaceSize > 0)
-    {
+    if (workSpaceSize > 0) {
         ACL_CHECK(aclrtFree(workspaceDevice));
     }
     FreeDeviceSpace(kernelParams);

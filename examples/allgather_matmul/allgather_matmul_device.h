@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -37,10 +38,10 @@
 using namespace AscendC;
 using namespace Catccos;
 
-template <class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC,
-          bool EnablePadding_, uint32_t M0_ = 128, uint32_t N0_ = 256, uint32_t K0_ = 256>
-struct AllGatherMatmulConfig
-{
+template <
+    class ElementA, class LayoutA, class ElementB, class LayoutB, class ElementC, class LayoutC, bool EnablePadding_,
+    uint32_t M0_ = 128, uint32_t N0_ = 256, uint32_t K0_ = 256>
+struct AllGatherMatmulConfig {
     using ArchTag = Catlass::Arch::AtlasA2;
 
     static constexpr bool ENABLE_UNIT_FLAG = true;
@@ -70,16 +71,16 @@ struct AllGatherMatmulConfig
     using RemoteDstType = AType;
     using CopyDirect = Catccos::detail::CopyDirect;
     using CopyTransport = Catccos::detail::CopyTransport;
-    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void,
-                                                      CopyDirect::Put, CopyTransport::Mte>;
+    using TileRemoteCopy = Comm::Tile::TileRemoteCopy<
+        ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Put, CopyTransport::Mte>;
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle;
 
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
     using BlockComm =
         Comm::Block::CommBlock<CommDispatchPolicy, RemoteSrcType, RemoteDstType, void, TileRemoteCopy, TileScheduler>;
 
-    using Kernel = DGemm::Kernel::AllGatherMatmul<GlobalPaddingB, BlockMmad, BlockComm, BlockMmadScheduler,
-                                                  BlockCommScheduler, WORKSPACE_STAGES>;
+    using Kernel = DGemm::Kernel::AllGatherMatmul<
+        GlobalPaddingB, BlockMmad, BlockComm, BlockMmadScheduler, BlockCommScheduler, WORKSPACE_STAGES>;
 
     using Device = Catccos::DGemm::Device::DeviceDGemm<Kernel>;
 };
@@ -100,4 +101,4 @@ template <class ElementA, class LayoutA, class ElementB, class LayoutB, class El
 using AllGatherMatmulPaddingConfig_M0_256 =
     AllGatherMatmulConfig<ElementA, LayoutA, ElementB, LayoutB, ElementC, LayoutC, true, 256, 128, 256>;
 
-#endif  // ALLGATHER_MATMUL_KERNEL_H
+#endif // ALLGATHER_MATMUL_KERNEL_H

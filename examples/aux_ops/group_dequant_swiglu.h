@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This file is a part of the CANN Open Software.
@@ -25,10 +26,7 @@
 using namespace AscendC;
 using namespace Catlass;
 
-template <
-    class ArchTag_,
-    class DequantSwigluBlock_
->
+template <class ArchTag_, class DequantSwigluBlock_>
 class DequantSwigluKernel {
 public:
     using ArchTag = ArchTag_;
@@ -46,9 +44,9 @@ public:
     struct Params {
         uint32_t problemCount;
         MatrixCoord problemShape;
-        __gm__ ElementC *ptrC;
-        __gm__ ElementPerTokenScale *ptrPerTokenScale;
-        __gm__ ElementD *ptrD;
+        __gm__ ElementC* ptrC;
+        __gm__ ElementPerTokenScale* ptrPerTokenScale;
+        __gm__ ElementD* ptrD;
         LayoutC layoutC;
         LayoutPerTokenScale layoutPerTokenScale;
         LayoutD layoutD;
@@ -61,34 +59,28 @@ public:
 
         CATLASS_DEVICE
         Params(
-            uint32_t problemCount_,
-            MatrixCoord problemShape_,
-            GM_ADDR ptrC_, LayoutC layoutC_,
-            GM_ADDR ptrPerTokenScale_, LayoutPerTokenScale layoutPerTokenScale_,
-            GM_ADDR ptrD_, LayoutD layoutD_,
-            GM_ADDR ptrGroupList_,
-            const Callback &callback_ = Callback{},
-            int32_t syncInterval_ = INT_MAX
-        ) : problemCount(problemCount_),
-            problemShape(problemShape_),
-            ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)), layoutC(layoutC_),
-            ptrPerTokenScale(reinterpret_cast<__gm__ ElementPerTokenScale *>(ptrPerTokenScale_)),
-            layoutPerTokenScale(layoutPerTokenScale_),
-            ptrD(reinterpret_cast<__gm__ ElementD *>(ptrD_)), layoutD(layoutD_),
-            ptrGroupList(ptrGroupList_),
-            callback(callback_),
-            syncInterval(syncInterval_)
-        {
-        }
+            uint32_t problemCount_, MatrixCoord problemShape_, GM_ADDR ptrC_, LayoutC layoutC_,
+            GM_ADDR ptrPerTokenScale_, LayoutPerTokenScale layoutPerTokenScale_, GM_ADDR ptrD_, LayoutD layoutD_,
+            GM_ADDR ptrGroupList_, const Callback& callback_ = Callback{}, int32_t syncInterval_ = INT_MAX)
+            : problemCount(problemCount_),
+              problemShape(problemShape_),
+              ptrC(reinterpret_cast<__gm__ ElementC*>(ptrC_)),
+              layoutC(layoutC_),
+              ptrPerTokenScale(reinterpret_cast<__gm__ ElementPerTokenScale*>(ptrPerTokenScale_)),
+              layoutPerTokenScale(layoutPerTokenScale_),
+              ptrD(reinterpret_cast<__gm__ ElementD*>(ptrD_)),
+              layoutD(layoutD_),
+              ptrGroupList(ptrGroupList_),
+              callback(callback_),
+              syncInterval(syncInterval_)
+        {}
     };
 
     CATLASS_DEVICE
-    DequantSwigluKernel()
-    {
-    }
+    DequantSwigluKernel() {}
 
     CATLASS_DEVICE
-    void operator()(Params const &params, Catlass::Arch::Resource<ArchTag> resource)
+    void operator()(Params const& params, Catlass::Arch::Resource<ArchTag> resource)
     {
         AscendC::GlobalTensor<ElementC> gmC;
         gmC.SetGlobalBuffer(params.ptrC);
@@ -105,17 +97,15 @@ public:
         int64_t gmGroupOffsetPerTokenScale = 0;
         int64_t gmGroupOffsetC = 0;
         uint32_t startCoreIdx = 0;
-        
-        DequantSwigluParams dequantSwigluParams{
-            {1, params.problemShape.column()}
-        };
+
+        DequantSwigluParams dequantSwigluParams{{1, params.problemShape.column()}};
         DequantSwigluBlock dequantSwigluBlockEpilogue(resource, dequantSwigluParams);
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t coreNum = AscendC::GetBlockNum();
-        
+
         for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
             uint32_t currentM = groupList(groupIdx);
-            
+
             LayoutC layoutC = LayoutC(currentM, params.problemShape.column());
             LayoutPerTokenScale layoutPerTokenScale = LayoutPerTokenScale{currentM};
             LayoutD layoutD = params.layoutD.GetTileLayout(MakeCoord(currentM, nOut));
@@ -123,7 +113,7 @@ public:
             if (groupIdx % params.syncInterval == 0) {
                 params.callback();
             }
-            
+
             uint32_t rows = currentM;
             uint32_t coreLoops = (currentM + rows - 1) / rows;
 
@@ -140,10 +130,10 @@ public:
                 int64_t gmOffsetC = gmGroupOffsetC + layoutC.GetOffset(offsetC);
                 auto gmBlockC = gmC[gmOffsetC];
                 auto layoutBlockC = layoutC.GetTileLayout(actualBlockShape);
-                
+
                 TensorCoord offsetPerTokenScale{loopIdx * rows};
-                int64_t gmOffsetPerTokenScale = gmGroupOffsetPerTokenScale
-                    + layoutPerTokenScale.GetOffset(offsetPerTokenScale);
+                int64_t gmOffsetPerTokenScale =
+                    gmGroupOffsetPerTokenScale + layoutPerTokenScale.GetOffset(offsetPerTokenScale);
                 auto gmBlockPerTokenScale = gmPerTokenScale[gmOffsetPerTokenScale];
                 auto layoutBlockPerTokenScale = layoutPerTokenScale.GetTileLayout(TensorCoord{actualRow});
 
@@ -153,9 +143,7 @@ public:
                 auto layoutBlockD = layoutD.GetTileLayout(actualChunkBlockShape);
 
                 dequantSwigluBlockEpilogue(
-                    gmBlockC, layoutBlockC, 
-                    gmBlockPerTokenScale, layoutBlockPerTokenScale,
-                    gmBlockD, layoutBlockD,
+                    gmBlockC, layoutBlockC, gmBlockPerTokenScale, layoutBlockPerTokenScale, gmBlockD, layoutBlockD,
                     actualBlockShape);
             }
             gmGroupOffsetD += currentM * nOut;
