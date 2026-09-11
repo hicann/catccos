@@ -19,9 +19,9 @@ public:
     void AllocateDeviceSpace(
         KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(__fp16);
-        size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * sizeof(__fp16);
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(__fp16);
+        size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
+        size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * sizeof(fp16_t);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(fp16_t);
 
         uint8_t* aDevice;
         ACL_CHECK(aclrtMalloc((void**)(&aDevice), aSize, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -31,7 +31,7 @@ public:
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_a.bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -43,7 +43,7 @@ public:
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_b.bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n, 1);
+            std::vector<fp16_t> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -63,7 +63,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(__fp16);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(fp16_t);
 
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;

@@ -23,7 +23,7 @@ public:
         size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(int8_t);
         size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * sizeof(int8_t);
         size_t scaleSize = static_cast<size_t>(cocTiling.n) * sizeof(uint64_t);
-        size_t dSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(half);
+        size_t dSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(fp16_t);
 
         uint8_t* aDevice;
         ACL_CHECK(aclrtMalloc((void**)(&aDevice), aSize, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -78,7 +78,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t dSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(half);
+        size_t dSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(fp16_t);
 
         uint8_t* dDevice = params.ptrC;
         uint8_t* dHost;

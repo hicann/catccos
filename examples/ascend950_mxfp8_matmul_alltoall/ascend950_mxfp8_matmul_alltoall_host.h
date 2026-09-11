@@ -31,7 +31,7 @@ public:
 
         size_t aSize = lenA * sizeof(int8_t);
         size_t bSize = lenB * sizeof(int8_t);
-        size_t cSize = lenC * sizeof(__fp16);
+        size_t cSize = lenC * sizeof(fp16_t);
         size_t aScaleSize = lenAScale * sizeof(int8_t);
         size_t bScaleSize = lenBScale * sizeof(int8_t);
 
@@ -105,7 +105,7 @@ public:
     {
         // AllToAll: each rank holds a full M x N output
         size_t lenC = static_cast<size_t>(cocTiling.m) * cocTiling.n;
-        size_t cSize = lenC * sizeof(__fp16);
+        size_t cSize = lenC * sizeof(fp16_t);
 
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;

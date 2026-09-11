@@ -135,6 +135,7 @@ add_subdirectory(impl)
 include_directories(
     ${ASCEND_HOME_PATH}/include/experiment/runtime
     ${ASCEND_HOME_PATH}/include/experiment/msprof
+    ${ASCEND_HOME_PATH}/include/aclnn
     ${ASCEND_HOME_PATH}/aarch64-linux/pkg_inc
     ${ASCEND_HOME_PATH}/include ${CMAKE_SOURCE_DIR}/include
     ${SHMEM_HOME_PATH}/shmem/include
@@ -184,7 +185,7 @@ endif()
 if(RDMA_TRANSPORT)
     target_compile_definitions(dynamic_tiling PRIVATE RDMA_TRANSPORT)
 endif()
-target_link_libraries(dynamic_tiling tiling_lib ${SHARE_LIB_LINK} runtime ascendcl shmem graph_base tiling_api unified_dlog platform register -Wl,--no-as-needed dl -Wl,--as-needed)
+target_link_libraries(dynamic_tiling tiling_lib ${SHARE_LIB_LINK} runtime ascendcl shmem graph_base tiling_api unified_dlog platform register nnopbase -Wl,--no-as-needed dl -Wl,--as-needed)
 target_compile_options(dynamic_tiling PRIVATE -O3)
 set_target_properties(dynamic_tiling PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}

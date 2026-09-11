@@ -23,7 +23,7 @@ public:
         constexpr uint32_t MX_SCALE_GROUP_NUM = 32;
         size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k / 2;
         size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n / 2;
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(__fp16);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(fp16_t);
         size_t cSizeScatter = cSize / cocTiling.rankSize;
         size_t mxScaleK = CeilDiv<MX_SCALE_GROUP_NUM>(cocTiling.k);
         size_t mxScaleAlignedK = RoundUp<2>(mxScaleK);
@@ -40,7 +40,7 @@ public:
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_a.bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -52,7 +52,7 @@ public:
             ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_b.bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixB(cocTiling.k * cocTiling.n, 1);
+            std::vector<fp16_t> matrixB(cocTiling.k * cocTiling.n, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -101,7 +101,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(__fp16);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(fp16_t);
         size_t cSizeScatter = cSize / cocTiling.rankSize;
 
         uint8_t* cDevice = params.ptrC;

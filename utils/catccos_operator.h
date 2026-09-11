@@ -14,6 +14,7 @@
 
 #pragma once
 #include <acl/acl.h>
+#include <opdev/fp16_t.h>
 
 #include <iostream>
 #include <vector>
@@ -28,6 +29,8 @@
 // utils
 #include "utils.h"
 #include "info.h"
+
+using op::fp16_t;
 
 class CatccosOperator {
 public:

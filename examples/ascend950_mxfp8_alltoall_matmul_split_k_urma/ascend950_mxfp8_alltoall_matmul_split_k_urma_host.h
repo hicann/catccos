@@ -29,7 +29,7 @@ public:
 
         size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(int8_t);
         size_t bSize = static_cast<size_t>(fullK) * cocTiling.n * sizeof(int8_t);
-        size_t cSize = static_cast<size_t>(chunkM) * cocTiling.n * sizeof(__fp16);
+        size_t cSize = static_cast<size_t>(chunkM) * cocTiling.n * sizeof(fp16_t);
         size_t aMxScaleSize = static_cast<size_t>(cocTiling.m) * alignedLocalScaleK * sizeof(int8_t);
         size_t bMxScaleSize = alignedFullScaleK * cocTiling.n * sizeof(int8_t);
 
@@ -100,7 +100,7 @@ public:
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
         uint32_t chunkM = cocTiling.m / cocTiling.rankSize;
-        size_t cSize = static_cast<size_t>(chunkM) * cocTiling.n * sizeof(__fp16);
+        size_t cSize = static_cast<size_t>(chunkM) * cocTiling.n * sizeof(fp16_t);
 
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;

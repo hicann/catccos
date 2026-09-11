@@ -18,6 +18,8 @@
 #include "catlass/arch/resource.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
+#include "tla/layout.hpp"
+#include "tla/tensor.hpp"
 #ifdef ENABLE_TIMER
 #include "AscendTimer_device.hpp"
 #endif

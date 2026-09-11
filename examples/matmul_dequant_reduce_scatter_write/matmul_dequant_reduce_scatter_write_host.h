@@ -15,7 +15,7 @@ public:
         size_t scaleX1Size = static_cast<size_t>(cocTiling.m) * sizeof(float);
         size_t scaleX2Size = static_cast<size_t>(cocTiling.n) * sizeof(float);
         size_t biasSize = static_cast<size_t>(cocTiling.n) * sizeof(int32_t);
-        size_t dOutSize = static_cast<size_t>(cocTiling.m) * cocTiling.n / cocTiling.rankSize * sizeof(half);
+        size_t dOutSize = static_cast<size_t>(cocTiling.m) * cocTiling.n / cocTiling.rankSize * sizeof(fp16_t);
 
         // Allocate and copy x1
         uint8_t *x1Device, *x1Host;

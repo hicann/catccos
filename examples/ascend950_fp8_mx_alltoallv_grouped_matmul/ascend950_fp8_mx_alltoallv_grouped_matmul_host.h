@@ -34,7 +34,7 @@ public:
 
         size_t sizeA = lenA * sizeof(int8_t);
         size_t sizeB = lenB * sizeof(int8_t);
-        size_t sizeC = lenC * sizeof(__fp16);
+        size_t sizeC = lenC * sizeof(fp16_t);
         size_t sizeAScale = lenAScale * sizeof(int8_t);
         size_t sizeBScale = lenBScale * sizeof(int8_t);
         size_t localTokensPerExpertSize = static_cast<size_t>(cocTiling.expertNum) * sizeof(int32_t);
@@ -148,7 +148,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t sizeC = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(__fp16);
+        size_t sizeC = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(fp16_t);
 
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;

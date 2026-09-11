@@ -42,8 +42,6 @@ constexpr int32_t FLAG_BUFF_BYTES = 5 * 512 * 1024;
 constexpr int32_t INPUT_DTYPE = 2;
 constexpr int32_t MAX_RANK_SIZE = 128;
 
-using half = __fp16;
-
 enum CocCommType {
     MATMUL_ALLREDUCE = 0,
     ALLGATHER_MATMUL,

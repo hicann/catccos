@@ -92,6 +92,7 @@ function(catccos_example_add_executable TARGET)
                         -I${CMAKE_SOURCE_DIR}/utils
                         -I${CMAKE_SOURCE_DIR}/tools
                         -I${ASCEND_HOME_PATH}/include
+                        -I${ASCEND_HOME_PATH}/include/aclnn
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/impl
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/interface
@@ -112,7 +113,7 @@ function(catccos_example_add_executable TARGET)
                         -Wl,-rpath,${ASCEND_HOME_PATH}/lib64
                         -lruntime -lstdc++ -lm -lascendcl
                         -lshmem
-                        -lgraph_base -ltiling_api -lplatform -lregister
+                        -lgraph_base -ltiling_api -lplatform -lregister -lnnopbase
                         -Wl,--no-as-needed -ldl -Wl,--as-needed
                         -o ${KERNEL_LIB_PATH}
         DEPENDS ${KERNEL_SOURCES}
@@ -136,7 +137,7 @@ function(catccos_example_add_executable TARGET)
                         ${KERNEL_LIB_PATH}
                         -Wl,--as-needed
                         -lruntime -lstdc++ -lm -lascendcl
-                        -lshmem -lgraph_base -ltiling_api -lplatform -lregister
+                        -lshmem -lgraph_base -ltiling_api -lplatform -lregister -lnnopbase
                         -Wl,--no-as-needed -ldl -Wl,--as-needed
                         -o ${EXECUTABLE_PATH}
         DEPENDS ${KERNEL_LIB_PATH}
@@ -223,6 +224,7 @@ function(catccos_example_add_library TARGET)
                         -I${CMAKE_SOURCE_DIR}/utils
                         -I${CMAKE_SOURCE_DIR}/tools
                         -I${ASCEND_HOME_PATH}/include
+                        -I${ASCEND_HOME_PATH}/include/aclnn
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/impl
                         -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/interface
@@ -241,7 +243,7 @@ function(catccos_example_add_library TARGET)
                         -L${SHMEM_HOME_PATH}/memfabric_hybrid/lib
                         -L${SHMEM_HOME_PATH}/shmem/lib
                         -lruntime -lstdc++ -lm -lascendcl
-                        -lshmem -lgraph_base -ltiling_api -lplatform -lregister
+                        -lshmem -lgraph_base -ltiling_api -lplatform -lregister -lnnopbase
                         -Wl,--no-as-needed -ldl -Wl,--as-needed
                         ${KERNEL_SOURCES} -o ${CMAKE_BINARY_DIR}/lib/lib${TARGET}_kernel.so
         DEPENDS ${KERNEL_SOURCES}

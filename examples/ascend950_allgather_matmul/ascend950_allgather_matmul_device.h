@@ -33,6 +33,7 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
+#include "tla/layout.hpp"
 
 using namespace AscendC;
 using namespace Catccos;

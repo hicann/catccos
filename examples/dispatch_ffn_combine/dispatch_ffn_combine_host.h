@@ -24,10 +24,10 @@ public:
         uint32_t n2 = cocTiling.k;
 
         uint32_t maxOutputSize = cocTiling.m * cocTiling.topK * cocTiling.rankSize;
-        size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
-        size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank * sizeof(half);
-        size_t b2Size = static_cast<size_t>(k2) * n2 * expertPerRank * sizeof(half);
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
+        size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
+        size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank * sizeof(fp16_t);
+        size_t b2Size = static_cast<size_t>(k2) * n2 * expertPerRank * sizeof(fp16_t);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
 
         size_t expertIdxSize = cocTiling.m * cocTiling.topK * sizeof(int32_t);
 
@@ -39,7 +39,7 @@ public:
             ReadFile(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -51,7 +51,7 @@ public:
             ReadFile(dataFile + "/in_gmm_matrix_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
+            std::vector<fp16_t> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -63,7 +63,7 @@ public:
             ReadFile(dataFile + "/in_gmm_matrix_b2_" + std::to_string(rankId) + ".bin", b2Host, b2Size);
             ACL_CHECK(aclrtMemcpy(b2Device, b2Size, b2Host, b2Size, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixB2(k2 * n2 * expertPerRank, 1);
+            std::vector<fp16_t> matrixB2(k2 * n2 * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(b2Device, b2Size, matrixB2.data(), b2Size, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -87,7 +87,7 @@ public:
         ACL_CHECK(aclrtMemset(cDevice, cSize, 0, cSize));
 
         // uint8_t *outputDevice;
-        // size_t outputSize = cocTiling.m * cocTiling.k * sizeof(half);
+        // size_t outputSize = cocTiling.m * cocTiling.k * sizeof(fp16_t);
         // ACL_CHECK(aclrtMalloc((void **)(&outputDevice), outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
         // ACL_CHECK(aclrtMemset(outputDevice, outputSize, 0, outputSize));
 
@@ -107,7 +107,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;
         ACL_CHECK(aclrtMallocHost((void**)(&cHost), cSize));
@@ -116,7 +116,7 @@ public:
 
         ACL_CHECK(aclrtFreeHost(cHost));
 
-        // size_t outputSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
+        // size_t outputSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
         // uint8_t *outputDevice = params.customPtrs[3];
         // uint8_t *outputHost;
         // ACL_CHECK(aclrtMallocHost((void **)(&outputHost), outputSize));
@@ -132,13 +132,13 @@ public:
         uint32_t EP = cocTiling.rankSize;
         uint32_t maxOutputSize = cocTiling.m * cocTiling.rankSize * cocTiling.topK;
         size_t workspaceSize =
-            RoundUp<size_t>(cocTiling.m * sizeof(int32_t), 512) +              // expandedRowIdx
-            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) + // AllToAllV_GMM workspace
-            EP * EP * expertPerRank * sizeof(int32_t) +                        // metaInfo
-            RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(half), 512) + // allToAllVGmmOut
-            RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(half), 512) + // swigluOutput
-            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) + // gmmAllToAllWorkspace
-            EP * EP * expertPerRank * sizeof(int32_t);                         // metaInfo
+            RoundUp<size_t>(cocTiling.m * sizeof(int32_t), 512) +                // expandedRowIdx
+            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(fp16_t), 512) + // AllToAllV_GMM workspace
+            EP * EP * expertPerRank * sizeof(int32_t) +                          // metaInfo
+            RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(fp16_t), 512) + // allToAllVGmmOut
+            RoundUp<size_t>(maxOutputSize * cocTiling.n * sizeof(fp16_t), 512) + // swigluOutput
+            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(fp16_t), 512) + // gmmAllToAllWorkspace
+            EP * EP * expertPerRank * sizeof(int32_t);                           // metaInfo
         return workspaceSize;
     }
 

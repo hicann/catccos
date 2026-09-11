@@ -21,7 +21,7 @@ public:
     {
         size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(int8_t) / 2;
         size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * sizeof(int8_t) / 2;
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(half);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(fp16_t);
         size_t dSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * cocTiling.n * sizeof(bfloat16_t);
         size_t scaleSize = static_cast<size_t>(cocTiling.n) * sizeof(uint64_t);
         size_t perTokenScaleSize = static_cast<size_t>(cocTiling.m) * cocTiling.rankSize * sizeof(float);

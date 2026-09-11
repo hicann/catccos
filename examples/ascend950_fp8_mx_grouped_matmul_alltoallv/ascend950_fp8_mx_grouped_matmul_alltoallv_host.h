@@ -24,7 +24,7 @@ public:
         uint32_t localExpertNum = cocTiling.expertNum / cocTiling.epSize;
         size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(int8_t);
         size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * sizeof(int8_t) * localExpertNum;
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(__fp16) * cocTiling.rankSize;
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(fp16_t) * cocTiling.rankSize;
         size_t localTokensPerExpertSize = static_cast<size_t>(cocTiling.expertNum) * sizeof(int32_t);
         size_t globalTokensPerLocalExpertSize =
             static_cast<size_t>(cocTiling.rankSize) * localExpertNum * sizeof(int32_t);
@@ -43,7 +43,7 @@ public:
             ReadFile(dataFile + "/a_gm_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -55,7 +55,7 @@ public:
             ReadFile(dataFile + "/b_gm_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixB(cocTiling.k * cocTiling.n * localExpertNum, 1);
+            std::vector<fp16_t> matrixB(cocTiling.k * cocTiling.n * localExpertNum, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -143,7 +143,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(__fp16) * cocTiling.rankSize;
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.n * sizeof(fp16_t) * cocTiling.rankSize;
 
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;

@@ -3,6 +3,8 @@
 #ifndef MX_QUANT_ALLGATHER_DEVICE_H
 #define MX_QUANT_ALLGATHER_DEVICE_H
 
+#include "info.h"
+
 #include "catccos/catccos.hpp"
 #include "catccos/comm/block/comm_block.hpp"
 #include "catccos/comm/block/comm_block_mx_quant.hpp"
@@ -17,7 +19,6 @@
 #include "catlass/epilogue/tile/tile_swizzle.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
-#include "info.h"
 
 using namespace AscendC;
 using namespace Catccos;

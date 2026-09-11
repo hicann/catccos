@@ -25,14 +25,14 @@ public:
         uint32_t n2 = cocTiling.k;
 
         uint32_t maxOutputSize = cocTiling.m * cocTiling.topK * cocTiling.rankSize;
-        size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
+        size_t aSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
         size_t bSize = static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank;
         size_t b2Size = static_cast<size_t>(k2) * n2 * expertPerRank;
         size_t scaleK = RoundUp<size_t>(CeilDev(cocTiling.k, 32), 2);
         size_t scaleK2 = RoundUp<size_t>(CeilDev(k2, 32), 2);
         size_t bScaleSize = scaleK * cocTiling.n * expertPerRank;
         size_t b2ScaleSize = scaleK2 * n2 * expertPerRank;
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
 
         size_t expertIdxSize = cocTiling.m * cocTiling.topK * sizeof(int32_t);
 
@@ -44,7 +44,7 @@ public:
             ReadFile(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<half> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -106,7 +106,7 @@ public:
         ACL_CHECK(aclrtMemset(cDevice, cSize, 0, cSize));
 
         // uint8_t *outputDevice;
-        // size_t outputSize = cocTiling.m * cocTiling.k * sizeof(half);
+        // size_t outputSize = cocTiling.m * cocTiling.k * sizeof(fp16_t);
         // ACL_CHECK(aclrtMalloc((void **)(&outputDevice), outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
         // ACL_CHECK(aclrtMemset(outputDevice, outputSize, 0, outputSize));
 
@@ -129,7 +129,7 @@ public:
     void WriteResultFile(
         const KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile) override
     {
-        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(half);
+        size_t cSize = static_cast<size_t>(cocTiling.m) * cocTiling.k * sizeof(fp16_t);
         uint8_t* cDevice = params.ptrC;
         uint8_t* cHost;
         ACL_CHECK(aclrtMallocHost((void**)(&cHost), cSize));
@@ -147,13 +147,13 @@ public:
         size_t metaInfoSize = static_cast<size_t>(EP) * EP * expertPerRank * sizeof(int32_t);
         size_t workspaceSize =
             RoundUp<size_t>(RoundUp<size_t>(cocTiling.m, 256) * cocTiling.topK * sizeof(int32_t), 512) +
-            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) + RoundUp<size_t>(metaInfoSize, 512) +
+            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(fp16_t), 512) + RoundUp<size_t>(metaInfoSize, 512) +
             RoundUp<size_t>(maxOutputSize * cocTiling.k, 512) +
             RoundUp<size_t>(maxOutputSize * RoundUp<size_t>(CeilDev(cocTiling.k, 32), 2), 512) +
-            RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2) * sizeof(half), 512) +
+            RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2) * sizeof(fp16_t), 512) +
             RoundUp<size_t>(maxOutputSize * (cocTiling.n / 2), 512) +
             RoundUp<size_t>(maxOutputSize * RoundUp<size_t>(CeilDev(cocTiling.n / 2, 32), 2), 512) +
-            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(half), 512) + RoundUp<size_t>(metaInfoSize, 512);
+            RoundUp<size_t>(maxOutputSize * cocTiling.k * sizeof(fp16_t), 512) + RoundUp<size_t>(metaInfoSize, 512);
         return workspaceSize;
     }
 

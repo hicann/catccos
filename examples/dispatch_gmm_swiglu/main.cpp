@@ -143,10 +143,10 @@ int main(int argc, char** argv)
     uint8_t* cPtr = kernelParams.ptrC;
     uint8_t* expertIdxPtr = kernelParams.customPtrs[0];
 
-    size_t size_ = static_cast<size_t>(maxOutputSize) * cocTiling.n * sizeof(half);
+    size_t size_ = static_cast<size_t>(maxOutputSize) * cocTiling.n * sizeof(fp16_t);
     printf("cSize: %d\n", size_);
     uint8_t* cDevice = workspaceDevice + expandedRowIdxSize +
-                       static_cast<size_t>(maxOutputSize) * cocTiling.k * sizeof(half) +
+                       static_cast<size_t>(maxOutputSize) * cocTiling.k * sizeof(fp16_t) +
                        EP * EP * expertPerRank * sizeof(int32_t);
     uint8_t* cHost1;
     // ACL_CHECK(aclrtMallocHost((void **)(&cHost1), size_));

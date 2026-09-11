@@ -37,7 +37,7 @@ public:
         // Allocate input
         uint8_t* inputDevice = AllocateAndLoadBuffer(
             inputSize, dataFile, "/rank_" + std::to_string(rankId) + "_input.bin", M * N,
-            static_cast<half>(rankId + 1));
+            static_cast<fp16_t>(rankId + 1));
 
         // Allocate output (quantized data)
         uint8_t* outputDevice;
