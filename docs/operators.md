@@ -3,6 +3,7 @@
 本文档列出 CATCCOS 当前提供的全部可编译运行算子样例，按通信/计算模式分为 6 类。每个算子的 Kernel 模板位于 `include/catccos/`，可运行样例位于 `examples/`。
 
 > **说明**
+>
 > - `aux_ops/`（MoE routing、token unpermute 等）为组合算子内部组件，不单独列入下表，详见 [实现模式 - MoE](operators/implementation_patterns.md#5-moe--groupedmatmul--alltoallv)。
 > - 标注 * 的示例暂无独立 README，示例列链接至目录，实现细节见 [实现模式文档](operators/implementation_patterns.md)。
 > - `allgather_matmul_rdma` 仅在编译时开启 `RDMA_TRANSPORT` 选项时构建。
@@ -31,9 +32,9 @@
 
 | 算子名称 | Registry 名 | 通信模式 | 数据类型 | 硬件平台 | Kernel 头文件 | 示例 |
 |---------|-------------|---------|---------|---------|--------------|------|
-| AllGather + MatMul + Dequant | `AllGatherMatmulDequant` | AllGather | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/allgather_matmul_dequant.hpp` | [allgather_matmul_dequant](../examples/allgather_matmul_dequant/)* |
+| AllGather + MatMul + Dequant | `AllGatherMatmulDequant` | AllGather | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/allgather_matmul_dequant.hpp` | [allgather_matmul_dequant](../examples/allgather_matmul_dequant/main.cpp)* |
 | AllGather + MatMul + Dequant + Bias | `AllGatherMatmulDequantBias` | AllGather | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/allgather_matmul_dequant_bias.hpp` | [allgather_matmul_dequant_bias](../examples/allgather_matmul_dequant_bias/README.md) |
-| MatMul + Dequant + ReduceScatter Write | `MatmulDequantReduceScatterWrite` | ReduceScatter | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/matmul_dequant_reduce_scatter_write.hpp` | [matmul_dequant_reduce_scatter_write](../examples/matmul_dequant_reduce_scatter_write/)* |
+| MatMul + Dequant + ReduceScatter Write | `MatmulDequantReduceScatterWrite` | ReduceScatter | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/matmul_dequant_reduce_scatter_write.hpp` | [matmul_dequant_reduce_scatter_write](../examples/matmul_dequant_reduce_scatter_write/main.cpp)* |
 
 ---
 
@@ -47,9 +48,9 @@
 | GroupedMatMul + AllToAllV（TLA） | `GroupedMatmulAllToAllVTla` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/grouped_matmul_alltoallv_tla.hpp` | [grouped_matmul_alltoallv_tla](../examples/grouped_matmul_alltoallv_tla/README.md) |
 | AllToAllV + GroupedMatMul | `AllToAllVGroupedMatmul` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_grouped_matmul.hpp` | [alltoallv_grouped_matmul](../examples/alltoallv_grouped_matmul/README.md) |
 | AllToAllV + GMM v2 | `AllToAllVGMMV2` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_v2.hpp` | [alltoallv_gmm_v2](../examples/alltoallv_gmm_v2/README.md) |
-| MoE Dispatch GMM | `AllToAllVGMMV2` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_v2.hpp` | [dispatch_gmm](../examples/dispatch_gmm/)* |
-| MoE Dispatch GMM + SwiGLU | `AllToAllVGMMV2` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_v2.hpp` | [dispatch_gmm_swiglu](../examples/dispatch_gmm_swiglu/)* |
-| MoE Dispatch GMM + Dequant + SwiGLU | `DispatchGmmDequantSwiglu` | AllToAllV | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_dequant_v2.hpp` | [dispatch_gmm_dequant_swiglu](../examples/dispatch_gmm_dequant_swiglu/)* |
+| MoE Dispatch GMM | `AllToAllVGMMV2` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_v2.hpp` | [dispatch_gmm](../examples/dispatch_gmm/main.cpp)* |
+| MoE Dispatch GMM + SwiGLU | `AllToAllVGMMV2` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_v2.hpp` | [dispatch_gmm_swiglu](../examples/dispatch_gmm_swiglu/main.cpp)* |
+| MoE Dispatch GMM + Dequant + SwiGLU | `DispatchGmmDequantSwiglu` | AllToAllV | INT8 → FP16 | Atlas A2/A3 | `dgemm/kernel/alltoallv_gmm_dequant_v2.hpp` | [dispatch_gmm_dequant_swiglu](../examples/dispatch_gmm_dequant_swiglu/main.cpp)* |
 | GMM + AllToAllV v2 | `GMMAllToAllVV2` | AllToAllV | FP16 | Atlas A2/A3 | `dgemm/kernel/gmm_alltoallv_v2.hpp` | [gmm_alltoallv_v2](../examples/gmm_alltoallv_v2/README.md) |
 | MoE FFN Dispatch + Combine | `DispatchFFNCombine` | AllToAllV | FP16 | Atlas A2/A3 | `alltoallv_gmm_v2.hpp` + `gmm_alltoallv_v2.hpp` | [dispatch_ffn_combine](../examples/dispatch_ffn_combine/README.md) |
 

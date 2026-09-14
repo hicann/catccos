@@ -2,28 +2,32 @@
 # CATCCOS介绍
 
 ## 分层设计
+
 **CATCCOS(**CA**NN **T**emplates for **C**ompute-**C**ommunication **O**verlap **S**ubroutines)延续 [CATLASS(**CA**NN **T**emplates for **L**inear **A**lgebra **S**ubroutine**s**)](https://gitcode.com/cann/catlass) 自上而下的分层架构，并在各个层级中新增了对远程访存的支持，从而进一步增强了系统的分层计算与通信能力。**
 
 ![image](images/api_level.png)
 
 ### 新增远程访存支持，扩展分层计算能力
+
 - **Kernel 层**：实现支持通算融合的完整算子，将Matmul计算扩展至多卡并行计算场景。
 - **Block 层**：定义了单个AICore的通信逻辑，可与Catlass中单个AICore的计算逻辑结合，实现灵活的细粒度通算融合组合。
 - **Tile 层**：提供常用步骤的抽象，基于底层的基础 ACLSHMEM 操作构建。
 
-
 ## 快速使用
+
 以matmul_reduce_scatter为例，快速使用catccos通算融合算子：
 
-1. **编译项目**  
+1. **编译项目**
    进入示例目录并执行编译脚本：
+
    ```bash
    cd examples/matmul_reduce_scatter
    bash scripts/build.sh
    ```
 
-2. **运行示例程序**  
+2. **运行示例程序**
    在示例目录下执行运行脚本：
+
    ```bash
    bash scripts/run.sh <device_list>
    ```
@@ -31,15 +35,17 @@
    - **参数说明**：
      - `device_list`：指定用于运行的设备（NPU）编号列表，以逗号分隔。
      - 示例：使用第6和第7个NPU设备运行2卡MatMul-ReduceScatter示例：
+
        ```bash
        bash scripts/run.sh 6,7
        ```
 
-   - **配置计算规模**：  
-     矩阵形状参数（M、K、N）可在配置文件 `scripts/test_shapes.csv` 中进行设置。  
+   - **配置计算规模**：
+     矩阵形状参数（M、K、N）可在配置文件 `scripts/test_shapes.csv` 中进行设置。
      修改该文件以定义测试用例的输入维度。
 
 ## 开发计算通信融合算子
+
 以matmul_reduce_scatter为例，本节展示如何基于catccos快速开发计算通信融合算子。
 
 ### Matmul-ReduceScatter流水示意
@@ -47,6 +53,7 @@
 ![image](./images/pipeline.png)
 
 ### 伪代码
+
 **以下伪代码描述Matmul-ReduceScatter的内核逻辑：**
 
 ```c++
@@ -55,8 +62,8 @@ commLoops = (blockMatmulM * blockMatmulN) / blockPerComm
 for (int blockCluster = 0; blockCluster < commLoops; blockCluster++) {
     WaitCommunicationFinish();
     // AICBlockTile循环在AICs上并行
-    for (int block = 0; block < blockPerComm; block += AICBlockTile) { 
-        
+    for (int block = 0; block < blockPerComm; block += AICBlockTile) {
+
         // Catlass::Gemm::Block::BlockMmad: Catlass BlockMmad, 在kTile上迭代
         // BlockMmad输出到shmem
         for (int kTile = 0; kTile < blockMatmulK; kTile++) {
@@ -84,7 +91,7 @@ for (int blockCluster = 0; blockCluster < commLoops; blockCluster++) {
     // matmul与communication的block shape可以不一致（通常为了性能是不一致的）
     blockPerComm = mmadBlockToCommBlock(blockPerComm);
     // AIVBlockTile循环在AIVs上并行
-    for (int block = 0; block < blockPerComm; block += AIVBlockTile) { 
+    for (int block = 0; block < blockPerComm; block += AIVBlockTile) {
 
         // Catccos::Comm::Block
         for (int tile = 0; tile < tileLoops; tile++) {
@@ -107,7 +114,8 @@ for (int blockCluster = 0; blockCluster < commLoops; blockCluster++) {
 ### 代码实现
 
 #### 📌 整体架构图解
-```
+
+```text
 +---------------------+
 | Host (CPU)          |  <-- 启动 ShmemMatmulReduceScatter
 +----------+----------+
@@ -127,6 +135,7 @@ for (int blockCluster = 0; blockCluster < commLoops; blockCluster++) {
 ```
 
 #### 📌 新增matmul_reduce_scatter kernel
+
 进入kernel文件夹 `cd examples\templates\include\catccos\dgemm\kernel`，创建新kernel `matmul_reduce_scatter.hpp`
 
 通过以下三部分实现MatmulReduceScatter内核逻辑
@@ -159,7 +168,7 @@ class MatmulReduceScatter {
 public:
     //// 使用外部传入的BlockMmad模板，用于执行核心Mmad计算
     // Block层Mmad计算类型
-    using BlockMmad = BlockMmad_; 
+    using BlockMmad = BlockMmad_;
     // 指定当前计算所针对的硬件架构标签, 用于模板特化和硬件适配
     using ArchTag = typename BlockMmad::ArchTag;
     // 定义L1缓存层级的分块形状（M, N, K），控制每个AICore上的计算粒度
@@ -242,7 +251,7 @@ public:
     * 功能说明：
     * 初始化MatMul + ReduceScatter融合算子在AIC和AIV协同执行过程中所需的跨核同步标志（Cross-Core Flags）。
     * 在Ascend架构中，多个AIC和AIV并行执行计算与通信任务，需要通过共享标志位实现核间同步。
-    * 
+    *
     * 同步机制说明：
     * - 使用双缓冲（Double Buffering）或多阶段流水（Pipelining）机制，共WORKSPACE_STAGES个阶段。
     * - 每个阶段对应一组独立的同步标志，避免读写冲突，提升并行效率。
@@ -270,8 +279,7 @@ private:
 
 ```
 
-
-2. **实现融合算子中的Matmul部分**
+1. **实现融合算子中的Matmul部分**
 
 ```c++
 /**
@@ -422,7 +430,7 @@ void operator()<AscendC::AIC>(Params const &params)
 }
 ```
 
-3. **实现融合算子中的ReduceScatter部分**
+1. **实现融合算子中的ReduceScatter部分**
 
 ```c++
 /**
@@ -492,7 +500,7 @@ void operator()<AscendC::AIV>(Params const &params)
         // 计算本轮实际处理的block数量（最后一轮可能不足）
         uint32_t actualBlockInComm = Min(blockPerComm, coreLoops - commIdx * blockPerComm);
         // 当前通信任务的全局矩阵形状, 含分布式信息（M / rankSize, N, rankSize）
-        auto actualCommShape 
+        auto actualCommShape
             = DistMatrixCoord(actualBlockInComm * blockShapeMN.row() / params.rankSize, blockShapeMN.column(), params.rankSize);
         // 计算每个Rank的数据需要完成的通信loop次数
         MatrixCoord loopsInRank = CeilDiv(MatrixCoord(actualCommShape.GetCoordInRank()), commBlockShape);
@@ -554,18 +562,18 @@ void operator()<AscendC::AIV>(Params const &params)
                     actualMmadBlockShape - Min<uint32_t, 2>(actualMmadBlockShape, offsetInMmadBlock);
                 // 计算剩余空间（防止越界）
                 actualCommBlockShape = Min<uint32_t, 2>(actualCommBlockShape, residueInMmadBlock);
-                
+
                 // === 源地址：从中间缓冲区读取（带 stage 偏移）===
                 auto offsetSrc = stageOffset + blockOffset;
                 auto gmBlockSrc = gmSymmetric[layoutSymmetric.GetOffset(offsetSrc)];
                 auto layoutBlockSrc = layoutSymmetric.GetTileLayout(actualCommBlockShape);
-                
+
                 // === 目标地址：写入最终输出 D（累加）===
                 MatrixCoord mmadBlockOffset = mmadBlockCoord * blockShapeMN; // GEMM block起始
                 auto offsetDst = mmadBlockOffset + offsetInMmadBlock;        // 实际写入偏移
                 auto gmBlockDst = gmD[params.layoutD.GetOffset(offsetDst)];
                 auto layoutBlockDst = params.layoutD.GetTileLayout(actualCommBlockShape);
-                
+
                 // === 执行远程访存操作 ===
                 // 将来自remoteRankIdx的partial result累加到本地输出
                 blockRemoteCopy(
@@ -577,7 +585,7 @@ void operator()<AscendC::AIV>(Params const &params)
         }
         // 结束 ReduceScatter 的 block 循环
         blockRemoteCopy.FinalizeBlockLoop();
-        
+
         // 关闭原子操作
         AscendC::SetFlag<AscendC::HardEvent::MTE3_S>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_S>(EVENT_ID0);
@@ -710,7 +718,7 @@ struct Options {
 };
 ```
 
-2. **基于Kernel层组装算子，完成核函数**
+1. **基于Kernel层组装算子，完成核函数**
 
 ```c++
 CATLASS_GLOBAL
@@ -746,14 +754,14 @@ void ShmemMatmulReduceScatter(
     LayoutD layoutD{m / rankSize, n};
 
     // === 5. 配置Block级GEMM计算核心（Matrix Multiply-Add Unit）===
-    
+
     // 选择调度策略：乒乓缓冲机制
     constexpr bool enableUnitFlag = true;
     using MmadDispatchPolicy = Catlass::Gemm::MmadAtlasA2Pingpong<enableUnitFlag>;
-    
+
     // L1TileShape: L1缓存中每个计算tile的大小（M=128, N=256, K=256）
     using L1TileShape = Catlass::GemmShape<128, 256, 256>;
-    
+
     // L0TileShape: 更细粒度的向量计算单元（K 分片为 64）
     using L0TileShape = Catlass::GemmShape<128, 256, 64>;
 
@@ -786,7 +794,7 @@ void ShmemMatmulReduceScatter(
     constexpr uint32_t UB_STAGES = 2;
     // 通信后端调度策略：基于Atlas的远程拷贝，模式为 Scatter
     using CommDispatchPolicy = Comm::AtlasCommRemoteCopy<ArchTag, UB_STAGES, IS_DYNAMIC>;
-    
+
     // 定义远端搬运的类型封装和搬运模式
     using RemoteSrcType = SymmetricType; // RemoteSrcType: 源数据类型（中间partial result）
     using RemoteDstType = DType; // RemoteDstType: 目标数据类型（输出 D 类型）
@@ -794,7 +802,7 @@ void ShmemMatmulReduceScatter(
     using CopyTransport = Catccos::detail::CopyTransport; // CopyTransport::Mte 表示走MTE load/store语义
     using TileRemoteCopy = Comm::Tile::TileRemoteCopy<ArchTag, IS_DYNAMIC, RemoteSrcType, RemoteDstType, void, CopyDirect::Get, CopyTransport::Mte>; // TileRemoteCopy: 实现跨设备tile级别的远程数据读取
     using TileScheduler = Catlass::Epilogue::Tile::EpilogueIdentityTileSwizzle; // TileScheduler: tile级别的调度策略
-    
+
     // 实例化Block级的ReduceScatter Epilogue
     using BlockComm = Comm::Block::CommBlock<
         CommDispatchPolicy,
@@ -856,7 +864,7 @@ void ShmemMatmulReduceScatter(
 }
 ```
 
-3. **编写main函数，完成数据内存申请等初始化工作，并启动算子**
+1. **编写main函数，完成数据内存申请等初始化工作，并启动算子**
 
 ```c++
 int main(int argc, char **argv)
@@ -951,6 +959,7 @@ int main(int argc, char **argv)
 ```
 
 # 版权声明
+
 Copyright (c) 2025 Huawei Technologies Co., Ltd.
 
 This file is a part of the CANN Open Software. Licensed under CANN Open Software License Agreement Version 1.0 (the "License"). Please refer to the License for details. You may not use this file except in compliance with the License.

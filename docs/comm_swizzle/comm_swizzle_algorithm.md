@@ -2,14 +2,14 @@
 
 ## 概述
 
-[CommSwizzle](../../include/catccos/catccos.hpp#L165-L194) 是 catccos 库中用于**多核并行通信调度**的 swizzle 算法。它解决的核心问题是：当多个 core 需要同时与多个远程 rank 进行数据通信时，**如何调度通信顺序，使得在同一时刻不同 core 访问不同的 rank，从而避免通信链路拥塞**。
+[CommSwizzle](../../include/catccos/catccos.hpp) 是 catccos 库中用于**多核并行通信调度**的 swizzle 算法。它解决的核心问题是：当多个 core 需要同时与多个远程 rank 进行数据通信时，**如何调度通信顺序，使得在同一时刻不同 core 访问不同的 rank，从而避免通信链路拥塞**。
 
 ## 核心数据结构
 
 | 参数 | 类型 | 含义 |
 |------|------|------|
-| `gridShape` | [DistMatrixCoord(row, column, rank)](../../include/catccos/dist_coord.hpp#L42-L47) | 通信数据的三维网格形状：row × column 为数据维度，rank 为远程节点数 |
-| `coreSplit` | [MatrixCoord(row, column)](../../include/catccos/dist_coord.hpp#L42-L47) | 并行 core 在数据维度(row)和 rank 维度(column)的划分 |
+| `gridShape` | [DistMatrixCoord(row, column, rank)](../../include/catccos/dist_coord.hpp) | 通信数据的三维网格形状：row × column 为数据维度，rank 为远程节点数 |
+| `coreSplit` | [MatrixCoord(row, column)](../../include/catccos/dist_coord.hpp) | 并行 core 在数据维度(row)和 rank 维度(column)的划分 |
 | `loopIdx` | `uint32_t` | 迭代索引，范围 `[0, Numel(gridShape))` |
 
 ## 算法步骤
@@ -23,12 +23,13 @@ flattenGridShape = { row * column /* 数据维(行) */,  rank /* rank维(列) */
 ```
 
 ### 第二步：分组列优先遍历
+
 以 `swizzleOffset = coreSplit[ROW_DIM]`（数据维度的 core 并行度）为分组大小：
 
 1. **分组**：将`ROW_DIM`维度按 `swizzleOffset` 分成若干组
 2. **组内遍历**：在每个组内，先遍历`ROW_DIM`，再遍历`COL_DIM`，即`ROW_DIM`方向的 swizzleOffset 个数据连续分配
 
-```
+```text
 groupSize = swizzleOffset × numRanks
 组内 loopIdx → coord[COL] = groupOffset / inGroupRows   (ROW_DIM索引)
               coord[ROW] = groupIdx * swizzleOffset + groupOffset % inGroupRows
@@ -74,7 +75,7 @@ coord[1] = (offset + offset / gridShape.rank() + coord[0]) % gridShape.rank();
 
 ### 第四步：2D → 3D 还原
 
-将展平的坐标还原为 [DistMatrixCoord](../../include/catccos/dist_coord.hpp#L42-L47)：
+将展平的坐标还原为 [DistMatrixCoord](../../include/catccos/dist_coord.hpp)：
 
 ```cpp
 return DistMatrixCoord{coord[0] / gridShape.column(),   // row
@@ -122,6 +123,7 @@ return DistMatrixCoord{coord[0] / gridShape.column(),   // row
 > - SWIZZLE_DIRECTION = 0    # 0: row-major swizzle
 
 ## 模拟
+
 通过运行 `python comm_swizzle_animation.py` 可以模拟 `comm_swizzle`，通过以下配置修改：
 
 ``` python

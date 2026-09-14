@@ -2,7 +2,6 @@
 
 CATCCOS的分层结构如下所示(以AllGather Matmul为例)，这些组件针对数据类型、数据排布和数学指令进行特化。
 
-
 | API 层级             | API 类 和/或 函数 名称                   |
 | ---                  | ---                                               |
 | Kernel               | `Catccos::DGemm::Kernel::AllGatherMatmul`            |
@@ -12,7 +11,8 @@ CATCCOS的分层结构如下所示(以AllGather Matmul为例)，这些组件针�
 
 在CATCCOS中，我们为每个算子定义Host和Device两个模块。Host模块主要负责**算子执行的输入输出处理**，包括Device地址空间申请、输入数据构造、输出结果保存等功能。Device模块则负责汇总算子各个入参，然后**调用Kernel层级的API执行算子**。
 
-具体可见CATCCOS的示例中[examples/allgather_matmul](../../examples/allgather_matmul)，如下文摘录所示。
+具体可见CATCCOS的示例中[examples/allgather_matmul](../../examples/allgather_matmul/README.md)，如下文摘录所示。
+
 ```c++
 // examples/allgather_matmul/allgather_matmul_host.h
 // 根据shape申请Device地址空间，如果是精度测试则通过dataFile将输入矩阵拷贝到申请的空间，如果是性能测试则将申请的空间全部赋值为1
@@ -136,6 +136,7 @@ class AllGatherMatmul;
 Block API包括“矩阵乘累加”和“通信算子数据搬运”两部分，其中矩阵计算使用catlass提供的BlockMmad接口，block层指定的矩阵分块计算策略在include/catccos/dgemm/block下定义。通信算子的数据搬运接口和搬运策略代码实现在include/catccos/comm/block下，支持远端读写及本地读写操作。
 
 ### 通信数据搬运
+
 ```c++
 // include/catccos/comm/block/comm_block_remote_copy.hpp
 template <

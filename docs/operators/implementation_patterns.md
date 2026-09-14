@@ -10,21 +10,21 @@
 
 CATCCOS 融合算子沿 CATLASS 四层架构组装：
 
-```
+```text
 Kernel   ← 编排 MMAD 与通信流水线（AIC 计算 + AIV 通信）
 Block    ← BlockMmad（计算）+ CommBlock（通信）+ Scheduler
 Tile     ← TileRemoteCopy（远端 Put/Get，MTE/RDMA）
 Basic    ← AscendC 指令、ACLSHMEM 对称内存
 ```
 
-跨核同步：`catlass/arch/cross_core_sync.hpp`  
+跨核同步：`catlass/arch/cross_core_sync.hpp`
 跨卡同步：`catccos/arch/cross_rank_sync.hpp` + ACLSHMEM
 
 ### 1.2 示例目录结构
 
 每个可运行算子样例遵循统一布局：
 
-```
+```text
 examples/<op_name>/
 ├── <op_name>_host.h      # CatccosOperator 子类 + REGISTER_OPERATOR
 ├── <op_name>_device.h    # BlockMmad + BlockComm + Kernel 类型组合
@@ -64,7 +64,7 @@ Device 侧在 `*_device.h` 中完成**类型组合**，不包含 Kernel 函数�
 
 ### 1.5 启动链路
 
-```
+```text
 main.cpp
   → CatccosOperator::AllocateDeviceSpace
   → DeviceDGemm<Kernel>::Initialize(args)
@@ -119,7 +119,7 @@ flowchart LR
 | Comm Scheduler | `BlockCommSwizzle` |
 | Tile 搬运 | `CopyDirect::Put` + `CopyTransport::Mte`（RDMA 变体用 `Rdma`） |
 
-**参考示例**：[examples/allgather_matmul/](../../examples/allgather_matmul/)
+**参考示例**：[examples/allgather_matmul/](../../examples/allgather_matmul/README.md)
 
 Remote Read 变体通过 `allgather_matmul_with_remote_read.hpp` 直接从远端 GM 读取 A，减少本地拷贝；RDMA 变体使用 `allgather_matmul_with_rdma_write.hpp` 走 RDMA Write 路径。
 
@@ -149,7 +149,7 @@ flowchart LR
 | Compute Scheduler | `GemmBlockSwizzleReduceScatterMesh` 等 |
 | Comm | 对 C 矩阵分块做远端规约 |
 
-**参考示例**：[examples/matmul_reduce_scatter/](../../examples/matmul_reduce_scatter/)、[examples/matmul_allreduce/](../../examples/matmul_allreduce/)
+**参考示例**：[examples/matmul_reduce_scatter/](../../examples/matmul_reduce_scatter/README.md)、[examples/matmul_allreduce/](../../examples/matmul_allreduce/README.md)
 
 ---
 
@@ -170,7 +170,7 @@ flowchart LR
 | Dequant epilogue | `include/catccos/epilogue/block/` |
 | Kernel | `allgather_matmul_dequant.hpp`、`matmul_dequant_reduce_scatter_v2.hpp` |
 
-**参考示例**：[examples/allgather_matmul_dequant_bias/](../../examples/allgather_matmul_dequant_bias/)
+**参考示例**：[examples/allgather_matmul_dequant_bias/](../../examples/allgather_matmul_dequant_bias/README.md)
 
 ---
 
@@ -198,7 +198,7 @@ flowchart TD
 | TLA 变体 | `grouped_matmul_alltoallv_tla.hpp` |
 | 辅助算子 | `examples/aux_ops/`（routing、unpermute、SwiGLU） |
 
-**参考示例**：[examples/dispatch_ffn_combine/](../../examples/dispatch_ffn_combine/)、[examples/grouped_matmul_alltoallv/](../../examples/grouped_matmul_alltoallv/)
+**参考示例**：[examples/dispatch_ffn_combine/](../../examples/dispatch_ffn_combine/README.md)、[examples/grouped_matmul_alltoallv/](../../examples/grouped_matmul_alltoallv/README.md)
 
 ---
 
@@ -221,7 +221,7 @@ flowchart TD
 | `Ascend950AllToAllMatmul` | `ascend950_alltoall_matmul.hpp` |
 | `Ascend950MatmulAllToAll` | `ascend950_matmul_alltoall.hpp` |
 
-**参考示例**：[examples/ascend950_allgather_matmul/](../../examples/ascend950_allgather_matmul/)
+**参考示例**：[examples/ascend950_allgather_matmul/](../../examples/ascend950_allgather_matmul/README.md)
 
 ---
 
@@ -235,7 +235,7 @@ flowchart TD
 - Kernel 基于 `mx_allgather_matmul.hpp` 或 `grouped_matmul_alltoallv_mx.hpp`
 - 输出通常为 FP16
 
-**参考示例**：[examples/ascend950_fp8_mx_allgather_matmul/](../../examples/ascend950_fp8_mx_allgather_matmul/)
+**参考示例**：[examples/ascend950_fp8_mx_allgather_matmul/](../../examples/ascend950_fp8_mx_allgather_matmul/README.md)
 
 ---
 
@@ -257,7 +257,7 @@ flowchart TD
 | `QuantAllToAll` | `comm/kernel/quant_alltoall.hpp` |
 | `MxQuantAllGather` | `comm/kernel/mx_quant_allgather.hpp` |
 
-**参考示例**：[examples/ascend950_mx_quant_allgather/](../../examples/ascend950_mx_quant_allgather/)
+**参考示例**：[examples/ascend950_mx_quant_allgather/](../../examples/ascend950_mx_quant_allgather/README.md)
 
 ---
 

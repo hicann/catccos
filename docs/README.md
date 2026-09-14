@@ -26,7 +26,7 @@ CATCCOS 沿 CATLASS 风格分为四层，自顶向下组合：
 
 头文件目录：
 
-```
+```text
 include/catccos/
 ├── catccos.hpp           # 核心工具（CommSwizzle、坐标辅助）
 ├── dgemm/                # 分布式 GEMM 融合
@@ -59,7 +59,7 @@ include/catccos/
 典型流程：
 
 1. 阅读 [算子总览](operators.md)，选择目标算子类别
-2. 参考对应 [examples](../examples/) 目录下的样例代码
+2. 参考 [examples/CMakeLists.txt](../examples/CMakeLists.txt) 中注册的样例代码
 3. 查阅 [API 参考](api/api.md) 与 [实现模式](operators/implementation_patterns.md) 理解分层组装方式
 4. 按 [快速上手](quickstart.md) 开发新算子或定制现有模板
 
@@ -67,7 +67,7 @@ include/catccos/
 
 | 目录 | 说明 |
 |------|------|
-| [examples/](../examples/) | 可编译运行的算子样例（31 个 + 1 个 RDMA 条件算子） |
-| [include/catccos/](../include/catccos/) | 模板头文件（header-only 库） |
-| [utils/](../utils/) | 共享 Host 代码（算子注册、SHMEM 初始化等） |
-| [tools/](../tools/) | AscendTimer 性能采集工具 |
+| [examples/](../examples/CMakeLists.txt) | 可编译运行的算子样例（31 个 + 1 个 RDMA 条件算子） |
+| [include/catccos/](../include/catccos/catccos.hpp) | 模板头文件（header-only 库） |
+| [utils/](../utils/info.h) | 共享 Host 代码（算子注册、SHMEM 初始化等） |
+| [tools/](../tools/README.md) | AscendTimer 性能采集工具 |
