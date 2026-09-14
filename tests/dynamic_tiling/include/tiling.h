@@ -78,7 +78,7 @@ void GetTilings(std::vector<CocTilingParams>& tilings, CocTilingParams& t, const
         t.commNpuSplit = tiling[idx++];
         t.commDataSplit = tiling[idx++];
 
-        if (!op->CheckCocTilingParams(rankSize, t))
+        if (!op->ValidateCocTilingParams(rankSize, t))
             continue;
 
         tilings.push_back(t);

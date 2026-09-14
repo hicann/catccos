@@ -142,7 +142,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    if (!op->CheckCocTilingParams(rankSize, cocTiling)) {
+    if (!op->ValidateCocTilingParams(rankSize, cocTiling)) {
         std::cerr << "Invalid tiling params for symmetric buffer" << std::endl;
         return -1;
     }

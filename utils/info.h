@@ -104,6 +104,17 @@ struct CocTilingParams {
     uint32_t topK = 1;
 };
 
+inline bool CheckCommonCocTilingParams(uint32_t rankSize, const CocTilingParams& params)
+{
+    return rankSize > 0 && params.rankSize > 0 && params.rankSize == rankSize && params.m > 0 && params.k > 0 &&
+           params.n > 0 && params.m0 > 0 && params.k0 > 0 && params.n0 > 0;
+}
+
+inline bool CheckMoeCocTilingParams(const CocTilingParams& params)
+{
+    return params.epSize > 0 && params.expertNum > 0 && params.expertNum % params.epSize == 0 && params.topK > 0;
+}
+
 struct COCMatMulInfo {
     int64_t m;
     int64_t k;

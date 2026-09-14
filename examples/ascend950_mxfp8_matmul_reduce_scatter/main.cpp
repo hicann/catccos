@@ -139,6 +139,10 @@ int main(int argc, char** argv)
         std::cout << "Operator Ascend950MxFp8MatmulReduceScatter not found!" << std::endl;
         return -1;
     }
+    if (!op->ValidateCocTilingParams(rankSize, cocTiling)) {
+        std::cerr << "Invalid CocTilingParams" << std::endl;
+        return -1;
+    }
 
     KernelParams kernelParams;
     op->AllocateDeviceSpace(kernelParams, cocTiling, rankId, options.GetDataPath());

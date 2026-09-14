@@ -26,7 +26,7 @@ flattenGridShape = { row * column /* 数据维(行) */,  rank /* rank维(列) */
 以 `swizzleOffset = coreSplit[ROW_DIM]`（数据维度的 core 并行度）为分组大小：
 
 1. **分组**：将`ROW_DIM`维度按 `swizzleOffset` 分成若干组
-2. **组内遍历**：在每个组内，先遍历`ROW_DIM`，再遍历`COL_DIM`，即`ROW_DIM`方向的的 swizzleOffset 个数据连续分配
+2. **组内遍历**：在每个组内，先遍历`ROW_DIM`，再遍历`COL_DIM`，即`ROW_DIM`方向的 swizzleOffset 个数据连续分配
 
 ```
 groupSize = swizzleOffset × numRanks

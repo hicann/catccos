@@ -167,7 +167,11 @@ int main(int argc, char** argv)
 {
     int status = ACLSHMEM_SUCCESS;
     Options options;
-    options.Parse(argc, argv);
+    if (options.Parse(argc, argv) != 0 || options.rankSize <= 0 || options.rankId < 0 ||
+        options.rankId >= options.rankSize || static_cast<size_t>(options.rankId) >= options.deviceIdList.size()) {
+        std::cerr << "Invalid command line options" << std::endl;
+        return -1;
+    }
     CocCommType commType = GetCommType(options.kernelName);
     CocDataType dataType = options.dataType;
     int rankSize = options.rankSize;
@@ -238,7 +242,7 @@ int main(int argc, char** argv)
 
         auto op = OperatorRegistry::Instance().CreateOperator(opName);
         if (op) {
-            if (warmUpTimes == 0 && !op->CheckCocTilingParams(rankSize, cocTiling)) {
+            if (!op->ValidateCocTilingParams(rankSize, cocTiling)) {
                 std::printf("M: %d, K: %d, N: %d coc params check failed!\n", cocTiling.m, cocTiling.k, cocTiling.n);
                 continue;
             }
@@ -293,7 +297,7 @@ int main(int argc, char** argv)
                     candidateTiling.commNpuSplit = candidate.commNpuSplit;
                     candidateTiling.commDataSplit = candidate.commDataSplit;
                     candidateTiling.commBlockM = candidate.commBlockM;
-                    return opPtr->CheckCocTilingParams(rankSize, candidateTiling);
+                    return opPtr->ValidateCocTilingParams(rankSize, candidateTiling);
                 };
                 bool ok = ApplyCostModel(info, actualKernelType, rankSize, cocTiling, costModelConfig);
                 if (!ok) {

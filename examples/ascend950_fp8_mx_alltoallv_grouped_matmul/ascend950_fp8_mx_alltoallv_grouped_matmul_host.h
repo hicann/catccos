@@ -168,6 +168,9 @@ public:
 
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) override
     {
+        if (!CheckMoeCocTilingParams(cocTiling)) {
+            return false;
+        }
         auto blockCount = MAX_BLOCK_COUNT;
         uint32_t kLoop = CeilDev(cocTiling.k, cocTiling.k0);
         int32_t maxPeerMemPerRank = IPC_BUFF_MAX_SIZE / rankSize / blockCount;

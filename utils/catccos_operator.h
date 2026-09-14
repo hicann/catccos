@@ -35,6 +35,10 @@ using op::fp16_t;
 class CatccosOperator {
 public:
     virtual ~CatccosOperator() = default;
+    bool ValidateCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling)
+    {
+        return CheckCommonCocTilingParams(rankSize, cocTiling) && CheckCocTilingParams(rankSize, cocTiling);
+    }
     virtual bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) = 0;
     virtual void AllocateDeviceSpace(
         KernelParams& params, const CocTilingParams& cocTiling, uint32_t rankId, std::string dataFile = "") = 0;
