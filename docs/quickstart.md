@@ -136,7 +136,7 @@ for (int blockCluster = 0; blockCluster < commLoops; blockCluster++) {
 
 #### 📌 新增matmul_reduce_scatter kernel
 
-进入kernel文件夹 `cd examples\templates\include\catccos\dgemm\kernel`，创建新kernel `matmul_reduce_scatter.hpp`
+进入kernel文件夹 `cd include/catccos/dgemm/kernel`，创建新kernel `matmul_reduce_scatter.hpp`
 
 通过以下三部分实现MatmulReduceScatter内核逻辑
 
@@ -602,7 +602,7 @@ void operator()<AscendC::AIV>(Params const &params)
 
 #### 📌 实例化matmul_reduce_scatter kernel
 
-创建example文件夹 `mkdir -p examples\matmul_reduce_scatter`，创建文件 `matmul_reduce_scatter.cpp`
+创建example文件夹 `mkdir -p examples/matmul_reduce_scatter`，创建文件 `matmul_reduce_scatter.cpp`
 
 通过以下三部分实现MatmulReduceScatter的实例化与调用逻辑
 
