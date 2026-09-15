@@ -187,7 +187,8 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::Compute(int32_t sr
     float maxValue = dynamicQuantLocal.GetValue(0) / 127.0f;
 
     Duplicate<float>(dynamicQuantLocal, maxValue, 8);
-    Duplicate<float>(tempLocal, maxValue, this->cols);
+    // Preserve the zero output scale, but use a unit divisor to avoid 0/0 for zero rows.
+    Duplicate<float>(tempLocal, maxValue == 0.0f ? 1.0f : maxValue, this->cols);
     AscendC::PipeBarrier<PIPE_V>();
 
     Div(tempLocal, inLocal, tempLocal, this->cols);
@@ -321,7 +322,8 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::ComputeScale(
     inputXInQueue.EnQue<float>(inLocal);
     inLocal = inputXInQueue.DeQue<float>();
 
-    Duplicate<float>(tempLocal, scaleTemp, colsTileLength);
+    // Preserve the zero output scale, but use a unit divisor to avoid 0/0 for zero rows.
+    Duplicate<float>(tempLocal, scaleTemp == 0.0f ? 1.0f : scaleTemp, colsTileLength);
     AscendC::PipeBarrier<PIPE_V>();
 
     Div(tempLocal, inLocal, tempLocal, colsTileLength);

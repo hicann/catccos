@@ -253,7 +253,8 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::Compute(LocalTensor<float>&
     float maxValue = dynamicQuantLocal.GetValue(0) / 127.0f;
 
     Duplicate<float>(dynamicQuantLocal, maxValue, 8);
-    Duplicate<float>(tempLocal, maxValue, this->cols_);
+    // Preserve the zero output scale, but use a unit divisor to avoid 0/0 for zero rows.
+    Duplicate<float>(tempLocal, maxValue == 0.0f ? 1.0f : maxValue, this->cols_);
     pipe_barrier(PIPE_V);
 
     Div(tempLocal, inLocal, tempLocal, this->cols_);

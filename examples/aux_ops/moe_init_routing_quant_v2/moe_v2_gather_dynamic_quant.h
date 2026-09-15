@@ -143,7 +143,8 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::Compute(LocalTensor<float>& s
     float maxValue = dynamicQuantLocal.GetValue(0) / 127.0f;
 
     Duplicate<float>(dynamicQuantLocal, maxValue, 8);
-    Duplicate<float>(tempLocal, maxValue, this->cols);
+    // Preserve the zero output scale, but use a unit divisor to avoid 0/0 for zero rows.
+    Duplicate<float>(tempLocal, maxValue == 0.0f ? 1.0f : maxValue, this->cols);
     AscendC::PipeBarrier<PIPE_V>();
 
     Div(tempLocal, inLocal, tempLocal, this->cols);
@@ -227,8 +228,7 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::CopyOutXQuantEH(int64_t progr
     DataCopyExtParams copyOutParams{1, static_cast<uint32_t>(this->perLoopCols * sizeof(int8_t)), 0, 0, 0};
 
     int32_t lastExpertIdx = -1;
-    LocalTensor<T> inLocal = inputXInQueue.AllocTensor<T>();
-    LocalTensor<float> smoothLocal = smoothInQueue.AllocTensor<float>();
+    LocalTensor<float> smoothLocal;
     for (int64_t i = 0; i < this->currentLoopRows; i++) {
         int64_t rowOffset = this->gatherOutTilingData->perCoreRows * this->blockIdx + this->perLoopRows * progress;
         if (this->dropPadMode == DROPLESS_MODE && rowOffset + i >= this->activateRows) {
@@ -237,6 +237,8 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::CopyOutXQuantEH(int64_t progr
         int32_t srcIdx = indicesLocal.GetValue(i);
         int32_t expertIdx = indicesLocal.GetValue(currentLoopRowsAlign + i);
 
+        // Queue reuse must wait for the previous row's vector reads to complete.
+        LocalTensor<T> inLocal = inputXInQueue.AllocTensor<T>();
         if constexpr (IsSameType<T, float>::value) {
             DataCopyPad(inLocal, inputXGm[srcIdx / this->k * this->cols], copyInParams, {false, 0, 0, 0});
         } else {
@@ -246,6 +248,10 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::CopyOutXQuantEH(int64_t progr
         inputXInQueue.EnQue<T>(inLocal);
 
         if (expertIdx != lastExpertIdx) {
+            if (lastExpertIdx != -1) {
+                smoothInQueue.FreeTensor(smoothLocal);
+            }
+            smoothLocal = smoothInQueue.AllocTensor<float>();
             DataCopyPad(smoothLocal, quantSmoothGm[expertIdx * this->cols], smoothParams, {false, 0, 0, 0});
             smoothInQueue.EnQue(smoothLocal);
             smoothLocal = smoothInQueue.DeQue<float>();
@@ -253,6 +259,7 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::CopyOutXQuantEH(int64_t progr
         }
 
         Compute(smoothLocal);
+        inputXInQueue.FreeTensor(inLocal);
 
         LocalTensor<float> quantScaleLocal = scaleOutQueue.DeQue<float>();
         DataCopyPad(dynamicQuantScaleGm[(rowOffset + i)], quantScaleLocal, {1, 4, 0, 0, 0});
@@ -264,8 +271,9 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::CopyOutXQuantEH(int64_t progr
         scaleOutQueue.FreeTensor(quantScaleLocal);
     }
 
-    inputXInQueue.FreeTensor(inLocal);
-    smoothInQueue.FreeTensor(smoothLocal);
+    if (lastExpertIdx != -1) {
+        smoothInQueue.FreeTensor(smoothLocal);
+    }
     expandRowIdxInQueue.FreeTensor(indicesLocal);
 }
 
@@ -333,7 +341,8 @@ __aicore__ inline void MoeV2GatherDynamicQuant<T>::ComputeScale(
     inputXInQueue.EnQue<float>(inLocal);
     inLocal = inputXInQueue.DeQue<float>();
 
-    Duplicate<float>(tempLocal, scaleTemp, colsTileLength);
+    // Preserve the zero output scale, but use a unit divisor to avoid 0/0 for zero rows.
+    Duplicate<float>(tempLocal, scaleTemp == 0.0f ? 1.0f : scaleTemp, colsTileLength);
     AscendC::PipeBarrier<PIPE_V>();
 
     Div(tempLocal, inLocal, tempLocal, colsTileLength);

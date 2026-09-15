@@ -148,6 +148,9 @@ __aicore__ inline void MoeV2SortOneCore::Init(
             InitGlobalMemory(expertTokensBeforeCapacityGm, this->expertNum, 0);
         }
     }
+    // Wait for initialization before input copies and scalar row-index writes reuse UB.
+    SetWaitFlag<HardEvent::MTE3_MTE2>(HardEvent::MTE3_MTE2);
+    SetWaitFlag<HardEvent::MTE3_S>(HardEvent::MTE3_S);
     // key and value
     int64_t kvFactor = 2;
     int64_t buffSize = this->sortNum * sizeof(int32_t) * kvFactor;
