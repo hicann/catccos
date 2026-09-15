@@ -40,6 +40,9 @@ def count_groups_pandas(file_path: str, key_cols: Optional[List[str]] = None) ->
 
 def get_time_data(df, groups: list[int]):
     df = df.reset_index(drop=True)
+    expected_rows = sum(WARM_UP_TIMES + count * PERF_TEST_CYCLE_TIMES for count in groups)
+    if len(df) != expected_rows:
+        raise RuntimeError(f"The number of performance data rows is {len(df)}, but {expected_rows} rows are expected.")
     time_data = []
     idx = 0
     for coc_tiling_num in groups:
@@ -90,6 +93,8 @@ def find_max_csv_filename(preName, folder_path):
 def get_tiling_file(preName, path):
     path = path + "/"
     f = find_max_csv_filename(preName, path)
+    if f is None:
+        raise RuntimeError(f"No {preName}*.csv file found in {path}")
     file_path = path + f
     return file_path
 
@@ -102,6 +107,8 @@ def process_coc_data(output_path):
     tiling_file = get_tiling_file("tilingData", tiling_path)
     tiling_df = open_input_file(tiling_file)
     pref_file_list = get_pref_path_list(output_path)
+    if not pref_file_list:
+        raise RuntimeError(f"No performance data file found in {output_path}")
     tiling_groups = count_groups_pandas(tiling_file)
     pref_data_list = []
     for pref_file in pref_file_list:
