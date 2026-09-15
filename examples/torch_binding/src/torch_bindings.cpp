@@ -21,6 +21,7 @@
 #include <torch_npu/csrc/framework/OpCommand.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -137,6 +138,9 @@ at::Tensor allgather_matmul(const at::Tensor& a, const at::Tensor& b, int64_t ra
     int64_t k = a.size(1);
     int64_t n = b.size(1);
     TORCH_CHECK(b.size(0) == k, "A/K shape mismatch, a.size(1)=", k, ", b.size(0)=", b.size(0));
+    TORCH_CHECK(
+        m <= UINT32_MAX && n <= UINT32_MAX && k <= UINT32_MAX, "shape too large for uint32: m=", m, ", k=", k,
+        ", n=", n);
 
     int32_t my_pe = shmem_my_pe();
     int32_t n_pes = shmem_n_pes();

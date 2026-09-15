@@ -29,6 +29,13 @@ static uint32_t gNpuNum = 8;
 
 int main(int argc, char** argv)
 {
+    if (argc < 12) {
+        std::cerr << "Usage: " << argv[0]
+                  << " rank_size rank_id ip_port device_id m k n expert_per_rank data_type weight_nz trans_b"
+                  << std::endl;
+        return -1;
+    }
+
     int status = ACLSHMEM_SUCCESS;
     int rankSize = atoi(argv[1]);
     uint32_t rankId = atoi(argv[2]);

@@ -41,7 +41,7 @@ public:
         if (dataFile != "") {
             uint8_t* aHost;
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_a.bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/rank_" + std::to_string(rankId) + "_a.bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(aHost));
         } else {
@@ -55,7 +55,7 @@ public:
         if (dataFile != "") {
             uint8_t* bHost;
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_b.bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/rank_" + std::to_string(rankId) + "_b.bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(bHost));
         } else {
@@ -74,7 +74,7 @@ public:
         if (dataFile != "") {
             uint8_t* aScaleHost;
             ACL_CHECK(aclrtMallocHost((void**)(&aScaleHost), aScaleSize));
-            ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_a_scale.bin", aScaleHost, aScaleSize);
+            ReadFileOrThrow(dataFile + "/rank_" + std::to_string(rankId) + "_a_scale.bin", aScaleHost, aScaleSize);
             ACL_CHECK(aclrtMemcpy(aScaleDevice, aScaleSize, aScaleHost, aScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(aScaleHost));
         } else {
@@ -88,7 +88,7 @@ public:
         if (dataFile != "") {
             uint8_t* bScaleHost;
             ACL_CHECK(aclrtMallocHost((void**)(&bScaleHost), bScaleSize));
-            ReadFile(dataFile + "/rank_" + std::to_string(rankId) + "_b_scale.bin", bScaleHost, bScaleSize);
+            ReadFileOrThrow(dataFile + "/rank_" + std::to_string(rankId) + "_b_scale.bin", bScaleHost, bScaleSize);
             ACL_CHECK(aclrtMemcpy(bScaleDevice, bScaleSize, bScaleHost, bScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(bScaleHost));
         } else {

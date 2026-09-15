@@ -42,7 +42,7 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), sizeA));
-            ReadFile(dataFile + "/input_a_" + std::to_string(rankId) + ".bin", aHost, sizeA);
+            ReadFileOrThrow(dataFile + "/input_a_" + std::to_string(rankId) + ".bin", aHost, sizeA);
             ACL_CHECK(aclrtMemcpy(aDevice, sizeA, aHost, sizeA, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixA(lenA, 1);
@@ -54,7 +54,7 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), sizeB));
-            ReadFile(dataFile + "/input_b_" + std::to_string(rankId) + ".bin", bHost, sizeB);
+            ReadFileOrThrow(dataFile + "/input_b_" + std::to_string(rankId) + ".bin", bHost, sizeB);
             ACL_CHECK(aclrtMemcpy(bDevice, sizeB, bHost, sizeB, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixB(lenB, 1);
@@ -66,7 +66,7 @@ public:
         uint8_t* aMxScaleHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aMxScaleHost), sizeAScale));
-            ReadFile(dataFile + "/input_a_scale_" + std::to_string(rankId) + ".bin", aMxScaleHost, sizeAScale);
+            ReadFileOrThrow(dataFile + "/input_a_scale_" + std::to_string(rankId) + ".bin", aMxScaleHost, sizeAScale);
             ACL_CHECK(aclrtMemcpy(aMxScaleDevice, sizeAScale, aMxScaleHost, sizeAScale, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixAMxScale(lenAScale, 1);
@@ -79,7 +79,7 @@ public:
         uint8_t* bMxScaleHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bMxScaleHost), sizeBScale));
-            ReadFile(dataFile + "/input_b_scale_" + std::to_string(rankId) + ".bin", bMxScaleHost, sizeBScale);
+            ReadFileOrThrow(dataFile + "/input_b_scale_" + std::to_string(rankId) + ".bin", bMxScaleHost, sizeBScale);
             ACL_CHECK(aclrtMemcpy(bMxScaleDevice, sizeBScale, bMxScaleHost, sizeBScale, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixBMxScale(lenBScale, 1);

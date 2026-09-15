@@ -41,10 +41,10 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -53,10 +53,10 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/in_gmm_matrix_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/in_gmm_matrix_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<int8_t> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
+            std::vector<int8_t> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -65,10 +65,10 @@ public:
         uint8_t* b2Host;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&b2Host), b2Size));
-            ReadFile(dataFile + "/in_gmm_matrix_b2_" + std::to_string(rankId) + ".bin", b2Host, b2Size);
+            ReadFileOrThrow(dataFile + "/in_gmm_matrix_b2_" + std::to_string(rankId) + ".bin", b2Host, b2Size);
             ACL_CHECK(aclrtMemcpy(b2Device, b2Size, b2Host, b2Size, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<int8_t> matrixB2(k2 * n2 * expertPerRank, 1);
+            std::vector<int8_t> matrixB2(static_cast<size_t>(k2) * n2 * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(b2Device, b2Size, matrixB2.data(), b2Size, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -76,21 +76,23 @@ public:
         uint8_t* bScaleHost;
         ACL_CHECK(aclrtMalloc((void**)(&bScaleDevice), bScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
         ACL_CHECK(aclrtMallocHost((void**)(&bScaleHost), bScaleSize));
-        ReadFile(dataFile + "/in_gmm_matrix_b_scale_" + std::to_string(rankId) + ".bin", bScaleHost, bScaleSize);
+        ReadFileOrThrow(dataFile + "/in_gmm_matrix_b_scale_" + std::to_string(rankId) + ".bin", bScaleHost, bScaleSize);
         ACL_CHECK(aclrtMemcpy(bScaleDevice, bScaleSize, bScaleHost, bScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
         uint8_t* b2ScaleDevice;
         uint8_t* b2ScaleHost;
         ACL_CHECK(aclrtMalloc((void**)(&b2ScaleDevice), b2ScaleSize, ACL_MEM_MALLOC_HUGE_FIRST));
         ACL_CHECK(aclrtMallocHost((void**)(&b2ScaleHost), b2ScaleSize));
-        ReadFile(dataFile + "/in_gmm_matrix_b2_scale_" + std::to_string(rankId) + ".bin", b2ScaleHost, b2ScaleSize);
+        ReadFileOrThrow(
+            dataFile + "/in_gmm_matrix_b2_scale_" + std::to_string(rankId) + ".bin", b2ScaleHost, b2ScaleSize);
         ACL_CHECK(aclrtMemcpy(b2ScaleDevice, b2ScaleSize, b2ScaleHost, b2ScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
         uint8_t* expertIdxDevice;
         uint8_t* expertIdxHost;
         ACL_CHECK(aclrtMalloc((void**)(&expertIdxDevice), expertIdxSize, ACL_MEM_MALLOC_HUGE_FIRST));
         ACL_CHECK(aclrtMallocHost((void**)(&expertIdxHost), expertIdxSize));
-        ReadFile(dataFile + "/in_routing_expert_idx_" + std::to_string(rankId) + ".bin", expertIdxHost, expertIdxSize);
+        ReadFileOrThrow(
+            dataFile + "/in_routing_expert_idx_" + std::to_string(rankId) + ".bin", expertIdxHost, expertIdxSize);
         ACL_CHECK(aclrtMemcpy(expertIdxDevice, expertIdxSize, expertIdxHost, expertIdxSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
         uint8_t* probsDevice;
@@ -98,7 +100,7 @@ public:
         size_t probsSize = cocTiling.m * cocTiling.topK * sizeof(float32_t);
         ACL_CHECK(aclrtMalloc((void**)(&probsDevice), probsSize, ACL_MEM_MALLOC_HUGE_FIRST));
         ACL_CHECK(aclrtMallocHost((void**)(&probsHost), probsSize));
-        ReadFile(dataFile + "/in_gather_gate_weight_" + std::to_string(rankId) + ".bin", probsHost, probsSize);
+        ReadFileOrThrow(dataFile + "/in_gather_gate_weight_" + std::to_string(rankId) + ".bin", probsHost, probsSize);
         ACL_CHECK(aclrtMemcpy(probsDevice, probsSize, probsHost, probsSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
         uint8_t* cDevice;
@@ -165,6 +167,10 @@ public:
     bool CheckCocTilingParams(uint32_t rankSize, const CocTilingParams& cocTiling) override
     {
         if (!CheckMoeCocTilingParams(cocTiling)) {
+            return false;
+        }
+        if (rankSize != cocTiling.epSize) {
+            std::cerr << "Ascend950DispatchFFNCombine requires rankSize == epSize" << std::endl;
             return false;
         }
         auto blockCount = MAX_BLOCK_COUNT;

@@ -16,6 +16,7 @@
 #include <cstring>
 #include <cerrno>
 #include <fstream>
+#include <stdexcept>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -76,6 +77,13 @@ inline bool ReadFile(const std::string& filePath, void* buffer, size_t bufferSiz
     buf->sgetn(static_cast<char*>(buffer), size);
     file.close();
     return true;
+}
+
+inline void ReadFileOrThrow(const std::string& filePath, void* buffer, size_t bufferSize)
+{
+    if (!ReadFile(filePath, buffer, bufferSize)) {
+        throw std::runtime_error("Failed to read file: " + filePath);
+    }
 }
 
 inline bool WriteFile(const std::string& filePath, const void* buffer, size_t size, size_t offset = 0)

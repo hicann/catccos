@@ -70,7 +70,7 @@ private:
         if (!dataFile.empty()) {
             uint8_t* hostPtr;
             ACL_CHECK(aclrtMallocHost((void**)(&hostPtr), bufferSize));
-            ReadFile(dataFile + fileSuffix, hostPtr, bufferSize);
+            ReadFileOrThrow(dataFile + fileSuffix, hostPtr, bufferSize);
             ACL_CHECK(aclrtMemcpy(devicePtr, bufferSize, hostPtr, bufferSize, ACL_MEMCPY_HOST_TO_DEVICE));
             ACL_CHECK(aclrtFreeHost(hostPtr));
         } else {

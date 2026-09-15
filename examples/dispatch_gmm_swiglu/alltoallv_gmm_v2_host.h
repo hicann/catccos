@@ -24,10 +24,10 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/in_routing_matrix_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -36,10 +36,10 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/in_gmm_matrix_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/in_gmm_matrix_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
+            std::vector<fp16_t> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -55,7 +55,8 @@ public:
         uint8_t* expertIdxHost;
         ACL_CHECK(aclrtMalloc((void**)(&expertIdxDevice), expertIdxSize, ACL_MEM_MALLOC_HUGE_FIRST));
         ACL_CHECK(aclrtMallocHost((void**)(&expertIdxHost), expertIdxSize));
-        ReadFile(dataFile + "/in_routing_expert_idx_" + std::to_string(rankId) + ".bin", expertIdxHost, expertIdxSize);
+        ReadFileOrThrow(
+            dataFile + "/in_routing_expert_idx_" + std::to_string(rankId) + ".bin", expertIdxHost, expertIdxSize);
         ACL_CHECK(aclrtMemcpy(expertIdxDevice, expertIdxSize, expertIdxHost, expertIdxSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
         uint8_t* cDevice;

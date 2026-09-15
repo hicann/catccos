@@ -38,7 +38,7 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/input_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/input_a_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
@@ -50,7 +50,7 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/input_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/input_b_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixB(static_cast<size_t>(fullK) * cocTiling.n, 1);
@@ -62,7 +62,7 @@ public:
         uint8_t* aMxScaleHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aMxScaleHost), aMxScaleSize));
-            ReadFile(dataFile + "/input_a_scale_" + std::to_string(rankId) + ".bin", aMxScaleHost, aMxScaleSize);
+            ReadFileOrThrow(dataFile + "/input_a_scale_" + std::to_string(rankId) + ".bin", aMxScaleHost, aMxScaleSize);
             ACL_CHECK(aclrtMemcpy(aMxScaleDevice, aMxScaleSize, aMxScaleHost, aMxScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixAMxScale(static_cast<size_t>(cocTiling.m) * alignedLocalScaleK, 1);
@@ -75,7 +75,7 @@ public:
         uint8_t* bMxScaleHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bMxScaleHost), bMxScaleSize));
-            ReadFile(dataFile + "/input_b_scale_" + std::to_string(rankId) + ".bin", bMxScaleHost, bMxScaleSize);
+            ReadFileOrThrow(dataFile + "/input_b_scale_" + std::to_string(rankId) + ".bin", bMxScaleHost, bMxScaleSize);
             ACL_CHECK(aclrtMemcpy(bMxScaleDevice, bMxScaleSize, bMxScaleHost, bMxScaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int8_t> matrixBMxScale(alignedFullScaleK * cocTiling.n, 1);

@@ -151,9 +151,9 @@ int main(int argc, char** argv)
     std::string fileName;
     std::string dataFile = "./output";
     uint32_t globalTokensPerExpertSize = cocTiling.expertNum * cocTiling.epSize * sizeof(uint32_t);
-    std::vector<uint32_t> globalTokensPerExpertHost(cocTiling.expertNum * cocTiling.epSize);
+    std::vector<uint32_t> globalTokensPerExpertHost(static_cast<size_t>(cocTiling.expertNum) * cocTiling.epSize);
     fileName = dataFile + "/global_tokens_per_expert_" + std::to_string(rankId) + ".bin";
-    ReadFile(fileName, globalTokensPerExpertHost.data(), globalTokensPerExpertSize);
+    ReadFileOrThrow(fileName, globalTokensPerExpertHost.data(), globalTokensPerExpertSize);
 
     uint8_t* globalTokensPerExpertDevice = symmetricPtr + cocTiling.m * cocTiling.topK * cocTiling.n * sizeof(fp16_t);
     ACL_CHECK(aclrtMemcpy(

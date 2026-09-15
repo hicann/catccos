@@ -31,10 +31,10 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/a_gm_" + std::to_string(rankId) + ".bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/a_gm_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -43,10 +43,10 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/b_gm_" + std::to_string(rankId) + ".bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/b_gm_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixB(cocTiling.k * cocTiling.n * localExpertNum, 1);
+            std::vector<fp16_t> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n * localExpertNum, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -64,14 +64,14 @@ public:
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&localTokensPerExpertHost), localTokensPerExpertSize));
             fileName = dataFile + "/local_tokens_per_expert_" + std::to_string(rankId) + ".bin";
-            ReadFile(fileName, localTokensPerExpertHost, localTokensPerExpertSize);
+            ReadFileOrThrow(fileName, localTokensPerExpertHost, localTokensPerExpertSize);
             ACL_CHECK(aclrtMemcpy(
                 localTokensPerExpertDevice, localTokensPerExpertSize, localTokensPerExpertHost,
                 localTokensPerExpertSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
             ACL_CHECK(aclrtMallocHost((void**)(&globalTokensPerLocalExpertHost), globalTokensPerLocalExpertSize));
             fileName = dataFile + "/global_tokens_per_local_expert_" + std::to_string(rankId) + ".bin";
-            ReadFile(fileName, globalTokensPerLocalExpertHost, globalTokensPerLocalExpertSize);
+            ReadFileOrThrow(fileName, globalTokensPerLocalExpertHost, globalTokensPerLocalExpertSize);
             ACL_CHECK(aclrtMemcpy(
                 globalTokensPerLocalExpertDevice, globalTokensPerLocalExpertSize, globalTokensPerLocalExpertHost,
                 globalTokensPerLocalExpertSize, ACL_MEMCPY_HOST_TO_DEVICE));

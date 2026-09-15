@@ -30,10 +30,10 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/a_gm_rank" + std::to_string(rankId) + ".bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/a_gm_rank" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<int8_t> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<int8_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -42,10 +42,10 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/b_gm_rank" + std::to_string(rankId) + ".bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/b_gm_rank" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<int8_t> matrixB(cocTiling.k * cocTiling.n, 1);
+            std::vector<int8_t> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -57,7 +57,7 @@ public:
         uint8_t* scaleHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&scaleHost), scaleSize));
-            ReadFile(dataFile + "/scale_gm.bin", scaleHost, scaleSize);
+            ReadFileOrThrow(dataFile + "/scale_gm.bin", scaleHost, scaleSize);
             ACL_CHECK(aclrtMemcpy(deviceScale, scaleSize, scaleHost, scaleSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<uint64_t> matrixScale(cocTiling.n, 1);
@@ -69,7 +69,7 @@ public:
         ACL_CHECK(aclrtMalloc((void**)(&biasDevice), biasSize, ACL_MEM_MALLOC_HUGE_FIRST));
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&biasHost), biasSize));
-            ReadFile(dataFile + "/bias_gm.bin", biasHost, biasSize);
+            ReadFileOrThrow(dataFile + "/bias_gm.bin", biasHost, biasSize);
             ACL_CHECK(aclrtMemcpy(biasDevice, biasSize, biasHost, biasSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
             std::vector<int32_t> matrixBias(cocTiling.n, 1);

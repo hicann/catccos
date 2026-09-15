@@ -64,13 +64,22 @@ struct Options {
                 positionalArgc++;
             }
         }
-        if (positionalArgc > static_cast<int>(ArgsIndex::INDEX_MAX)) {
+        if (positionalArgc < static_cast<int>(ArgsIndex::DATA_PATH_INDEX) ||
+            positionalArgc >= static_cast<int>(ArgsIndex::INDEX_MAX)) {
             printf(HELPER);
             return -1;
         }
 
         rankSize = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_SIZE_INDEX)]);
+        if (rankSize <= 0 || rankSize > MAX_RANK_SIZE) {
+            std::cerr << "rankSize must be in [1, " << MAX_RANK_SIZE << "]" << std::endl;
+            return -1;
+        }
         rankId = std::atoi(argv[static_cast<int>(ArgsIndex::RANK_ID_INDEX)]);
+        if (rankId < 0 || rankId >= rankSize) {
+            std::cerr << "rankId must be in [0, rankSize)" << std::endl;
+            return -1;
+        }
         ipPort = argv[static_cast<int>(ArgsIndex::IP_PORT_INDEX)];
         m = std::atoi(argv[static_cast<int>(ArgsIndex::M_INDEX)]);
         n = std::atoi(argv[static_cast<int>(ArgsIndex::N_INDEX)]);
@@ -85,6 +94,10 @@ struct Options {
             for (size_t i = 0; i < rankSize; ++i) {
                 deviceIdList.push_back(i);
             }
+        }
+        if (static_cast<size_t>(rankId) >= deviceIdList.size()) {
+            std::cerr << "device_id_list does not contain rankId " << rankId << std::endl;
+            return -1;
         }
         return 0;
     }

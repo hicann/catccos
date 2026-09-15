@@ -32,10 +32,10 @@ public:
         uint8_t* aHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&aHost), aSize));
-            ReadFile(dataFile + "/a_gm_" + std::to_string(rankId) + ".bin", aHost, aSize);
+            ReadFileOrThrow(dataFile + "/a_gm_" + std::to_string(rankId) + ".bin", aHost, aSize);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, aHost, aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixA(cocTiling.m * cocTiling.k, 1);
+            std::vector<fp16_t> matrixA(static_cast<size_t>(cocTiling.m) * cocTiling.k, 1);
             ACL_CHECK(aclrtMemcpy(aDevice, aSize, matrixA.data(), aSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -44,10 +44,10 @@ public:
         uint8_t* bHost;
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&bHost), bSize));
-            ReadFile(dataFile + "/b_gm_" + std::to_string(rankId) + ".bin", bHost, bSize);
+            ReadFileOrThrow(dataFile + "/b_gm_" + std::to_string(rankId) + ".bin", bHost, bSize);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, bHost, bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<fp16_t> matrixB(cocTiling.k * cocTiling.n * expertPerRank, 1);
+            std::vector<fp16_t> matrixB(static_cast<size_t>(cocTiling.k) * cocTiling.n * expertPerRank, 1);
             ACL_CHECK(aclrtMemcpy(bDevice, bSize, matrixB.data(), bSize, ACL_MEMCPY_HOST_TO_DEVICE));
         }
 
@@ -56,12 +56,13 @@ public:
         ACL_CHECK(aclrtMalloc((void**)(&tokenPerExpertDevice), tokenPerExpertSize, ACL_MEM_MALLOC_HUGE_FIRST));
         if (dataFile != "") {
             ACL_CHECK(aclrtMallocHost((void**)(&tokenPerExpertHost), tokenPerExpertSize));
-            ReadFile(dataFile + "/global_tokens_per_expert_matrix.bin", tokenPerExpertHost, tokenPerExpertSize);
+            ReadFileOrThrow(dataFile + "/global_tokens_per_expert_matrix.bin", tokenPerExpertHost, tokenPerExpertSize);
             ACL_CHECK(aclrtMemcpy(
                 tokenPerExpertDevice, tokenPerExpertSize, tokenPerExpertHost, tokenPerExpertSize,
                 ACL_MEMCPY_HOST_TO_DEVICE));
         } else {
-            std::vector<uint32_t> matrixTokenPerEP(EP * EP * expertPerRank, cocTiling.m / (EP * expertPerRank));
+            std::vector<uint32_t> matrixTokenPerEP(
+                static_cast<size_t>(EP) * EP * expertPerRank, cocTiling.m / (EP * expertPerRank));
             ACL_CHECK(aclrtMemcpy(
                 tokenPerExpertDevice, tokenPerExpertSize, matrixTokenPerEP.data(), tokenPerExpertSize,
                 ACL_MEMCPY_HOST_TO_DEVICE));
