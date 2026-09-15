@@ -12,12 +12,12 @@
 #ifndef CATCCOS_TILE_REMOTE_COPY_HPP
 #define CATCCOS_TILE_REMOTE_COPY_HPP
 
-#include "catccos/catccos.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
 #include "catccos/comm/tile/copy_int4_rowmajor.hpp"
 
 // from catlass
 #include "catlass/catlass.hpp"
+#include "catlass/matrix_coord.hpp"
 
 // from shmem
 #include "shmem.h"
@@ -88,7 +88,7 @@ struct TileRemoteCopy<
             using Catlass::layout::RowMajor;
             RowMajor layoutUb{copyShape, Catlass::MakeCoord<int64_t>(copyShape.column(), 1)};
 
-            auto remotePtr = shmem_ptr(Int4GmVoidAddr(srcTensor), peerIdx);
+            auto remotePtr = aclshmem_ptr(Int4GmVoidAddr(srcTensor), peerIdx);
             AscendC::GlobalTensor<ElementSrc> gmRemoteSrc;
             gmRemoteSrc.SetGlobalBuffer(reinterpret_cast<__gm__ ElementSrc*>(remotePtr));
 
@@ -207,8 +207,8 @@ struct TileRemoteCopy<
             (ubStride - copyParams.length) / ELE_NUM_PER_UNIT, 0);
         aclshmemi_copy_gm2ub(tmpUb, srcTensor, dataCopyParamsGm2ub);
 
-        AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE3>(peerIdx);
-        AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE3>(peerIdx);
+        AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE3>(copyEventId);
+        AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE3>(copyEventId);
 
         AscendC::DataCopyExtParams dataCopyParamsUb2gm(
             copyParams.repeat,
@@ -284,7 +284,7 @@ struct TileRemoteCopy<
         uint32_t stride = srcLayout.stride(0);
         uint64_t messageLen =
             repeat * stride * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value;
-        auto ptr = shmem_ptr((__gm__ void*)srcTensor.GetPhyAddr(), peerIdx);
+        auto ptr = aclshmem_ptr((__gm__ void*)srcTensor.GetPhyAddr(), peerIdx);
         aclshmemi_roce_read(
             (__gm__ uint8_t*)(dstTensor.GetPhyAddr()), (__gm__ uint8_t*)ptr, peerIdx, 0, messageLen, ubLocal64,
             ubLocal32, 0);
@@ -356,7 +356,7 @@ struct TileRemoteCopy<
         uint32_t stride = srcLayout.stride(0);
         uint64_t messageLen =
             repeat * stride * Catlass::SizeOfBits<ElementSrc>::value / Catlass::SizeOfBits<uint8_t>::value;
-        auto ptr = shmem_ptr((__gm__ void*)dstTensor.GetPhyAddr(), peerIdx);
+        auto ptr = aclshmem_ptr((__gm__ void*)dstTensor.GetPhyAddr(), peerIdx);
         aclshmemi_roce_write(
             (__gm__ uint8_t*)ptr, (__gm__ uint8_t*)(srcTensor.GetPhyAddr()), peerIdx, 0, messageLen, ubLocal64,
             ubLocal32, 0);

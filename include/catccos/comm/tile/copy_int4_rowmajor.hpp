@@ -11,7 +11,7 @@
 #ifndef CATCCOS_COMM_TILE_COPY_INT4_ROWMAJOR_HPP
 #define CATCCOS_COMM_TILE_COPY_INT4_ROWMAJOR_HPP
 
-#include "catccos/catccos.hpp"
+#include "catlass/catlass.hpp"
 #include "catlass/layout/layout.hpp"
 #include "catlass/numeric_size.hpp"
 

@@ -264,6 +264,10 @@ if(CATCCOS_TORCH_EXTENSION)
 endif()
 
 foreach(EXAMPLE
+    allgather_matmul_shallow_fusion
+    matmul_allreduce_shallow_fusion
+    matmul_reduce_scatter_shallow_fusion
+    grouped_matmul_alltoallv_small_m
     matmul_allreduce
     allgather_matmul
     ascend950_allgather_matmul

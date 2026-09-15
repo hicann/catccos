@@ -78,6 +78,10 @@ enum CocCommType {
     ASCEND950_DISPATCH_FFN_COMBINE,
     ASCEND950_ALLGATHER_MATMUL_UDMA,
     ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA,
+    ALLGATHER_MATMUL_SHALLOW_FUSION,
+    MATMUL_ALLREDUCE_SHALLOW_FUSION,
+    MATMUL_REDUCE_SCATTER_SHALLOW_FUSION,
+    GROUPED_MATMUL_ALLTOALLV_SMALL_M,
     TYPE_NUM,
     UNKNOWN
 };
@@ -217,6 +221,10 @@ const std::map<std::string, CocCommType> CommTypeMap = {
     {"a5moe", CocCommType::ASCEND950_DISPATCH_FFN_COMBINE},
     {"a5agmmudma", CocCommType::ASCEND950_ALLGATHER_MATMUL_UDMA},
     {"a5mxfp8atammsplitkurma", CocCommType::ASCEND950_MXFP8_ALLTOALL_MATMUL_SPLIT_K_URMA},
+    {"agmmsf", ALLGATHER_MATMUL_SHALLOW_FUSION},
+    {"mmarsf", MATMUL_ALLREDUCE_SHALLOW_FUSION},
+    {"mmrssf", MATMUL_REDUCE_SCATTER_SHALLOW_FUSION},
+    {"gmmatasm", GROUPED_MATMUL_ALLTOALLV_SMALL_M},
     // 新增算子继续添加...
 };
 
@@ -230,6 +238,10 @@ inline CocCommType GetCommType(const std::string& kernelName)
 }
 
 const std::map<CocCommType, std::string> CommTypeOpNameMap = {
+    {ALLGATHER_MATMUL_SHALLOW_FUSION, "AllGatherMatmulShallowFusion"},
+    {MATMUL_ALLREDUCE_SHALLOW_FUSION, "MatmulAllReduceShallowFusion"},
+    {MATMUL_REDUCE_SCATTER_SHALLOW_FUSION, "MatmulReduceScatterShallowFusion"},
+    {GROUPED_MATMUL_ALLTOALLV_SMALL_M, "GroupedMatmulAlltoAllvSmallM"},
     {MATMUL_ALLREDUCE, "MatmulAllReduce"},
     {ALLGATHER_MATMUL, "AllGatherMatmul"},
     {ASCEND950_ALLGATHER_MATMUL, "Ascend950AllGatherMatmul"},
