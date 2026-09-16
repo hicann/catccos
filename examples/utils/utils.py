@@ -11,6 +11,7 @@ from enum import IntEnum
 import numpy as np
 import torch
 
+
 class DataType(IntEnum):
     FLOAT = 0
     FLOAT16 = 1
@@ -44,11 +45,13 @@ class DataType(IntEnum):
             DataType.FP8_E5M2: torch.uint8,
         }[self]
 
+
 def tensor_to_file(tensor: torch.Tensor, file_name: str) -> None:
     if tensor.dtype == torch.bfloat16:
         tensor.view(torch.uint16).numpy().tofile(file_name)
     else:
         tensor.numpy().tofile(file_name)
+
 
 def tensor_from_file(file_name: str, dtype: torch.dtype) -> torch.Tensor:
     if dtype == torch.bfloat16:
@@ -56,7 +59,6 @@ def tensor_from_file(file_name: str, dtype: torch.dtype) -> torch.Tensor:
     else:
         numpy_dtype = torch.empty(0, dtype=dtype).numpy().dtype
         return torch.from_numpy(np.fromfile(file_name, numpy_dtype))
-
 
 
 BF16_NAN = np.uint16(0xFFFF)
@@ -89,9 +91,7 @@ def fp32_to_bf16_bits(values: np.ndarray) -> np.ndarray:
 
 def bf16_bits_to_fp32(values: np.ndarray) -> np.ndarray:
     values = np.asarray(values, dtype=np.uint16)
-    fp32 = (values.astype(np.uint32) << np.uint32(16)).view(np.float32)
-    fp32[(values >> np.uint16(1)) == 0] = np.float32(0.0)
-    return fp32
+    return (values.astype(np.uint32) << np.uint32(16)).view(np.float32)
 
 
 def get_rtol(dtype: torch.dtype, compute_times: int) -> float:
@@ -103,4 +103,3 @@ def get_rtol(dtype: torch.dtype, compute_times: int) -> float:
         return 2 ** (-11) if compute_times < 2048 else 2 ** (-10)
     else:
         raise ValueError(f"Invalid dtype: {dtype}.")
-
