@@ -3,8 +3,8 @@
 #ifndef MX_QUANT_ALLGATHER_HOST_H
 #define MX_QUANT_ALLGATHER_HOST_H
 
-#include "catlass/detail/alignment.hpp"
 #include "operator_registry.h"
+#include "catlass/detail/alignment.hpp"
 
 class MxQuantAllGatherOperator : public CatccosOperator {
 public:

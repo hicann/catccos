@@ -9,11 +9,11 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include <tiling/platform/platform_ascendc.h>
-
 #include <cstdint>
+
 #include <cstdlib>
 #include <cstring>
+#include <tiling/platform/platform_ascendc.h>
 
 #include "allgather_matmul_w4a4_device.h"
 #include "allgather_matmul_w4a4_host.h"

@@ -17,8 +17,8 @@
 #ifndef INNER_MOE_V2_GATHER_OUT_H
 #define INNER_MOE_V2_GATHER_OUT_H
 
-#include "kernel_operator.h"
 #include "moe_v2_common.h"
+#include "kernel_operator.h"
 
 namespace MoeInitRoutingQuantV2 {
 using namespace AscendC;

@@ -18,8 +18,8 @@ BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULA
 #ifndef MOE_V2_GATHER_OUT_H
 #define MOE_V2_GATHER_OUT_H
 
-#include "kernel_operator.h"
 #include "moe_v2_common.h"
+#include "kernel_operator.h"
 using namespace optiling;
 
 namespace MoeInitRoutingV2 {

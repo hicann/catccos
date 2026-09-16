@@ -15,8 +15,8 @@
 #include "info.h"
 
 // from catlass
-#include "catlass/arch/arch.hpp"
 #include "catlass/catlass.hpp"
+#include "catlass/arch/arch.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
 #include "catlass/epilogue/tile/tile_swizzle.hpp"
 #include "catlass/gemm/block/block_mmad.hpp"
@@ -29,15 +29,15 @@
 #endif
 
 #include "catccos/catccos.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
 #include "catccos/comm/block/comm_block.hpp"
 #include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
 #include "catccos/comm/tile/tile_remote_copy.hpp"
 #include "catccos/detail/remote_copy_type.hpp"
 #include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/device/device_dgemm.hpp"
 #include "catccos/dgemm/kernel/allgather_matmul_with_remote_read.hpp"
 #include "catccos/dgemm/kernel/allgather_matmul_with_remote_read_local_mm_opt.hpp"
+#include "catccos/dgemm/device/device_dgemm.hpp"
 
 #ifndef ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT
 #define ALLGATHER_MATMUL_REMOTE_READ_LOCAL_MM_OPT 0

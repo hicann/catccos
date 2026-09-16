@@ -17,8 +17,8 @@
 #ifndef INNER_MOE_V2_MRGSORT_H
 #define INNER_MOE_V2_MRGSORT_H
 
-#include "kernel_operator.h"
 #include "moe_v2_common.h"
+#include "kernel_operator.h"
 
 namespace MoeInitRoutingQuantV2 {
 using namespace AscendC;

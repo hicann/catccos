@@ -35,17 +35,11 @@ set(MSOPGEN_CMAKE_BINARY_DIR ${MSOPGEN_CMAKE_SOURCE_DIR}/build_out)
 set(MSOPGEN_CONFIG_FILE ${MSOPGEN_CMAKE_SOURCE_DIR}/all_gather_matmul_hccl.json)
 set(CUSTOM_OP_API_INCLUDE_DIRS
     ${MSOPGEN_CMAKE_BINARY_DIR}/op_api/include
-    ${ASCEND_HOME_PATH}/opp/vendors/customize/op_api/include
 )
 set(CUSTOM_OP_API_LIB_DIRS
     ${MSOPGEN_CMAKE_BINARY_DIR}/op_api/lib
     ${MSOPGEN_CMAKE_BINARY_DIR}/op_host
-    ${ASCEND_HOME_PATH}/opp/vendors/customize/op_api/lib
 )
-if(DEFINED ENV{ASCEND_OPP_PATH})
-    list(APPEND CUSTOM_OP_API_INCLUDE_DIRS $ENV{ASCEND_OPP_PATH}/vendors/customize/op_api/include)
-    list(APPEND CUSTOM_OP_API_LIB_DIRS $ENV{ASCEND_OPP_PATH}/vendors/customize/op_api/lib)
-endif()
 
 find_package(Threads REQUIRED)
 

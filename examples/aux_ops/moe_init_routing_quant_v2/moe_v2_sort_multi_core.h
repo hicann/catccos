@@ -17,9 +17,9 @@
 #ifndef INNER_MOE_V2_VBS_ONE_CORE_H
 #define INNER_MOE_V2_VBS_ONE_CORE_H
 
+#include "moe_v2_sort_base.h"
 #include "moe_v2_mrgsort.h"
 #include "moe_v2_mrgsort_out.h"
-#include "moe_v2_sort_base.h"
 
 namespace MoeInitRoutingQuantV2 {
 using namespace AscendC;

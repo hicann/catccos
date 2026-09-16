@@ -9,11 +9,18 @@
 #
 
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
 
 CURRENT_DIR=$(pwd)
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 EXAMPLE_ROOT=$(dirname "$SCRIPT_DIR")
+PROJECT_ROOT=$(cd "${EXAMPLE_ROOT}/../../.." &>/dev/null && pwd)
+
+source "${PROJECT_ROOT}/examples/utils/setup.sh" || {
+    echo "[ERROR] Running setup.sh failed."
+    exit 1
+}
+set -u
 
 SOURCE_DIR=$EXAMPLE_ROOT
 BUILD_DIR=$EXAMPLE_ROOT/build

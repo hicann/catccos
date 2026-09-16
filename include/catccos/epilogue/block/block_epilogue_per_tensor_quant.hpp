@@ -24,7 +24,6 @@
 #include "catlass/catlass.hpp"
 #include "catlass/arch/resource.hpp"
 #include "catlass/epilogue/dispatch_policy.hpp"
-#include "catlass/epilogue/block/block_epilogue.hpp"
 #include "catlass/gemm_coord.hpp"
 #include "catlass/matrix_coord.hpp"
 #include "catlass/layout/layout.hpp"
@@ -34,6 +33,9 @@
 #include "catccos/epilogue/dispatch_policy.hpp"
 
 namespace Catlass::Epilogue::Block {
+
+template <class DispatchPolicy, class... Args>
+class BlockEpilogue;
 
 using Catlass::GemmCoord;
 using Catlass::MatrixCoord;
@@ -45,10 +47,11 @@ template <
     class SType_, // scale的数据类型
     class TileSwizzle_>
 
-class BlockEpilogue<EpilogueAtlasA5PerTensorQuant<UB_STAGES_, IsDynamic_>, CType_, DType_, SType_, TileSwizzle_> {
+class BlockEpilogue<
+    Catccos::Epilogue::EpilogueAtlasA5PerTensorQuant<UB_STAGES_, IsDynamic_>, CType_, DType_, SType_, TileSwizzle_> {
 public:
     // Type aliases
-    using DispatchPolicy = EpilogueAtlasA5PerTensorQuant<UB_STAGES_, IsDynamic_>;
+    using DispatchPolicy = Catccos::Epilogue::EpilogueAtlasA5PerTensorQuant<UB_STAGES_, IsDynamic_>;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;
     using ArchTag = typename DispatchPolicy::ArchTag;
     using ElementC = typename CType_::Element;

@@ -12,8 +12,8 @@
 #ifndef ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL_HOST_H
 #define ASCEND950_FP4_MX_ALLTOALLV_GROUPED_MATMUL_HOST_H
 
-#include "catlass/detail/alignment.hpp"
 #include "operator_registry.h"
+#include "catlass/detail/alignment.hpp"
 
 class Ascend950Fp4MxAllToAllVGroupedMatmulOperator : public CatccosOperator {
 public:

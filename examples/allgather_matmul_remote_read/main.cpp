@@ -9,8 +9,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include "allgather_matmul_remote_read_device.h"
 #include "allgather_matmul_remote_read_host.h"
+#include "allgather_matmul_remote_read_device.h"
 
 using namespace AscendC;
 using namespace Catccos;

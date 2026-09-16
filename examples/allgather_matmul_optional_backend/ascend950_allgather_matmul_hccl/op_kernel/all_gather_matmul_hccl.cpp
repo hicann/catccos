@@ -11,18 +11,8 @@
  */
 
 // from catlass
-#include "all_gather_matmul_hccl_tiling.h"
-#include "catccos/arch/ascend950_hcomm_comm.hpp"
-#include "catccos/catccos.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/kernel/ascend950_allgather_matmul_with_local_optional_backend.hpp"
-#include "catlass/arch/arch.hpp"
 #include "catlass/catlass.hpp"
+#include "catlass/arch/arch.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
 #include "catlass/epilogue/tile/tile_swizzle.hpp"
 #include "catlass/gemm/block/block_mmad.hpp"
@@ -30,7 +20,17 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
+#include "catccos/catccos.hpp"
+#include "catccos/arch/ascend950_hcomm_comm.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
+#include "catccos/dgemm/kernel/ascend950_allgather_matmul_with_local_optional_backend.hpp"
 #include "lib/matmul_intf.h"
+#include "all_gather_matmul_hccl_tiling.h"
 
 using namespace AscendC;
 using namespace Catccos;

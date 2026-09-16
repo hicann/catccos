@@ -10,10 +10,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <iostream>
-
 #include "allgather_matmul_device.h"
+
 #include "padding.h"
+#include <iostream>
 
 using namespace AscendC;
 using namespace Catccos;

@@ -10,9 +10,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cstdint>
+#include <torch/torch.h>
 #include <torch/extension.h>
 #include <torch/library.h>
-#include <torch/torch.h>
 #include <torch_npu/csrc/core/npu/DeviceUtils.h>
 #include <torch_npu/csrc/core/npu/NPUFormat.h>
 #include <torch_npu/csrc/core/npu/NPUFunctions.h>
@@ -20,16 +24,11 @@
 #include <torch_npu/csrc/core/npu/NPUStream.h>
 #include <torch_npu/csrc/framework/OpCommand.h>
 
-#include <algorithm>
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include "catccos_torch_kernel.h"
-#include "info.h"
 #include "shmem.h"
-#include "shmem_init.h"
+#include "catccos_torch_kernel.h"
 #include "utils.h"
+#include "shmem_init.h"
+#include "info.h"
 
 namespace {
 

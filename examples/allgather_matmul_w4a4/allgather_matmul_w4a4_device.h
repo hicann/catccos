@@ -12,17 +12,9 @@
 #ifndef ALLGATHER_MATMUL_W4A4_KERNEL_H
 #define ALLGATHER_MATMUL_W4A4_KERNEL_H
 
-#include "catccos/catccos.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/device/device_dgemm.hpp"
-#include "catccos/dgemm/kernel/allgather_matmul_w4a4.hpp"
-#include "catlass/arch/arch.hpp"
+#include "info.h"
 #include "catlass/catlass.hpp"
+#include "catlass/arch/arch.hpp"
 #include "catlass/epilogue/block/block_epilogue.hpp"
 #include "catlass/epilogue/dispatch_policy.hpp"
 #include "catlass/epilogue/tile/tile_broadcast_mul.hpp"
@@ -35,7 +27,15 @@
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/gemm/tile/tile_copy.hpp"
 #include "catlass/layout/layout.hpp"
-#include "info.h"
+#include "catccos/catccos.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
+#include "catccos/dgemm/kernel/allgather_matmul_w4a4.hpp"
+#include "catccos/dgemm/device/device_dgemm.hpp"
 
 using namespace AscendC;
 using namespace Catccos;

@@ -13,10 +13,10 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "../op_kernel/all_gather_matmul_hccl_tiling.h"
 #include "hccl/hccl_types.h"
-#include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
+#include "register/op_def_registry.h"
+#include "../op_kernel/all_gather_matmul_hccl_tiling.h"
 
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)

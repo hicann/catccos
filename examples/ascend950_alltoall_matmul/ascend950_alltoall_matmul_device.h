@@ -15,15 +15,6 @@
 #include "info.h"
 
 // from catlass
-#include "catccos/catccos.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
-#include "catccos/dgemm/device/device_dgemm.hpp"
-#include "catccos/dgemm/kernel/ascend950_alltoall_matmul.hpp"
 #include "catlass/arch/arch.hpp"
 #include "catlass/catlass.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
@@ -33,6 +24,15 @@
 #include "catlass/gemm/dispatch_policy.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
+#include "catccos/catccos.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/dgemm/block/block_swizzle_allgather.hpp"
+#include "catccos/dgemm/device/device_dgemm.hpp"
+#include "catccos/dgemm/kernel/ascend950_alltoall_matmul.hpp"
 
 using namespace AscendC;
 using namespace Catccos;

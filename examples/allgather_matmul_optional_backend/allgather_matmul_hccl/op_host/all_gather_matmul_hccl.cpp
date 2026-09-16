@@ -10,9 +10,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "../op_kernel/all_gather_matmul_hccl_tiling.h"
-#include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
+#include "register/op_def_registry.h"
+#include "../op_kernel/all_gather_matmul_hccl_tiling.h"
 
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)

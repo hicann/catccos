@@ -74,7 +74,7 @@ CATLASS_DEVICE void QuantAllGatherImpl(
     using InputType = Catlass::Gemm::GemmType<ElementInput, LayoutInput>;
     using OutputType = Catlass::Gemm::GemmType<ElementOutput, LayoutOutput>;
 
-    using QuantDispatchPolicy = Catlass::Epilogue::EpilogueAtlasA5PerTensorQuant<UB_STAGES, IS_DYNAMIC>;
+    using QuantDispatchPolicy = Catccos::Epilogue::EpilogueAtlasA5PerTensorQuant<UB_STAGES, IS_DYNAMIC>;
     using TileSchedulerForQuant = Catlass::Epilogue::Tile::EpilogueHorizontalTileSwizzle;
 
     using BlockQuant = Catlass::Epilogue::Block::BlockEpilogue<

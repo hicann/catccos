@@ -5,20 +5,20 @@
 
 #include "info.h"
 
-#include "catccos/catccos.hpp"
-#include "catccos/comm/block/comm_block.hpp"
-#include "catccos/comm/block/comm_block_mx_quant.hpp"
-#include "catccos/comm/block/comm_block_remote_copy.hpp"
-#include "catccos/comm/block/comm_block_swizzle.hpp"
-#include "catccos/comm/comm_dispatch_policy.hpp"
-#include "catccos/comm/kernel/mx_quant_allgather.hpp"
-#include "catccos/comm/tile/tile_remote_copy.hpp"
-#include "catccos/detail/remote_copy_type.hpp"
-#include "catlass/arch/arch.hpp"
 #include "catlass/catlass.hpp"
+#include "catlass/arch/arch.hpp"
 #include "catlass/epilogue/tile/tile_swizzle.hpp"
 #include "catlass/gemm/gemm_type.hpp"
 #include "catlass/layout/layout.hpp"
+#include "catccos/catccos.hpp"
+#include "catccos/comm/comm_dispatch_policy.hpp"
+#include "catccos/comm/block/comm_block.hpp"
+#include "catccos/comm/block/comm_block_remote_copy.hpp"
+#include "catccos/comm/block/comm_block_swizzle.hpp"
+#include "catccos/comm/tile/tile_remote_copy.hpp"
+#include "catccos/detail/remote_copy_type.hpp"
+#include "catccos/comm/block/comm_block_mx_quant.hpp"
+#include "catccos/comm/kernel/mx_quant_allgather.hpp"
 
 using namespace AscendC;
 using namespace Catccos;

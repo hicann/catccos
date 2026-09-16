@@ -11,15 +11,15 @@
  */
 
 #include <iostream>
-#include <memory>
-#include <mutex>
-#include <thread>
 #include <vector>
+#include <memory>
+#include <thread>
+#include <mutex>
 
-#include "aclnn_all_gather_matmul_hccl.h"
-#include "allgather_matmul_host.h"
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
+#include "aclnn_all_gather_matmul_hccl.h"
+#include "allgather_matmul_host.h"
 #include "info.h"
 
 enum class NnopbaseHcclServerType : uint32_t {
