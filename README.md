@@ -39,7 +39,7 @@ catccos
 - 软件版本:
   - `gcc >= 7.5, < 13`（已测试`7.5`，`8.3`，`9.3`，`11.4`，建议使用9.3以上版本。）
   - `cmake >= 3.10`
-  - `python >= 3.10`
+  - `python >= 3.10, < 3.14`（当前 `requirements.txt` 固定的 `torch==2.7.1+cpu` / `torch-npu==2.7.1.post8` 暂无 Python 3.14 wheel。）
 
 - CANN版本:
 
@@ -53,6 +53,10 @@ catccos
 chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
 ./Ascend-cann-toolkit_<version>_linux-<arch>.run --install
 ```
+
+若通过 conda 渠道安装 CANN，工具链目录布局可能与 `.run` 安装不同：`bisheng` 可能位于
+`$ASCEND_HOME_PATH/compiler/ccec_compiler/bin/bisheng`，而不是
+`$ASCEND_HOME_PATH/tools/bisheng_compiler/bin/bisheng`。CATCCOS 的 CMake 会同时探测上述两种路径；若仍无法找到，可在 CMake 配置时显式传入 `-DCCEC=/path/to/bisheng`。
 
 ## 🚀 快速上手
 
@@ -78,6 +82,9 @@ chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
 
 注意：
 - 配置环境变量时，若 CANN 未安装到默认路径，需先配置 `ASCEND_HOME_PATH` 环境变量。
+- 若 conda 安装 CANN 后将默认 `python3` 升级到 3.14，请新建并激活 Python 3.10 到 3.13 的环境后再执行 `python3 -m pip install -r requirements.txt`。
+- `bisheng`（clang 15.x）在 aarch64 上可能自动选择系统中最高版本的 GCC 后端，而不一定跟随 `update-alternatives`。若系统存在 GCC 14，请同时安装匹配的标准库开发包，例如 `sudo apt install libstdc++-14-dev`，否则首次构建 SHMEM 时可能出现 `fatal error: cstdint file not found` 等标准 C++ 头文件缺失错误。
+- 在部分 aarch64 系统 glibc 版本上，`bisheng` 可能触发 `/usr/include/aarch64-linux-gnu/bits/math-vector.h` 中 clang 相关的 NEON/SVE 向量声明兼容性问题。建议优先使用 CANN 配套或已验证的 OS / glibc 环境；若本地开发环境暂时无法调整，可通过在编译 include 路径前置一个本地 `bits/math-vector.h` 兼容 stub 作为临时规避，迁移到正式环境前应移除该 workaround。
 - 若使用 `examples` 下的编译脚本，可跳过此步骤（各算子 `build.sh` 会自动 source 并传入所需参数）。
 - `setup.sh` 的编译选项仅在 **首次** 构建 SHMEM（`3rdparty/shmem/install` 不存在）时生效；切换设备型号需删除该目录后重新执行，例如：
   ```bash

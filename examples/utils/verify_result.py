@@ -151,6 +151,14 @@ def show_random_samples(actual, golden, num_samples=100):
         print(f"{i:>6} | {actual_value:>12.6f} | {golden_value:>12.6f} | {abs_err:>12.6f} | {rel_err:>12.6f}")
 
 
+def safe_relative_error(actual_value, golden_value, eps=1e-8):
+    abs_err = abs(actual_value - golden_value)
+    denom = abs(golden_value)
+    if denom == 0:
+        return 0.0 if abs_err == 0 else abs_err / eps
+    return abs_err / denom
+
+
 def show_random_samples_double_fp16(t_fp16_0, t_fp16_1, t_fp32, num_samples=100):
     if t_fp16_0.shape != t_fp32.shape:
         raise ValueError("Shape0 mismatch")
@@ -206,9 +214,10 @@ def cal_precision_eb_percent(op_type, i, actual_output, golden_output, precision
         real_index = different_element_indexes[index]
         golden_data = golden_output[real_index].item()
         output_data = actual_output[real_index].item()
+        rdiff = safe_relative_error(output_data, golden_data)
         print(
             f"data index: {real_index:6d}, expected: {golden_data:-.9f}, actual: {output_data:-.9f}, "
-            f"rdiff: {abs(output_data - golden_data) / golden_data:-.6f}"
+            f"rdiff: {rdiff:-.6f}"
         )
         if index == 10:
             break
