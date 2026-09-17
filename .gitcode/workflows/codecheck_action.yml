@@ -55,7 +55,9 @@ jobs:
     if: "${{ default() }}"
     runs-on: [self-hosted, arch=x64, spec=small]
     container:
-      image: swr.cn-north-4.myhuaweicloud.com/ci_cann/${{ inputs.precommit_image_version }}
+      # 临时写死镜像：alpha113（python3.9）与 pylint/bandit（要求 py>=3.10）版本冲突；
+      # 平台 precommit 镜像升级 py3.10+ 后改回 ${{ inputs.precommit_image_version }}
+      image: swr.cn-north-4.myhuaweicloud.com/ci_cann/ubuntu24.04_x86:lv6_v1.1110
   JOB_check_pr:
     name: CodeCheck_check_pr
     steps:
