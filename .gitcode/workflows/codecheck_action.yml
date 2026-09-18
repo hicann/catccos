@@ -55,9 +55,7 @@ jobs:
     if: "${{ default() }}"
     runs-on: [self-hosted, arch=x64, spec=small]
     container:
-      # 临时写死镜像：alpha113（python3.9）与 pylint/bandit（要求 py>=3.10）版本冲突；
-      # 平台 precommit 镜像升级 py3.10+ 后改回 ${{ inputs.precommit_image_version }}
-      image: swr.cn-north-4.myhuaweicloud.com/ci_cann/ubuntu24.04_x86:lv6_v1.1110
+      image: swr.cn-north-4.myhuaweicloud.com/ci_cann/${{ inputs.precommit_image_version }}
   JOB_check_pr:
     name: CodeCheck_check_pr
     steps:
@@ -113,7 +111,7 @@ jobs:
         run: |
           cd ${{ steps.process_checkout.outputs.path }}
           cd CI/scripts
-          python3 codescan_gitcode.py --access_key ${{secrets.SCA_AK}} --secret_access_key ${{secrets.SCA_SK}} --access_key_get ${{secrets.SCA_AK_GET}} --secret_access_key_get ${{secrets.SCA_SK_GET}} --org_name ${org_name} --pr_id ${MERGE_ID} --repo ${repo_name} --commit_id ${{ atomgit.event.pull_request.merge_commit_sha }} --online ${{ vars.APPLY_LABEL }}
+          python3 codescan_gitcode.py --access_key ${{secrets.SCA_AK}} --secret_access_key ${{secrets.SCA_SK}} --access_key_get ${{secrets.SCA_AK_GET}} --secret_access_key_get ${{secrets.SCA_SK_GET}} --org_name ${org_name} --pr_id ${MERGE_ID} --repo ${repo_name} --commit_id ${{ atomgit.event.pull_request.merge_commit_sha }}
     if: env.online == 'true'
     runs-on: [self-hosted, arch=x64, spec=small]
     container:
@@ -141,7 +139,7 @@ jobs:
         run: |
           cd ${{ steps.process_checkout.outputs.path }}
           cd CI/scripts
-          python3 anti_virus_gitcode.py --access_key ${{secrets.ANTI_AK}} --secret_access_key ${{secrets.ANTI_SK}} --access_key_get ${{secrets.ANTI_AK_GET}} --secret_access_key_get ${{secrets.ANTI_SK_GET}} --org_name ${org_name} --pr_id ${MERGE_ID} --repo ${repo_name} --commit_id ${{ atomgit.event.pull_request.merge_commit_sha }} --online ${{ vars.APPLY_LABEL }}
+          python3 anti_virus_gitcode.py --access_key ${{secrets.ANTI_AK}} --secret_access_key ${{secrets.ANTI_SK}} --access_key_get ${{secrets.ANTI_AK_GET}} --secret_access_key_get ${{secrets.ANTI_SK_GET}} --org_name ${org_name} --pr_id ${MERGE_ID} --repo ${repo_name} --commit_id ${{ atomgit.event.pull_request.merge_commit_sha }}
     if: env.online == 'true'
     runs-on: [self-hosted, arch=x64, spec=small]
     container:
@@ -169,7 +167,7 @@ jobs:
         run: |
           cd ${{ steps.process_checkout.outputs.path }}
           cd CI/scripts
-          python3 codecheck_gitcode.py --access_key ${{secrets.CODECHECK_AK}} --secret_access_key ${{secrets.CODECHECK_SK}} --access_key_get ${{secrets.CODECHECK_AK_GET}} --secret_access_key_get ${{secrets.CODECHECK_SK_GET}} --org_name ${org_name} --pr_id ${MERGE_ID} --repo ${repo_name} --commit_id ${{ atomgit.event.pull_request.merge_commit_sha }} --online ${{ vars.APPLY_LABEL }}
+          python3 codecheck_gitcode.py --access_key ${{secrets.CODECHECK_AK}} --secret_access_key ${{secrets.CODECHECK_SK}} --access_key_get ${{secrets.CODECHECK_AK_GET}} --secret_access_key_get ${{secrets.CODECHECK_SK_GET}} --org_name ${org_name} --pr_id ${MERGE_ID} --repo ${repo_name} --commit_id ${{ atomgit.event.pull_request.merge_commit_sha }}
     if: env.online == 'true'
     runs-on: [self-hosted, arch=x64, spec=small]
     container:
