@@ -21,7 +21,11 @@ catccos
 ├── 3rdparty    # 依赖的catlass工程文件
 ├── docs        # 文档（索引见 docs/README.md，算子见 docs/operators.md）
 ├── examples    # kernel使用样例
-└── include     # 模板头文件
+├── include     # 模板头文件
+├── pre-commit  # CI 代码检查与自动格式化的配置文件
+├── tests       # 单元测试与动态 tiling 测试
+├── tools       # AscendTimer 打点计时工具
+└── utils       # 算子注册、日志、共享内存等通用辅助代码
 ```
 
 ## 💻 软硬件配套说明
