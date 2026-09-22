@@ -74,17 +74,17 @@ stages:
     pre:
     - type: auto
     fail-fast: true
-  # stage3:
-  #   name: UT
-  #   jobs:
-  #     JOB_UT_Test_ARM:
-  #       name: UT_ARM
-  #       uses: .gitcode/workflows/llt_action.yml
-  #       with:
-  #         image_version: ${{ jobs.JOB_image.outputs.UT_Test }}
-  #   pre:
-  #   - type: auto
-  #   fail-fast: true
+  stage3:
+    name: UT
+    jobs:
+      JOB_UT_Test_ARM:
+        name: UT_ARM
+        uses: .gitcode/workflows/llt_action.yml
+        with:
+          image_version: ${{ jobs.JOB_image.outputs.UT_Test }}
+    pre:
+    - type: auto
+    fail-fast: true
 
 post:
   jobs:
