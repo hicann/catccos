@@ -30,7 +30,6 @@ jobs:
           key: |
             ${{ env.obs_path }}/pr_filelist.txt
             ${{ env.obs_path }}/pr_filelist_mod.txt
-            ${{ env.obs_path }}/ut.sh
           path: ${{ steps.process_checkout.outputs.path }}
       -
         name: UT
@@ -39,6 +38,6 @@ jobs:
           set -ex
           export WORKSPACE=${{ steps.process_checkout.outputs.path }}
           export pr_id=${{ env.MERGE_ID }}
-          bash $WORKSPACE/ut.sh
+          bash "$WORKSPACE/.gitcode/scripts/ut.sh"
     if: "${{ default() }}"
     runs-on: ['self-hosted','os=ubuntu','arch=arm', 'repo=ascend']

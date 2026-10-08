@@ -24,8 +24,20 @@ source examples/utils/setup.sh
 cd ./examples
 set -u
 
+mapfile -t device_ids < <(
+    find /dev -maxdepth 1 -name 'davinci[0-9]*' -printf '%f\n' |
+        sed -nE 's/^davinci([0-9]+)$/\1/p' |
+        sort -n
+)
+if [ "${#device_ids[@]}" -lt 2 ]; then
+    echo "[ERROR] UT requires two NPU devices; found ${#device_ids[@]}." >&2
+    exit 1
+fi
+rank_ids="${device_ids[0]},${device_ids[1]}"
+echo "[INFO] UT devices: $rank_ids"
+
 set +e
-bash run_all_examples.sh
+bash run_all_examples.sh "$rank_ids"
 run_ret=$?
 set -e
 
