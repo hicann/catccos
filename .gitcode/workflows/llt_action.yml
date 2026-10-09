@@ -40,4 +40,6 @@ jobs:
           export pr_id=${{ env.MERGE_ID }}
           bash "$WORKSPACE/.gitcode/scripts/ut.sh"
     if: "${{ default() }}"
-    runs-on: ['self-hosted','os=ubuntu','arch=arm', 'repo=ascend']
+    runs-on: ['self-hosted','npu=2','smoke=201']
+    container:
+      image: swr.cn-north-4.myhuaweicloud.com/hw-ascend/${{ inputs.image_version }}
