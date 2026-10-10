@@ -1,0 +1,46 @@
+name: pre_smoke_action
+
+on:
+  workflow_call:
+    inputs:
+      image_version:
+        required: true
+        type: string
+
+jobs:
+  JOB_ut:
+    name: UT
+    steps:
+      -
+        name: Checkout
+        identifier: process_checkout
+        uses: checkout
+        with:
+          ref: ${{ atomgit.event.pull_request.merge_commit_sha }}
+          allow-unsafe-pr-checkout: true
+      -
+        name: download
+        identifier: process_download
+        uses: obs-download
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-ci"
+          access-key: ${{ secrets.AK }}
+          secret-key: ${{ secrets.SK }}
+          key: |
+            ${{ env.obs_path }}/pr_filelist.txt
+            ${{ env.obs_path }}/pr_filelist_mod.txt
+            ${{ env.obs_path }}/pre_smoke.sh
+          path: ${{ steps.process_checkout.outputs.path }}
+      -
+        name: pre_smoke
+        timeout-minutes: 30
+        run: |
+          set -ex
+          export WORKSPACE=${{ steps.process_checkout.outputs.path }}
+          export pr_id=${{ env.MERGE_ID }}
+          bash "$WORKSPACE/.gitcode/scripts/pre_smoke.sh"
+    if: "${{ default() }}"
+    runs-on: [self-hosted, arch=arm64, spec=xlarge]
+    container:
+      image: swr.cn-north-4.myhuaweicloud.com/hw-ascend/ascend-catccos-dsl:9.1.0-950-py3.11

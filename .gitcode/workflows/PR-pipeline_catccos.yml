@@ -82,9 +82,11 @@ stages:
         uses: .gitcode/workflows/llt_action.yml
         with:
           image_version: ${{ jobs.JOB_image.outputs.UT_Test }}
-    pre:
-    - type: auto
-    fail-fast: true
+      JOB_Pre_Smoke_ARM:
+        name: pre_smoke
+        uses: .gitcode/workflows/pre_smoke_action.yml
+        with:
+          image_version: ${{ jobs.JOB_image.outputs.UT_Test }}
 
 post:
   jobs:
