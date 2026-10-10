@@ -20,7 +20,6 @@ jobs:
           allow-unsafe-pr-checkout: true
       -
         name: download
-        identifier: process_download
         uses: obs-download
         with:
           endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
@@ -30,17 +29,30 @@ jobs:
           key: |
             ${{ env.obs_path }}/pr_filelist.txt
             ${{ env.obs_path }}/pr_filelist_mod.txt
+            ${{ env.obs_path }}/update_file_detail.txt
             ${{ env.obs_path }}/pre_smoke.sh
           path: ${{ steps.process_checkout.outputs.path }}
       -
         name: pre_smoke
-        timeout-minutes: 30
-        run: |
-          set -ex
-          export WORKSPACE=${{ steps.process_checkout.outputs.path }}
-          export pr_id=${{ env.MERGE_ID }}
-          bash "$WORKSPACE/.gitcode/scripts/pre_smoke.sh"
+        identifier: pre_smoke
+        uses: build-accelerate
+        with:
+          command: |
+            set -ex
+            export WORKSPACE=${{ steps.process_checkout.outputs.path }}
+            export pr_id=${{ env.MERGE_ID }}
+            bash "$WORKSPACE/.gitcode/scripts/pre_smoke.sh"
+          AC_SERVER_IP: ${{ vars.AC_SERVER_IP }}
+      - name: upload
+        uses: obs-upload
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-ci"
+          access-key: ${{ secrets.AK }}
+          secret-key: ${{ secrets.SK }}
+          artifact-path: "${{ steps.process_checkout.outputs.path }}/output/*"
+          object-prefix: ${{ env.obs_path }}/
     if: "${{ default() }}"
-    runs-on: [self-hosted, arch=arm64, spec=xlarge]
+    runs-on: [self-hosted, arch=x64, spec=xlarge]
     container:
       image: swr.cn-north-4.myhuaweicloud.com/hw-ascend/ascend-catccos-dsl:9.1.0-950-py3.11
